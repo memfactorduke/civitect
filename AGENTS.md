@@ -16,3 +16,5 @@ You are Codex working on Civitect, a deterministic isometric city builder. Your 
 
 ## Reviews
 When second-opinioning sim diffs: hunt determinism violations (banned APIs, iteration order, unseeded randomness), conservation-law risks, and budget smells. Disagreement goes in the PR thread; Mem arbitrates (AI-WORKFLOW §6).
+
+## Imported Claude Cowork project instructions
