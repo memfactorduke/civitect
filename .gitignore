@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+.vite/
+
+# Test & coverage
+coverage/
+playwright-report/
+test-results/
+
+# Native shells (generated portions configured at Phase 9)
+ios/App/Pods/
+android/.gradle/
+android/app/build/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.log
+
+# Generated assets (sources live in pipeline, atlases are build artifacts)
+packages/assets/atlases/
