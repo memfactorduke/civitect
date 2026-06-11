@@ -1,0 +1,7 @@
+packages:
+  - "packages/*"
+  - "tools/*"
+  - "e2e"
+
+allowBuilds:
+  esbuild: true
