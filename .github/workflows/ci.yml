@@ -31,11 +31,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # TODO(ROADMAP Phase 0 — board PR 3): add the scoped ESLint determinism ban-rules
-      # for packages/sim (ADR-005: no Math.random/transcendentals/wall clock) alongside
-      # Biome (ADR-007 keeps ESLint only inside packages/sim).
       - name: Lint (Biome)
         run: pnpm lint
+
+      # ADR-007 keeps ESLint scoped to packages/sim, solely for the ADR-005 ban-rules.
+      - name: Determinism lint (ESLint, packages/sim)
+        run: pnpm lint:determinism
 
       - name: Import wall (dependency-cruiser, ADR-006)
         run: pnpm wall
