@@ -70,6 +70,13 @@ export {
 } from "./roads/pathfind";
 export { toSnapshot } from "./snapshot";
 export {
+  assignTraffic,
+  bprCost,
+  CELL_TILES,
+  emptyTraffic,
+  type TrafficState,
+} from "./traffic/assignment";
+export {
   controlAt,
   createWorld,
   IntersectionControl,
