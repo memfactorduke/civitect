@@ -95,17 +95,21 @@ function nodeDistances(g: RoadGraph, anchors: readonly number[]): Uint32Array {
 }
 
 /**
- * Network distance per ROAD TILE: endpoint distances interpolated along
- * each edge's supercover (a tile crossed by several edges keeps the min).
+ * Network distance per ROAD TILE from a node-distance field: endpoint
+ * distances interpolated along each edge's supercover (a tile crossed by
+ * several edges keeps the min). `via` records which NODE supplied each
+ * tile's winning distance — dispatch (fire, task 5) walks the
+ * shortest-path tree back from it to name the congested edge.
  */
-export function roadTileDistances(
+export function interpolateEdgeDistances(
   g: RoadGraph,
-  anchors: readonly number[],
+  nodeDist: Uint32Array,
   mapWidth: number,
   mapHeight: number,
-): Uint32Array {
-  const nodeDist = nodeDistances(g, anchors);
+  costOf?: (edge: number) => number,
+): { dist: Uint32Array; via: Int32Array } {
   const roadDist = new Uint32Array(mapWidth * mapHeight).fill(INF);
+  const via = new Int32Array(mapWidth * mapHeight).fill(-1);
   for (let e = 0; e < g.edgeCount; e++) {
     if (g.edgeAlive[e] !== 1) {
       continue;
@@ -117,7 +121,7 @@ export function roadTileDistances(
     if (da === INF && db === INF) {
       continue;
     }
-    const cost = edgeCost(g, e);
+    const cost = costOf === undefined ? edgeCost(g, e) : costOf(e);
     const walk = supercoverTiles(
       g.nodeX[a] as number,
       g.nodeY[a] as number,
@@ -134,10 +138,83 @@ export function roadTileDistances(
       const d = Math.min(fromA, fromB);
       if (d < (roadDist[idx] as number)) {
         roadDist[idx] = d;
+        via[idx] = fromA <= fromB ? a : b;
       }
     }
   }
-  return roadDist;
+  return { dist: roadDist, via };
+}
+
+/** Multi-anchor road-tile distances (free-flow) — the coverage substrate. */
+export function roadTileDistances(
+  g: RoadGraph,
+  anchors: readonly number[],
+  mapWidth: number,
+  mapHeight: number,
+): Uint32Array {
+  return interpolateEdgeDistances(g, nodeDistances(g, anchors), mapWidth, mapHeight).dist;
+}
+
+/** Min road-tile distance within the reach window of one tile. */
+export function windowMin(
+  dist: Uint32Array,
+  tileIdx: number,
+  mapWidth: number,
+  mapHeight: number,
+): number {
+  const x = tileIdx % mapWidth;
+  const y = Math.floor(tileIdx / mapWidth);
+  let min = INF;
+  for (let dy = -SERVICE_REACH; dy <= SERVICE_REACH; dy++) {
+    const ny = y + dy;
+    if (ny < 0 || ny >= mapHeight) {
+      continue;
+    }
+    for (let dx = -SERVICE_REACH; dx <= SERVICE_REACH; dx++) {
+      const nx = x + dx;
+      if (nx < 0 || nx >= mapWidth) {
+        continue;
+      }
+      const d = dist[ny * mapWidth + nx] as number;
+      if (d < min) {
+        min = d;
+      }
+    }
+  }
+  return min;
+}
+
+/** The via-node of the reach window's winning road tile (-1 = none). */
+export function windowVia(
+  dist: Uint32Array,
+  via: Int32Array,
+  tileIdx: number,
+  mapWidth: number,
+  mapHeight: number,
+): number {
+  const x = tileIdx % mapWidth;
+  const y = Math.floor(tileIdx / mapWidth);
+  let min = INF;
+  let winner = -1;
+  for (let dy = -SERVICE_REACH; dy <= SERVICE_REACH; dy++) {
+    const ny = y + dy;
+    if (ny < 0 || ny >= mapHeight) {
+      continue;
+    }
+    for (let dx = -SERVICE_REACH; dx <= SERVICE_REACH; dx++) {
+      const nx = x + dx;
+      if (nx < 0 || nx >= mapWidth) {
+        continue;
+      }
+      const at = ny * mapWidth + nx;
+      const d = dist[at] as number;
+      if (d < min) {
+        min = d;
+        winner = via[at] as number;
+      }
+    }
+  }
+  return winner;
 }
 
 /** Linear decay: 255 at distance 0 → 0 at radius (and beyond). */

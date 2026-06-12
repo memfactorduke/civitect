@@ -56,7 +56,11 @@ export function aggregates(b: Buildings): CityAggregates {
   let countI = 0;
   let countO = 0;
   for (let i = 0; i < b.count; i++) {
-    if (b.alive[i] !== 1 || (b.status[i] as number) === BuildingStatus.abandoned) {
+    if (
+      b.alive[i] !== 1 ||
+      (b.status[i] as number) === BuildingStatus.abandoned ||
+      (b.status[i] as number) === BuildingStatus.ruin
+    ) {
       continue;
     }
     const kind = b.kind[i] as number;
@@ -269,6 +273,12 @@ export function lifecycleSlice(
     }
     const served = ctx.utilities.powered[i] === 1 && ctx.utilities.watered[i] === 1;
     const status = b.status[i] as number;
+
+    // Fire states belong to the fire pass (phase-4 task 5) — lifecycle
+    // must neither "cure" a burning building nor abandon a ruin.
+    if (status === BuildingStatus.onFire || status === BuildingStatus.ruin) {
+      continue;
+    }
 
     if (status === BuildingStatus.abandoned) {
       b.failDays[i] = Math.min(255, (b.failDays[i] as number) + 1);
