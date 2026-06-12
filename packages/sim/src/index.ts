@@ -81,6 +81,26 @@ export {
   type Pathfinder,
   type PathResult,
 } from "./roads/pathfind";
+export {
+  anchorNode,
+  computeCoverageField,
+  coverageFor,
+  createCoverageCache,
+  decay,
+  roadTileDistances,
+  SERVICE_REACH,
+  type ServiceCoverageCache,
+  type ServiceFieldInputs,
+} from "./services/coverage";
+export {
+  budgetScalePermille,
+  SERVICE_BUILDING_SPECS,
+  type ServiceBuildingSpec,
+  STREET_TILE_COST,
+  scaledCapacity,
+  scaledRadius,
+  specForTableKind,
+} from "./services/registry";
 export { toSnapshot } from "./snapshot";
 export { bprCost, CELL_TILES, type Cell } from "./traffic/assignment";
 export {
@@ -107,6 +127,7 @@ export {
   runTick,
   type SegRecord,
   SIM_SPEEDS,
+  serviceCoverage,
   stateHash,
   TICK_HZ,
   TICKS_PER_GAME_YEAR,

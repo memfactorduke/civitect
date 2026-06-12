@@ -27,10 +27,20 @@ import {
   encodeCiv,
   encodeMessage,
   MessageKind,
+  type ServiceId,
   type Snapshot,
   SnapshotKind,
 } from "@civitect/protocol";
-import { createWorld, edgeAtTile, edgeCost, runTick, toSnapshot } from "@civitect/sim";
+import {
+  createWorld,
+  edgeAtTile,
+  edgeCost,
+  runTick,
+  scaledCapacity,
+  serviceCoverage,
+  specForTableKind,
+  toSnapshot,
+} from "@civitect/sim";
 import { BOOT } from "./boot-config";
 import { civToWorld, worldToCiv } from "./save-codec";
 
@@ -58,6 +68,9 @@ let lastSentRoadVersion = -1;
 let lastSentBuildingVersion = -1;
 let lastSentZoneVersion = -1;
 let lastSentCostHash = "";
+/** Active coverage overlay (0 = none) — worker-held, never sim state. */
+let activeOverlay: ServiceId | 0 = 0;
+let lastSentCoverageDigest = -1;
 
 /**
  * The agent transform rider (TDD §7): [id, kind, x, y, headingMilli] per
@@ -95,9 +108,22 @@ function postSnapshot(kind: Snapshot["kind"]): void {
   const includeZones = kind === SnapshotKind.keyframe || world.zoneVersion !== lastSentZoneVersion;
   const includeCongestion =
     kind === SnapshotKind.keyframe || world.traffic.costHash !== lastSentCostHash;
+  const coverageDigest = activeOverlay === 0 ? -1 : serviceCoverage(world, activeOverlay).digestU32;
+  const includeCoverage =
+    activeOverlay !== 0 &&
+    (kind === SnapshotKind.keyframe || coverageDigest !== lastSentCoverageDigest);
   const bytes = encodeMessage({
     kind: MessageKind.snapshot,
-    body: toSnapshot(world, kind, includeRoads, includeBuildings, includeZones, includeCongestion),
+    body: toSnapshot(
+      world,
+      kind,
+      includeRoads,
+      includeBuildings,
+      includeZones,
+      includeCongestion,
+      activeOverlay,
+      includeCoverage,
+    ),
   });
   const agents = agentRider();
   const transfer: ArrayBuffer[] = [bytes.buffer as ArrayBuffer];
@@ -109,6 +135,7 @@ function postSnapshot(kind: Snapshot["kind"]): void {
   lastSentBuildingVersion = world.buildings.version;
   lastSentZoneVersion = world.zoneVersion;
   lastSentCostHash = world.traffic.costHash;
+  lastSentCoverageDigest = coverageDigest;
 }
 
 function applyBatch(batch: readonly Command[]): void {
@@ -207,17 +234,33 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
         }
         const b = world.buildings.byTile.get(tileIdx);
         if (b !== undefined && world.buildings.alive[b] === 1) {
+          const kind = world.buildings.kind[b] as number;
+          const spec = specForTableKind(kind);
+          const budget =
+            spec === null
+              ? 1000
+              : (world.services.budgetsPermille[
+                  // SERVICE_ID_LIST is 1..9 in order — index is id-1.
+                  spec.service - 1
+                ] as number);
+          // Effectiveness v1 = coverage at the building's own tile,
+          // permille; the ×capacity-fill factor joins with the service
+          // loops (board task 3).
+          const effectiveness =
+            spec === null
+              ? 0
+              : Math.floor(
+                  ((serviceCoverage(world, spec.service).coverage[tileIdx] as number) * 1000) / 255,
+                );
           building = {
-            kind: world.buildings.kind[b] as number,
+            kind,
             level: world.buildings.level[b] as number,
             status: world.buildings.status[b] as number,
-            // Service capacity/queue/effectiveness fill with the Phase 4
-            // services core (board task 2) — zeros mean "no service data".
-            serviceId: 0,
-            capacityTotal: 0,
-            capacityUsed: 0,
+            serviceId: spec === null ? 0 : spec.service,
+            capacityTotal: spec === null ? 0 : scaledCapacity(spec, budget),
+            capacityUsed: 0, // queues join with the service loops (task 3)
             queueLength: 0,
-            effectivenessPermille: 0,
+            effectivenessPermille: effectiveness,
           };
         }
       }
@@ -244,9 +287,11 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
       break;
     case MessageKind.overlayRequest:
       // Worker-held presentation state (viewportHint pattern): selects
-      // which coverage layer rides snapshots once the services core (board
-      // phase-4 task 2) computes them. Accepted, not yet acted on — the
-      // snapshot's coverage block stays inactive until then.
+      // which coverage layer rides snapshots. Never touches the world —
+      // coverage is derived, so the hash cannot see this.
+      activeOverlay = message.body.service as typeof activeOverlay;
+      lastSentCoverageDigest = -1; // force the next snapshot to carry it
+      postSnapshot(SnapshotKind.delta);
       break;
     default:
       throw new Error(`sim worker received unexpected MessageKind ${message.kind}`);

@@ -6,11 +6,12 @@
 import {
   type BuildingView,
   type RoadSegment,
+  type ServiceId,
   type Snapshot,
   SnapshotKind,
 } from "@civitect/protocol";
 import { canonicalEdgeOrder, canonicalGraph } from "./roads/graph";
-import type { World } from "./world";
+import { serviceCoverage, type World } from "./world";
 
 /** Canonical road segments in renderer form — stable order, id-free. */
 function roadSegments(world: World): RoadSegment[] {
@@ -48,7 +49,11 @@ export function toSnapshot(
   includeBuildings = kind === SnapshotKind.keyframe,
   includeZones = kind === SnapshotKind.keyframe,
   includeCongestion = kind === SnapshotKind.keyframe,
+  /** Active coverage overlay (0 = none) — worker-held presentation state. */
+  activeOverlay: ServiceId | 0 = 0,
+  includeCoverage = kind === SnapshotKind.keyframe,
 ): Snapshot {
+  const overlay = activeOverlay === 0 ? null : serviceCoverage(world, activeOverlay);
   return {
     kind,
     tick: world.tick,
@@ -79,11 +84,12 @@ export function toSnapshot(
     // re-derives from canonical volumes on both sides.
     congestionVersion: Number.parseInt(world.traffic.costHash.slice(0, 8), 16),
     congestion: includeCongestion ? congestionPermille(world) : null,
-    // Coverage layers join with the Phase 4 services core (board task 2);
-    // until then no overlay is ever active.
-    coverageService: 0,
-    coverageVersion: 0,
-    coverage: null,
+    // Coverage rides only while an overlay is active. The version is a
+    // CONTENT digest of the field (congestionVersion pattern): a loaded
+    // world presents the same version as the live world it was saved from.
+    coverageService: activeOverlay,
+    coverageVersion: overlay === null ? 0 : overlay.digestU32,
+    coverage: overlay !== null && includeCoverage ? overlay.coverage : null,
   };
 }
 

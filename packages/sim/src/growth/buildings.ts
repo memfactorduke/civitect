@@ -49,6 +49,16 @@ export interface Buildings {
   failDays: Uint8Array;
   /** Game-days at high desirability (leveling clock). */
   thriveDays: Uint8Array;
+  /**
+   * Phase 4 service state (canonical, hashed, save v7). `stock` is
+   * kind-contextual: garbage held for occupied buildings, fill level for
+   * landfills/cemeteries. All zero until the service loops run them.
+   */
+  stock: Uint32Array;
+  sick: Uint16Array;
+  corpses: Uint16Array;
+  /** 0 = not burning; burn progress in fire steps (board task 5). */
+  fireTicks: Uint8Array;
   alive: Uint8Array;
   nextFree: Uint32Array;
   cohorts: Uint16Array; // capacity × COHORT_BLOCK
@@ -71,6 +81,10 @@ export function createBuildings(): Buildings {
     status: new Uint8Array(INITIAL),
     failDays: new Uint8Array(INITIAL),
     thriveDays: new Uint8Array(INITIAL),
+    stock: new Uint32Array(INITIAL),
+    sick: new Uint16Array(INITIAL),
+    corpses: new Uint16Array(INITIAL),
+    fireTicks: new Uint8Array(INITIAL),
     alive: new Uint8Array(INITIAL),
     nextFree: new Uint32Array(INITIAL).fill(NO_INDEX),
     cohorts: new Uint16Array(INITIAL * COHORT_BLOCK),
@@ -90,6 +104,10 @@ function grow(b: Buildings): void {
   b.status = copy(b.status, new Uint8Array(cap));
   b.failDays = copy(b.failDays, new Uint8Array(cap));
   b.thriveDays = copy(b.thriveDays, new Uint8Array(cap));
+  b.stock = copy(b.stock, new Uint32Array(cap));
+  b.sick = copy(b.sick, new Uint16Array(cap));
+  b.corpses = copy(b.corpses, new Uint16Array(cap));
+  b.fireTicks = copy(b.fireTicks, new Uint8Array(cap));
   b.alive = copy(b.alive, new Uint8Array(cap));
   const nf = new Uint32Array(cap).fill(NO_INDEX);
   nf.set(b.nextFree);
@@ -116,6 +134,10 @@ export function spawnBuilding(b: Buildings, tileIdx: number, kind: number): numb
   b.status[index] = BuildingStatus.normal;
   b.failDays[index] = 0;
   b.thriveDays[index] = 0;
+  b.stock[index] = 0;
+  b.sick[index] = 0;
+  b.corpses[index] = 0;
+  b.fireTicks[index] = 0;
   b.alive[index] = 1;
   b.cohorts.fill(0, index * COHORT_BLOCK, (index + 1) * COHORT_BLOCK);
   b.byTile.set(tileIdx, index);
