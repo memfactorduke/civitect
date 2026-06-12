@@ -158,6 +158,40 @@ half the ROADMAP's standing rule assigns to you by definition — the
 playable-feel pass. Deferred mechanics are recorded in their rows
 (tunnels, roundabouts, toolbar UI, reason-code enrichment).
 
+## Fifth leg (the /goal continuation): Phase 2 complete, Phase 3 underway
+
+**Phase 2 — COMPLETE (PRs #41–#45).** All three exit criteria pass as
+automated tests in CI: (1) the REAL balance gate replays an unattended
+game-year inside bands — pop 40,284 post-leveling (the last ADR-013 stub
+is gone; every ladder rung is live); (2) cause-chain links resolve in
+e2e — a real abandonment's advisor link resolves to the actual abandoned
+building; (3) demand factors sum exactly — property-proven at sim AND
+DOM levels (no clamping anywhere on that path, by design). Zoning,
+buildings+cohorts (SoA), first-principles demand, staggered growth/
+leveling/abandonment, road-borne utilities with deterministic brownouts,
+building rendering (placeholder blocks), zone overlay, demand panel,
+advisor feed, save format v4 (grown cities persist; four-rung migration
+ladder in CI). Task 6 (60 growable sprites) stays content-gated on the
+style bible, like Phase 0 criterion 3.
+
+**Phase 3 — tranches 1+2 of 6 (PRs #46–#47).** Conservation criterion
+PASSES (generated ≡ assigned + walked + unroutable, EXACT, property-
+tested over random grown cities); jam-diagnosis criterion passes at the
+sim level (deliberate bottleneck → alert advisor naming the saturated
+edge, ref verified). Hourly stateless OD/mode/BPR assignment with
+version-keyed path caching (balance runtime unchanged). The bands forced
+five real model fixes across these legs — vacancy deadlock, attractiveness
+spiral, utility-ordering abandonment, -0 on the wire, frozen workplace
+leveling — each documented in its PR.
+
+**Phase 3 remaining (decomposed on phase-3.md):** tranche 3 agents +
+sampler + follow test (XL — the next session's first build), tranche 2
+MSA/slicing/save-v5, tranche 4 overlays/inspector (+ browser jam e2e),
+tranche 6 the 250k-pop/10k-agent device measurement. This session ends
+here by deliberate capacity judgment: starting the XL agents tranche at
+this depth risks an unlandable half-PR in the hash-bearing core — the
+boards carry the continuation.
+
 ## Recommended next three items (updated, end of night)
 
 1. **Review the landed bless post-hoc** (#23/#24 balance-diffs + the
