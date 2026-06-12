@@ -148,13 +148,13 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("d98fed7a616a306c");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("d7771575509e1f39");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("9d2be848dc6be966");
+    expect(stateHash(world)).toBe("064d7ef338df737f");
   });
 });
 

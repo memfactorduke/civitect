@@ -15,7 +15,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "gate:golden": "pnpm --filter @civitect/e2e golden",
-    "gate:balance": "node scripts/ci/balance-gate.mjs",
+    "gate:balance": "pnpm --filter @civitect/e2e balance",
     "gate:perf": "pnpm --filter @civitect/e2e perf",
     "gate:assets": "pnpm --filter @civitect/sprite-intake gate",
     "bless": "pnpm --filter @civitect/e2e bless",

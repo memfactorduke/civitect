@@ -14,7 +14,7 @@ import { supercoverTiles } from "../roads/geometry";
 import { edgesOf, type RoadGraph } from "../roads/graph";
 import { type Buildings, capacityFor, PLOPPABLE_KIND_OFFSET } from "./buildings";
 
-export const PLANT_SUPPLY = 2000; // units per plant/pump [TUNE]
+export const PLANT_SUPPLY = 12000; // units per plant/pump [TUNE]
 
 /** Per-building utility demand by kind/level [TUNE]. */
 export function utilityDemand(kind: number, level: number): number {
