@@ -4,7 +4,13 @@
  * the MAIN THREAD never imports @civitect/sim — the sim exists only inside
  * the worker (ADR-006); everything it learns arrives as protocol snapshots.
  */
-import { CommandType, decodeMessage, encodeMessage, MessageKind } from "@civitect/protocol";
+import {
+  CommandType,
+  decodeMessage,
+  encodeMessage,
+  MessageKind,
+  RoadClassWire,
+} from "@civitect/protocol";
 import { attachCameraControls, bootRenderer } from "@civitect/renderer";
 import { type CommandIntent, createUiStore, Overlay } from "@civitect/ui";
 import { createRoot } from "react-dom/client";
@@ -85,18 +91,76 @@ async function main(): Promise<void> {
     queue.dispatch(intent);
   };
 
-  // Tap selects on pointerdown (keeps the <50 ms path hot); dragging past
-  // the threshold pans via the camera controls. A drag still selects its
-  // start tile first — acceptable until the Phase 1 tool-mode UX pass.
-  renderer.app.canvas.addEventListener("pointerdown", (event: PointerEvent) => {
+  // Tool modes (v0, keyboard-switched: R road, B bulldoze, Esc/S select —
+  // toolbar UI rides the next ui-package slice). Select taps on pointerdown
+  // (keeps the <50 ms path hot); road/bulldoze own the drag with a ghost
+  // preview; camera drag-pan only in select mode (wheel zoom always).
+  type Tool = "select" | "road" | "bulldoze";
+  let tool: Tool = "select";
+  let anchor: { x: number; y: number } | null = null;
+
+  const tileAt = (event: PointerEvent): { x: number; y: number } | null => {
     const rect = renderer.app.canvas.getBoundingClientRect();
     const w = renderer.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
-    const tile = pickTileAt(w.wx, w.wy, BOOT.mapWidth, BOOT.mapHeight);
-    if (tile !== null) {
+    return pickTileAt(w.wx, w.wy, BOOT.mapWidth, BOOT.mapHeight);
+  };
+
+  renderer.app.canvas.addEventListener("pointerdown", (event: PointerEvent) => {
+    const tile = tileAt(event);
+    if (tile === null) {
+      return;
+    }
+    if (tool === "select") {
       dispatch({ type: CommandType.selectTile, x: tile.x, y: tile.y });
+    } else {
+      anchor = tile;
+      renderer.stage.setGhost(anchor, tile);
     }
   });
-  attachCameraControls(renderer, renderer.app.canvas as unknown as HTMLElement);
+  renderer.app.canvas.addEventListener("pointermove", (event: PointerEvent) => {
+    if (anchor === null) {
+      return;
+    }
+    const tile = tileAt(event);
+    if (tile !== null) {
+      renderer.stage.setGhost(anchor, tile);
+    }
+  });
+  renderer.app.canvas.addEventListener("pointerup", (event: PointerEvent) => {
+    if (anchor === null) {
+      return;
+    }
+    const start = anchor;
+    anchor = null;
+    renderer.stage.setGhost(null);
+    const end = tileAt(event);
+    if (end === null || (end.x === start.x && end.y === start.y)) {
+      return; // zero-length drags build nothing
+    }
+    if (tool === "road") {
+      dispatch({
+        type: CommandType.buildRoad,
+        ax: start.x,
+        ay: start.y,
+        bx: end.x,
+        by: end.y,
+        roadClass: RoadClassWire.street,
+      });
+    } else if (tool === "bulldoze") {
+      dispatch({ type: CommandType.bulldozeRoad, ax: start.x, ay: start.y, bx: end.x, by: end.y });
+    }
+  });
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.metaKey || event.ctrlKey) {
+      return; // quicksave bindings live below
+    }
+    if (event.key === "r") tool = "road";
+    else if (event.key === "b") tool = "bulldoze";
+    else if (event.key === "s" || event.key === "Escape") tool = "select";
+  });
+  attachCameraControls(renderer, renderer.app.canvas as unknown as HTMLElement, {
+    panEnabled: () => tool === "select",
+  });
 
   createRoot(overlayHost).render(<Overlay store={store} dispatch={dispatch} />);
 
@@ -112,6 +176,7 @@ async function main(): Promise<void> {
     dispatchIntent: (intent: CommandIntent) => {
       dispatch(intent);
     },
+    tool: () => tool,
   };
 }
 

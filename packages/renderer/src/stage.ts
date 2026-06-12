@@ -29,6 +29,8 @@ export interface WorldStage {
   update(state: DisplayState): void;
   /** Re-bake specific chunks (snapshot dirtyChunkIds feed this). */
   rebakeChunks(chunkIds: readonly number[]): void;
+  /** Tool ghost: translucent segment preview while dragging; null clears. */
+  setGhost(a: { x: number; y: number } | null, b?: { x: number; y: number }): void;
   /** Chunk count — observability for tests/devtools. */
   readonly chunkCount: number;
 }
@@ -131,6 +133,9 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   highlight.visible = false;
   root.addChild(highlight);
 
+  const ghost = new Graphics();
+  root.addChild(ghost);
+
   return {
     root,
     chunkCount: layout.count,
@@ -153,6 +158,19 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
           bakeChunk(id);
         }
       }
+    },
+    setGhost(a, b): void {
+      ghost.clear();
+      if (a == null || b == null) {
+        return;
+      }
+      const wa = tileCenterToWorld(a.x, a.y);
+      const wb = tileCenterToWorld(b.x, b.y);
+      const style = ROAD_STYLE[1] as { width: number; color: number };
+      ghost
+        .moveTo(wa.wx, wa.wy)
+        .lineTo(wb.wx, wb.wy)
+        .stroke({ width: style.width, color: HIGHLIGHT_COLOR, alpha: 0.45, cap: "round" });
     },
   };
 }
