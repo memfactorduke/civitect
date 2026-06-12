@@ -9,7 +9,7 @@
  * (provided by sim for exactly this).
  */
 import type { CivSave, RngStreamState } from "@civitect/protocol";
-import { SAVE_FORMAT_VERSION } from "@civitect/protocol";
+import { flatTerrain, SAVE_FORMAT_VERSION } from "@civitect/protocol";
 import { Pcg32, type Pcg32State, RNG_STREAM_NAMES, type World } from "@civitect/sim";
 import { BOOT } from "./boot-config";
 
@@ -34,6 +34,9 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
       mapId: 0,
       flags: 0,
     },
+    // Phase 0 worlds ARE flat; World.terrain replaces this with task 7b
+    // (the terrain bless), and civToWorld starts consuming save.terrain.
+    terrain: flatTerrain(world.mapWidth, world.mapHeight),
     worldCore: {
       speed: world.speed,
       selectedTileIdx: world.selectedTileIdx,

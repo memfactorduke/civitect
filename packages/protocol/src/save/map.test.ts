@@ -136,6 +136,7 @@ describe("map files (.civmap)", () => {
         mapId: 0,
         flags: 0,
       },
+      terrain: flatTerrain(8, 8),
       worldCore: {
         speed: 1,
         selectedTileIdx: -1,
@@ -147,7 +148,8 @@ describe("map files (.civmap)", () => {
       },
       commandTail: [],
     });
-    await expect(decodeMap(save)).rejects.toThrow(/no TERRAIN section/);
+    // v2 saves DO carry TERRAIN — the section-count check is what rejects them.
+    await expect(decodeMap(save)).rejects.toThrow(/wants exactly TERRAIN/);
   });
 });
 
