@@ -861,7 +861,7 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // cohorts(lifecycle hourly slice).
   if (world.tick % TICKS_PER_HOUR === 0) {
     const hourOfDay = Math.floor(world.tick / TICKS_PER_HOUR) % 24;
-    const newlyAbandoned = lifecycleSlice(lifecycleCtx, hourOfDay, world.tick);
+    const newlyAbandoned = lifecycleSlice(lifecycleCtx, hourOfDay, world.tick, agg);
     // events/advisors — every warning carries its CauseChain pointing at the
     // ACTUAL building (ADR-009; the e2e resolves these links). Cap 3/slice.
     for (const tileIdx of newlyAbandoned.slice(0, 3)) {
@@ -880,6 +880,46 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // without traffic joining the hash (tranche-2 MSA changes that).
   if (world.tick % TICKS_PER_HOUR === 0) {
     world.traffic = assignTraffic(world.buildings, world.roads, world.mapWidth, world.mapHeight);
+    // Congestion consequences are never just red lines (GDD §9 [LOCKED]):
+    // the worst saturated edge gets a diagnosable advisor whose cause
+    // chain names the EDGE and its midpoint TILE [TUNE threshold 150%].
+    let worstEdge = -1;
+    let worstRatio = 1500;
+    for (let e = 0; e < world.roads.edgeCount; e++) {
+      if (world.roads.edgeAlive[e] !== 1 || (world.roads.edgeCapacity_[e] as number) === 0) {
+        continue;
+      }
+      const ratio = Math.floor(
+        ((world.traffic.volumes[e] as number) * 1000) / (world.roads.edgeCapacity_[e] as number),
+      );
+      if (ratio > worstRatio) {
+        worstRatio = ratio;
+        worstEdge = e;
+      }
+    }
+    if (worstEdge !== -1) {
+      const g = world.roads;
+      const midX =
+        ((g.nodeX[g.edgeA[worstEdge] as number] as number) +
+          (g.nodeX[g.edgeB[worstEdge] as number] as number)) >>
+        1;
+      const midY =
+        ((g.nodeY[g.edgeA[worstEdge] as number] as number) +
+          (g.nodeY[g.edgeB[worstEdge] as number] as number)) >>
+        1;
+      emitAdvisor(world, AdvisorSeverity.alert, "advisor.congestion", "cause.edgeSaturated", [
+        {
+          subject: { kind: EntityKind.edge, id: worstEdge },
+          labelKey: "cause.volumeOverCapacity",
+          weightPermille: Math.min(1000, worstRatio - 1000),
+        },
+        {
+          subject: { kind: EntityKind.tile, id: midY * world.mapWidth + midX },
+          labelKey: "cause.jamLocation",
+          weightPermille: 1000,
+        },
+      ]);
+    }
   }
   // agents(move, spawn/recycle)       — TODO(ROADMAP Phase 3), rng.agents
   // services(queues)                  — TODO(ROADMAP Phase 4), rng.services

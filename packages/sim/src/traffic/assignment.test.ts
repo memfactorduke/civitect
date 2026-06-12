@@ -108,3 +108,40 @@ describe("traffic assignment (GDD §9, Phase 3 tranche 1)", () => {
     expect(a.traffic.generated).toBe(b.traffic.generated);
   });
 });
+
+describe("jam diagnosis (Phase 3 exit criterion: diagnosable bottleneck)", () => {
+  it("an under-built single corridor saturates and emits an edge-ref cause chain", () => {
+    const world = createWorld(4242);
+    let seq = 0;
+    const cmd = (c: object) => runTick(world, [{ ...c, seq: seq++, tick: world.tick } as never]);
+    // West residential island ↔ east jobs island, ONE street between them.
+    cmd({ type: CommandType.buildRoad, ax: 8, ay: 20, bx: 20, by: 20, roadClass: 1 });
+    cmd({ type: CommandType.buildRoad, ax: 20, ay: 20, bx: 44, by: 20, roadClass: 1 }); // the bottleneck
+    cmd({ type: CommandType.buildRoad, ax: 44, ay: 20, bx: 56, by: 20, roadClass: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 10, y: 21, building: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 12, y: 21, building: 2 });
+    cmd({ type: CommandType.placeBuilding, x: 52, y: 21, building: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 54, y: 21, building: 2 });
+    cmd({ type: CommandType.zoneRect, x0: 9, y0: 14, x1: 19, y1: 19, zone: 2 });
+    cmd({ type: CommandType.zoneRect, x0: 9, y0: 21, x1: 19, y1: 24, zone: 2 });
+    cmd({ type: CommandType.zoneRect, x0: 45, y0: 21, x1: 55, y1: 23, zone: 5 });
+    cmd({ type: CommandType.zoneRect, x0: 45, y0: 17, x1: 55, y1: 19, zone: 4 });
+    let jam: import("@civitect/protocol").AdvisorEvent | undefined;
+    for (let t = 0; t < 1440 * 45 && jam === undefined; t++) {
+      runTick(world, []);
+      jam = world.advisorQueue.find((e) => e.messageKey === "advisor.congestion");
+      if (t % 1440 === 0) {
+        world.advisorQueue.length = 0; // drain non-jam noise like a snapshot would
+      }
+    }
+    expect(jam).toBeDefined();
+    const edgeLink = jam?.cause.links.find((l) => l.subject.kind === 3);
+    expect(edgeLink).toBeDefined();
+    // RESOLVE: the named edge is alive and genuinely over capacity.
+    const e = edgeLink?.subject.id as number;
+    expect(world.roads.edgeAlive[e]).toBe(1);
+    expect(world.traffic.volumes[e] as number).toBeGreaterThan(
+      world.roads.edgeCapacity_[e] as number,
+    );
+  });
+});

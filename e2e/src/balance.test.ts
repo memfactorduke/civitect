@@ -66,7 +66,7 @@ describe("balance bands (ADR-013 §3)", () => {
     );
     // ── Bands [TUNE] ──────────────────────────────────────────────────────
     expect(world.population).toBeGreaterThanOrEqual(5000); // exit criterion 1
-    expect(world.population).toBeLessThanOrEqual(30000); // runaway guard
+    expect(world.population).toBeLessThanOrEqual(60000); // runaway guard [TUNE: re-sized when workplace leveling unfroze job capacity]
     expect(unemploymentPermille).toBeLessThanOrEqual(600); // labor market sane
     expect(abandoned * 10).toBeLessThanOrEqual(alive); // ≤10% abandonment
     expect(agg.housingCapacity).toBeGreaterThanOrEqual(world.population); // no phantom housing
