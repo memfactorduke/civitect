@@ -7,7 +7,6 @@
  * impossible to miss. Wire ids (message kinds, command types, entity kinds,
  * reason codes) are append-only; never renumber.
  */
-// v2: save/load message kinds (board PR 9). v3: road command vocabulary
-// (task 5). v4: snapshots carry roadVersion + optional segment list
-// (task 12a — road rendering).
-export const PROTOCOL_VERSION = 4;
+// v2: save/load kinds. v3: road commands. v4: road snapshots.
+// v5: path + bridge road classes (tasks 12d/12e).
+export const PROTOCOL_VERSION = 5;

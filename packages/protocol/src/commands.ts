@@ -45,15 +45,28 @@ export interface SetSpeedCommand extends CommandBase {
   readonly speed: number;
 }
 
-/** Road classes on the wire (sim consumes these values — protocol is the contract). */
+/**
+ * Road classes on the wire (sim consumes these values — protocol is the
+ * contract). 4 = ped/bike path. 11–14 = the bridge variant of 1–4
+ * (BRIDGE_CLASS_OFFSET): bridges may cross water, are grade-separated
+ * (never auto-split with crossings), and may not be built on dry land.
+ * Ids are append-only.
+ */
 export const RoadClassWire = {
   street: 1,
   avenue: 2,
   highway: 3,
+  path: 4,
+  bridgeStreet: 11,
+  bridgeAvenue: 12,
+  bridgeHighway: 13,
+  bridgePath: 14,
 } as const;
 export type RoadClassWire = (typeof RoadClassWire)[keyof typeof RoadClassWire];
 
-const ROAD_CLASSES: ReadonlySet<number> = new Set([1, 2, 3]);
+export const BRIDGE_CLASS_OFFSET = 10;
+
+const ROAD_CLASSES: ReadonlySet<number> = new Set([1, 2, 3, 4, 11, 12, 13, 14]);
 
 export interface BuildRoadCommand extends CommandBase {
   readonly type: typeof CommandType.buildRoad;

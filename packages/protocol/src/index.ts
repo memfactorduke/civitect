@@ -27,6 +27,7 @@ export {
   encodeEntityRef,
 } from "./cause";
 export {
+  BRIDGE_CLASS_OFFSET,
   type BuildRoadCommand,
   type BulldozeRoadCommand,
   type Command,
