@@ -69,13 +69,22 @@ export {
   type PathResult,
 } from "./roads/pathfind";
 export { toSnapshot } from "./snapshot";
+export { bprCost, CELL_TILES, type Cell } from "./traffic/assignment";
 export {
-  assignTraffic,
-  bprCost,
-  CELL_TILES,
-  emptyTraffic,
-  type TrafficState,
-} from "./traffic/assignment";
+  createTraffic,
+  FULL_SOLVE_HOUR,
+  FULL_SOLVE_PASSES,
+  JOB_BUDGET_TICKS,
+  MSA_K_CAP,
+  refreshTrafficDerived,
+  type SolveJob,
+  SolveKind,
+  startSolveJob,
+  stepSolveJob,
+  type TrafficCore,
+  trafficFromSave,
+  trafficToSave,
+} from "./traffic/solver";
 export {
   controlAt,
   createWorld,

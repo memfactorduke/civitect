@@ -10,6 +10,7 @@ import type { Pcg32 } from "../rng";
 import type { Buildings } from "./buildings";
 import {
   adultsOf,
+  aliveByTile,
   BuildingStatus,
   COHORT_BLOCK,
   capacityFor,
@@ -164,13 +165,15 @@ export function growthSlice(
 }
 
 function pickVacantResidential(b: Buildings, rng: Pcg32): number {
-  // Deterministic scan from a random start — bounded work, no allocation.
-  if (b.count === 0) {
+  // Deterministic scan from a random start over the CANONICAL (tileIdx)
+  // order — slot order is spawn history and desyncs after load.
+  const order = aliveByTile(b);
+  if (order.length === 0) {
     return -1;
   }
-  const start = rng.nextBounded(b.count);
-  for (let k = 0; k < b.count; k++) {
-    const i = (start + k) % b.count;
+  const start = rng.nextBounded(order.length);
+  for (let k = 0; k < order.length; k++) {
+    const i = order[(start + k) % order.length] as number;
     if (b.alive[i] !== 1 || (b.status[i] as number) !== BuildingStatus.normal) {
       continue;
     }
@@ -215,12 +218,13 @@ function employmentPass(b: Buildings, rng: Pcg32, agg: ReturnType<typeof aggrega
 }
 
 function pickWithUnemployed(b: Buildings, rng: Pcg32): number {
-  if (b.count === 0) {
+  const order = aliveByTile(b);
+  if (order.length === 0) {
     return -1;
   }
-  const start = rng.nextBounded(b.count);
-  for (let k = 0; k < b.count; k++) {
-    const i = (start + k) % b.count;
+  const start = rng.nextBounded(order.length);
+  for (let k = 0; k < order.length; k++) {
+    const i = order[(start + k) % order.length] as number;
     if (b.alive[i] !== 1) {
       continue;
     }
@@ -251,7 +255,11 @@ export function lifecycleSlice(
   const jobFillPermille = totalJobs === 0 ? 0 : Math.floor((agg.employed * 1000) / totalJobs);
   const b = ctx.buildings;
   const slice = Math.floor(tick / TICKS_PER_HOUR) % LIFECYCLE_SLICES;
-  for (let i = slice; i < b.count; i += LIFECYCLE_SLICES) {
+  // Stagger over the CANONICAL (tileIdx) order — slice membership by raw
+  // slot would shuffle after a load and desync the rng stream's draws.
+  const order = aliveByTile(b);
+  for (let p = slice; p < order.length; p += LIFECYCLE_SLICES) {
+    const i = order[p] as number;
     if (b.alive[i] !== 1) {
       continue;
     }

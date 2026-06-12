@@ -141,20 +141,21 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   // re-pin, say so in the PR — this is a bless) or the engine broke integer
   // determinism (catastrophic: investigate before touching the pin).
   // RE-PINNED at each canonical-state append (deliberate, documented):
-  // terrain (P1 7b), roads (P1 8), buildings+cohorts (P2 systems).
+  // terrain (P1 7b), roads (P1 8), buildings+cohorts (P2 systems),
+  // traffic MSA volumes + solver job (P3 tranche 2).
 
   it("fresh world, seed 1234", () => {
-    expect(stateHash(createWorld(1234))).toBe("ca2b0417d63adeae");
+    expect(stateHash(createWorld(1234))).toBe("a14092849196283e");
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("d7771575509e1f39");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("482660a16446aa29");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("064d7ef338df737f");
+    expect(stateHash(world)).toBe("04b4293b4ce4873f");
   });
 });
 

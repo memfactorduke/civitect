@@ -22,6 +22,8 @@ import {
   RNG_STREAM_NAMES,
   type RoadClass,
   spawnBuilding,
+  trafficFromSave,
+  trafficToSave,
   type World,
 } from "@civitect/sim";
 import { BOOT } from "./boot-config";
@@ -82,6 +84,8 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
       by: e.by,
       roadClass: e.roadClass,
     })),
+    // Same canonical edge order as roads — trafficToSave sorts identically.
+    traffic: trafficToSave(world.traffic, world.roads),
     worldCore: {
       speed: world.speed,
       selectedTileIdx: world.selectedTileIdx,
@@ -152,6 +156,9 @@ export function civToWorld(save: CivSave): World {
         `${RNG_STREAM_NAMES.length}`,
     );
   }
+  // Canonical segments rebuild deterministically (sorted order); undo/redo
+  // stacks are session-local — loading starts them fresh.
+  const roads = rebuildRoads(save.roads);
   return {
     seed: save.header.seed,
     tick: save.header.tick,
@@ -162,9 +169,7 @@ export function civToWorld(save: CivSave): World {
     fundsCents: core.fundsCents,
     population: core.population,
     terrain: save.terrain,
-    // Canonical segments rebuild deterministically (sorted order); undo/redo
-    // stacks are session-local — loading starts them fresh.
-    roads: rebuildRoads(save.roads),
+    roads,
     undoStack: [],
     redoStack: [],
     buildings: rebuildBuildings(save),
@@ -180,17 +185,10 @@ export function civToWorld(save: CivSave): World {
     utilitiesBuildingVersion: -1,
     advisorIdCounter: 0,
     zoneVersion: 0,
-    // Derived hourly; recomputed at the next boundary. Traffic feeds back
-    // into nothing yet (tranche 2), so load-time emptiness cannot diverge
-    // the sim — the continued-identity test enforces that claim.
-    traffic: {
-      volumes: new Uint32Array(0),
-      congestedCost: new Uint32Array(0),
-      generated: 0,
-      assigned: 0,
-      walked: 0,
-      unroutable: 0,
-    },
+    // Canonical (TDD §6.3): MSA volumes + any in-flight solver job restore
+    // exactly — per-edge values remap onto the rebuilt graph by canonical
+    // edge identity; the continued-identity test enforces it.
+    traffic: trafficFromSave(save.traffic, roads),
     rng,
   };
 }

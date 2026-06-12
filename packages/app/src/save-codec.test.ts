@@ -155,3 +155,39 @@ describe("grown cities through the save pipeline (save format v4)", () => {
     expect(stateHash(restored)).toBe(stateHash(world));
   });
 });
+
+describe("traffic through the save pipeline (save format v5, TDD §6.3)", () => {
+  it("a save taken MID-SOLVE resumes the in-flight job bit-exactly", async () => {
+    const { world } = replay(BOOT.seed, [], 1, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+    });
+    let seq = 0;
+    const cmd = (c: object) => runTick(world, [{ ...c, seq: seq++, tick: world.tick } as never]);
+    cmd({ type: CommandType.buildRoad, ax: 8, ay: 20, bx: 56, by: 20, roadClass: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 10, y: 21, building: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 12, y: 21, building: 2 });
+    cmd({ type: CommandType.zoneRect, x0: 13, y0: 18, x1: 40, y1: 19, zone: 1 });
+    cmd({ type: CommandType.zoneRect, x0: 41, y0: 21, x1: 55, y1: 22, zone: 5 });
+    // Run past a few days, then stop a handful of ticks after an hour
+    // boundary — squarely inside a sliced solve.
+    while (world.tick < 1440 * 3 + 5) {
+      runTick(world, []);
+    }
+    expect(world.traffic.job).not.toBeNull(); // the premise: we ARE mid-solve
+    const before = stateHash(world);
+
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(before);
+    expect(restored.traffic.job).not.toBeNull();
+
+    // The strong claim: the resumed job and the never-interrupted one
+    // finish the solve — and the next several hours — identically.
+    for (let t = 0; t < 240; t++) {
+      runTick(world, []);
+      runTick(restored, []);
+      expect(stateHash(restored)).toBe(stateHash(world));
+    }
+    expect(world.traffic.generated).toBeGreaterThan(0);
+  });
+});

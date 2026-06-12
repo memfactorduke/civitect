@@ -27,6 +27,7 @@ import {
 import { migrateSectionsV1toV2 } from "./migrations/v1_v2";
 import { migrateSectionsV2toV3 } from "./migrations/v2_v3";
 import { migrateSectionsV3toV4 } from "./migrations/v3_v4";
+import { migrateSectionsV4toV5 } from "./migrations/v4_v5";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -43,6 +44,8 @@ export const SectionId = {
   settings: 9,
   commandTail: 10,
   worldCore: 11,
+  /** v5 (Phase 3 tranche 2): MSA volumes + sliced-solver job (TDD §6.3/§10). */
+  traffic: 12,
 } as const;
 export type SectionId = (typeof SectionId)[keyof typeof SectionId];
 
@@ -77,6 +80,38 @@ export interface BuildingRow {
   readonly thriveDays: number;
 }
 
+/**
+ * An in-flight sliced solver job (TDD §6.3). The solver freezes nothing —
+ * OD and costs re-derive from live state — so a resumable job is just its
+ * progress: pass/cursor, the pass's accumulated all-or-nothing volumes (in
+ * CANONICAL edge order, the roads section's order), and the pass ledger.
+ */
+export interface TrafficJobSave {
+  /** 1 = incremental MSA step, 2 = full equilibrium solve. */
+  readonly kind: number;
+  readonly passIndex: number;
+  readonly cursor: number;
+  /** Pass-so-far conservation ledger. */
+  readonly generated: number;
+  readonly assigned: number;
+  readonly walked: number;
+  readonly unroutable: number;
+  readonly aon: Uint32Array;
+}
+
+/** Persistent traffic state (TDD §6.3): MSA volumes + last-solve ledger. */
+export interface TrafficSave {
+  /** MSA step counter since the last full solve (capped sim-side). */
+  readonly msaK: number;
+  readonly generated: number;
+  readonly assigned: number;
+  readonly walked: number;
+  readonly unroutable: number;
+  /** Per canonical road edge — length must equal the roads section's. */
+  readonly volumes: Uint32Array;
+  readonly job: TrafficJobSave | null;
+}
+
 export interface CivSave {
   /**
    * formatVersion records PROVENANCE: a migrated v1 save keeps 1 here so
@@ -91,6 +126,7 @@ export interface CivSave {
   readonly buildings: readonly BuildingRow[];
   readonly cohorts: Uint16Array;
   readonly worldCore: WorldCore;
+  readonly traffic: TrafficSave;
   /** Commands since the snapshot, in applied (tick, seq) order. */
   readonly commandTail: readonly Command[];
 }
@@ -207,6 +243,73 @@ function decodeCohorts(bytes: Uint8Array): Uint16Array {
   return out;
 }
 
+/** Layout shared with migrateSectionsV4toV5's injected section — keep in sync. */
+function encodeTraffic(traffic: TrafficSave): Uint8Array {
+  const w = new ByteWriter();
+  w.u8(traffic.msaK)
+    .u32(traffic.generated)
+    .u32(traffic.assigned)
+    .u32(traffic.walked)
+    .u32(traffic.unroutable);
+  w.u32(traffic.volumes.length);
+  for (const v of traffic.volumes) {
+    w.u32(v);
+  }
+  const job = traffic.job;
+  if (job === null) {
+    w.u8(0);
+    return w.finish();
+  }
+  w.u8(job.kind)
+    .u8(job.passIndex)
+    .u32(job.cursor)
+    .u32(job.generated)
+    .u32(job.assigned)
+    .u32(job.walked)
+    .u32(job.unroutable);
+  // aon shares volumes' length — validated at encode/decode.
+  for (const v of job.aon) {
+    w.u32(v);
+  }
+  return w.finish();
+}
+
+function decodeTraffic(bytes: Uint8Array): TrafficSave {
+  const r = new ByteReader(bytes);
+  const msaK = r.u8();
+  const generated = r.u32();
+  const assigned = r.u32();
+  const walked = r.u32();
+  const unroutable = r.u32();
+  const edgeCount = r.u32();
+  const volumes = new Uint32Array(edgeCount);
+  for (let e = 0; e < edgeCount; e++) {
+    volumes[e] = r.u32();
+  }
+  const jobKind = r.u8();
+  if (jobKind === 0) {
+    r.expectEnd();
+    return { msaK, generated, assigned, walked, unroutable, volumes, job: null };
+  }
+  const passIndex = r.u8();
+  const cursor = r.u32();
+  const jobLedger = { generated: r.u32(), assigned: r.u32(), walked: r.u32(), unroutable: r.u32() };
+  const aon = new Uint32Array(edgeCount);
+  for (let e = 0; e < edgeCount; e++) {
+    aon[e] = r.u32();
+  }
+  r.expectEnd();
+  return {
+    msaK,
+    generated,
+    assigned,
+    walked,
+    unroutable,
+    volumes,
+    job: { kind: jobKind, passIndex, cursor, ...jobLedger, aon },
+  };
+}
+
 function encodeCommandTail(commands: readonly Command[]): Uint8Array {
   const w = new ByteWriter();
   w.u32(commands.length);
@@ -245,12 +348,21 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
       `cohorts length ${save.cohorts.length} ≠ buildings ${save.buildings.length} × ${COHORT_BLOCK}`,
     );
   }
+  if (save.traffic.volumes.length !== save.roads.length) {
+    throw new EncodeError(
+      `traffic volumes cover ${save.traffic.volumes.length} edges, roads carry ${save.roads.length}`,
+    );
+  }
+  if (save.traffic.job !== null && save.traffic.job.aon.length !== save.roads.length) {
+    throw new EncodeError("traffic job per-edge arrays disagree with the roads section");
+  }
   return encodeContainer({ ...save.header, formatVersion: SAVE_FORMAT_VERSION }, [
     { id: SectionId.terrain, raw: terrainWriter.finish() },
     { id: SectionId.roads, raw: encodeRoads(save.roads) },
     { id: SectionId.buildings, raw: encodeBuildings(save.buildings) },
     { id: SectionId.cohorts, raw: encodeCohorts(save.cohorts) },
     { id: SectionId.worldCore, raw: encodeWorldCore(save.worldCore) },
+    { id: SectionId.traffic, raw: encodeTraffic(save.traffic) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
 }
@@ -275,12 +387,19 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
       cohorts: SectionId.cohorts,
     });
   }
+  if (header.formatVersion <= 4) {
+    sections = migrateSectionsV4toV5(sections, {
+      roads: SectionId.roads,
+      traffic: SectionId.traffic,
+    });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
   const roadsRaw = sections.get(SectionId.roads);
   const buildingsRaw = sections.get(SectionId.buildings);
   const cohortsRaw = sections.get(SectionId.cohorts);
   const worldCoreRaw = sections.get(SectionId.worldCore);
+  const trafficRaw = sections.get(SectionId.traffic);
   const commandTailRaw = sections.get(SectionId.commandTail);
   if (
     terrainRaw === undefined ||
@@ -288,10 +407,11 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     buildingsRaw === undefined ||
     cohortsRaw === undefined ||
     worldCoreRaw === undefined ||
+    trafficRaw === undefined ||
     commandTailRaw === undefined
   ) {
     throw new DecodeError(
-      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, COMMANDTAIL",
+      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, COMMANDTAIL",
     );
   }
   const buildings = decodeBuildings(buildingsRaw);
@@ -309,13 +429,21 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
         `${worldCore.mapWidth}×${worldCore.mapHeight} — corrupt save`,
     );
   }
+  const roads = decodeRoads(roadsRaw);
+  const traffic = decodeTraffic(trafficRaw);
+  if (traffic.volumes.length !== roads.length) {
+    throw new DecodeError(
+      `traffic covers ${traffic.volumes.length} edges, roads carry ${roads.length} — corrupt save`,
+    );
+  }
   return {
     header,
     terrain,
-    roads: decodeRoads(roadsRaw),
+    roads,
     buildings,
     cohorts,
     worldCore,
+    traffic,
     commandTail: decodeCommandTail(commandTailRaw),
   };
 }

@@ -343,6 +343,45 @@ export interface CanonicalGraph {
 }
 
 /**
+ * Alive edge SLOTS in canonical edge order (the same sort canonicalGraph
+ * applies). Per-edge state (traffic volumes) is hashed/saved through this
+ * order so identical networks serialize identically however they were
+ * built, and loads remap back to the rebuilt graph's slots.
+ */
+export function canonicalEdgeOrder(g: RoadGraph): number[] {
+  const slots: number[] = [];
+  for (let e = 0; e < g.edgeCount; e++) {
+    if (g.edgeAlive[e] === 1) {
+      slots.push(e);
+    }
+  }
+  const keyOf = (e: number): [number, number, number, number] => {
+    const a = g.edgeA[e] as number;
+    const b = g.edgeB[e] as number;
+    let ax = g.nodeX[a] as number;
+    let ay = g.nodeY[a] as number;
+    let bx = g.nodeX[b] as number;
+    let by = g.nodeY[b] as number;
+    if (ax > bx || (ax === bx && ay > by)) {
+      [ax, ay, bx, by] = [bx, by, ax, ay];
+    }
+    return [ax, ay, bx, by];
+  };
+  slots.sort((p, q) => {
+    const kp = keyOf(p);
+    const kq = keyOf(q);
+    return (
+      kp[0] - kq[0] ||
+      kp[1] - kq[1] ||
+      kp[2] - kq[2] ||
+      kp[3] - kq[3] ||
+      (g.edgeClass[p] as number) - (g.edgeClass[q] as number)
+    );
+  });
+  return slots;
+}
+
+/**
  * Id- and history-independent form: alive content only, endpoint-normalized,
  * sorted. Two graphs with the same canonical form ARE the same road network
  * — the serialization substrate (task 8) and the add∘remove identity oracle.

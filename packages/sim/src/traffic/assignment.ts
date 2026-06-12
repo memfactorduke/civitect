@@ -1,59 +1,37 @@
 /**
- * Traffic core v1 (GDD §9, TDD §6, ADR-002 hybrid): hourly OD from cohort
- * aggregates over 8×8 zone-cells, table-driven mode choice (the ADR-005-
- * legal logit stand-in), and a STATELESS hourly assignment — recomputed
- * from world state at each hour boundary (and after load), so congestion
- * is DERIVED state: nothing here is hashed or saved, yet replay and
- * save/load stay bit-deterministic.
+ * Traffic assignment primitives (GDD §9, TDD §6, ADR-002 hybrid): hourly
+ * OD from cohort aggregates over 8×8 zone-cells, table-driven mode choice
+ * (the ADR-005-legal logit stand-in), integer BPR volume-delay, and the
+ * per-origin-cell all-or-nothing assignment step the sliced MSA solver
+ * (solver.ts, TDD §6.3) drives across ticks.
  *
- * Deviations from TDD §6.3, recorded on the phase-3 board for tranche 2:
- * single-shot 2-pass BPR feedback instead of MSA-with-memory; computed in
- * one hour-boundary tick instead of sliced (p95 unaffected — 1/60 ticks).
+ * Routing is CONGESTED: A* runs over the solver's frozen cost field
+ * (free-flow ALT bounds stay admissible — BPR ≥ free-flow). Paths are
+ * cached per (graph version, cost-field hash): uncongested hours share one
+ * identical free-flow field, so the year-long balance replay still hits
+ * cache; congested fields legitimately re-route.
  *
  * BPR: t = t0 · (1 + 0.15·(v/c)^4), α=0.15 β=4 [TUNE] — integer math:
  * (v/c)^4 via repeated multiplication in permille space; no Math.pow.
  */
 import { ZoneKind } from "@civitect/protocol";
 import {
-  adultsOf,
   BuildingStatus,
   type Buildings,
   capacityFor,
   employedOf,
   PLOPPABLE_KIND_OFFSET,
 } from "../growth/buildings";
+import { fnv1a64 } from "../hash";
 import { edgesOf, otherEnd, type RoadGraph } from "../roads/graph";
 import { createPathfinder, edgeCost, findPath, type Pathfinder } from "../roads/pathfind";
 
 export const CELL_TILES = 8;
 
 /** Walk wins short trips [TUNE] — the v1 mode table (GDD §9.2). */
-const WALK_MAX_CELL_DISTANCE = 1; // Chebyshev cells (≤ ~8-16 tiles)
+export const WALK_MAX_CELL_DISTANCE = 1; // Chebyshev cells (≤ ~8-16 tiles)
 
-export interface TrafficState {
-  /** Per-edge assigned vehicle trips this hour (edge slot indexed). */
-  readonly volumes: Uint32Array;
-  /** Congested travel time per edge, micro-units (same scale as edgeCost). */
-  readonly congestedCost: Uint32Array;
-  /** Conservation ledger (exit criterion: generated ≡ assigned + walked + unroutable). */
-  readonly generated: number;
-  readonly assigned: number;
-  readonly walked: number;
-  readonly unroutable: number;
-}
-
-export function emptyTraffic(): TrafficState {
-  return {
-    volumes: new Uint32Array(0),
-    congestedCost: new Uint32Array(0),
-    generated: 0,
-    assigned: 0,
-    walked: 0,
-    unroutable: 0,
-  };
-}
-
-interface Cell {
+export interface Cell {
   readonly index: number;
   readonly cx: number;
   readonly cy: number;
@@ -63,7 +41,7 @@ interface Cell {
   anchor: number;
 }
 
-function buildCells(
+export function buildCells(
   buildings: Buildings,
   g: RoadGraph,
   mapWidth: number,
@@ -146,138 +124,151 @@ export function bprCost(freeFlow: number, volume: number, capacity: number): num
   return Math.floor((freeFlow * (1000 + Math.floor((150 * r4) / 1000))) / 1000);
 }
 
-/**
- * The hourly solve. Deterministic order everywhere: cells ascending,
- * destination cells ascending, largest-remainder trip rounding.
- */
-export function assignTraffic(
-  buildings: Buildings,
-  g: RoadGraph,
-  mapWidth: number,
-  mapHeight: number,
-): TrafficState {
-  const cells = buildCells(buildings, g, mapWidth, mapHeight);
-  const totalJobs = cells.reduce((sum, c) => sum + c.jobs, 0);
-  const volumes = new Uint32Array(g.edgeCount);
-  const congestedCost = new Uint32Array(g.edgeCount);
+/** FNV-1a over a cost field's alive entries — the path-cache key component. */
+export function costFieldHash(g: RoadGraph, costs: Uint32Array): string {
+  const bytes = new Uint8Array(g.edgeCount * 4);
+  let at = 0;
   for (let e = 0; e < g.edgeCount; e++) {
-    if (g.edgeAlive[e] === 1) {
-      congestedCost[e] = edgeCost(g, e);
-    }
+    const c = g.edgeAlive[e] === 1 ? (costs[e] as number) : 0;
+    bytes[at++] = c & 0xff;
+    bytes[at++] = (c >>> 8) & 0xff;
+    bytes[at++] = (c >>> 16) & 0xff;
+    bytes[at++] = (c >>> 24) & 0xff;
   }
-  let generated = 0;
-  let assigned = 0;
-  let walked = 0;
-  let unroutable = 0;
-  if (totalJobs === 0) {
-    return { volumes, congestedCost, generated, assigned, walked, unroutable };
-  }
+  return fnv1a64(bytes);
+}
 
-  // Two BPR feedback passes [TUNE]: assign on free-flow, re-time, re-assign.
-  for (let pass = 0; pass < 2; pass++) {
-    volumes.fill(0);
-    generated = 0;
-    assigned = 0;
-    walked = 0;
-    unroutable = 0;
-    const pf: Pathfinder = createPathfinder();
-    const costOf = (e: number): number => congestedCost[e] as number;
-
-    for (const origin of cells) {
-      if (origin.workers === 0) {
-        continue;
-      }
-      // Proportional split to job cells, largest-remainder rounding.
-      let allocated = 0;
-      const shares: { cell: Cell; trips: number; rem: number }[] = [];
-      for (const dest of cells) {
-        if (dest.jobs === 0) {
-          continue;
-        }
-        const exact = origin.workers * dest.jobs;
-        const trips = Math.floor(exact / totalJobs);
-        shares.push({ cell: dest, trips, rem: exact % totalJobs });
-        allocated += trips;
-      }
-      shares.sort((a, b) => b.rem - a.rem || a.cell.index - b.cell.index);
-      for (let k = 0; k < origin.workers - allocated && k < shares.length; k++) {
-        (shares[k] as { trips: number }).trips++;
-      }
-
-      for (const share of shares) {
-        if (share.trips === 0) {
-          continue;
-        }
-        generated += share.trips;
-        const dest = share.cell;
-        const cellDist = Math.max(Math.abs(origin.cx - dest.cx), Math.abs(origin.cy - dest.cy));
-        if (cellDist <= WALK_MAX_CELL_DISTANCE) {
-          walked += share.trips; // mode table: short trips walk (GDD §9.2)
-          continue;
-        }
-        if (origin.anchor === -1 || dest.anchor === -1) {
-          unroutable += share.trips;
-          continue;
-        }
-        const path = findPathWithCosts(g, pf, origin.anchor, dest.anchor, costOf);
-        if (path === null) {
-          unroutable += share.trips;
-          continue;
-        }
-        assigned += share.trips;
-        for (const e of path) {
-          volumes[e] = (volumes[e] as number) + share.trips;
-        }
-      }
-    }
-    // Re-time edges from this pass's volumes for the next pass / output.
-    for (let e = 0; e < g.edgeCount; e++) {
-      if (g.edgeAlive[e] === 1) {
-        congestedCost[e] = bprCost(
-          edgeCost(g, e),
-          volumes[e] as number,
-          g.edgeCapacity_[e] as number,
-        );
-      }
-    }
-  }
-  return { volumes, congestedCost, generated, assigned, walked, unroutable };
+export interface ConservationLedger {
+  generated: number;
+  assigned: number;
+  walked: number;
+  unroutable: number;
 }
 
 /**
- * Per-graph path cache, keyed on graph version — anchor pairs repeat every
- * hour; without this, year-long balance replays recompute millions of
- * identical A* runs. Derived, deterministic, never iterated.
+ * Assign ONE origin cell's commute trips against a frozen cost field:
+ * proportional split to job cells (largest-remainder rounding), mode table
+ * (short trips walk), congested A* routing, AON volume accumulation.
+ * Deterministic order everywhere — this is the solver's slice unit.
+ */
+export function assignOriginCell(
+  g: RoadGraph,
+  pf: Pathfinder,
+  paths: Map<number, number[] | null>,
+  cells: readonly Cell[],
+  origin: Cell,
+  totalJobs: number,
+  costs: Uint32Array,
+  addVolume: (edgeSlot: number, trips: number) => void,
+  ledger: ConservationLedger,
+): void {
+  if (origin.workers === 0 || totalJobs === 0) {
+    return;
+  }
+  let allocated = 0;
+  const shares: { cell: Cell; trips: number; rem: number }[] = [];
+  for (const dest of cells) {
+    if (dest.jobs === 0) {
+      continue;
+    }
+    const exact = origin.workers * dest.jobs;
+    const trips = Math.floor(exact / totalJobs);
+    shares.push({ cell: dest, trips, rem: exact % totalJobs });
+    allocated += trips;
+  }
+  shares.sort((a, b) => b.rem - a.rem || a.cell.index - b.cell.index);
+  for (let k = 0; k < origin.workers - allocated && k < shares.length; k++) {
+    (shares[k] as { trips: number }).trips++;
+  }
+
+  const costOf = (e: number): number => costs[e] as number;
+  for (const share of shares) {
+    if (share.trips === 0) {
+      continue;
+    }
+    ledger.generated += share.trips;
+    const dest = share.cell;
+    const cellDist = Math.max(Math.abs(origin.cx - dest.cx), Math.abs(origin.cy - dest.cy));
+    if (cellDist <= WALK_MAX_CELL_DISTANCE) {
+      ledger.walked += share.trips; // mode table: short trips walk (GDD §9.2)
+      continue;
+    }
+    if (origin.anchor === -1 || dest.anchor === -1) {
+      ledger.unroutable += share.trips;
+      continue;
+    }
+    const path = findEdgePath(g, pf, paths, origin.anchor, dest.anchor, costOf);
+    if (path === null) {
+      ledger.unroutable += share.trips;
+      continue;
+    }
+    ledger.assigned += share.trips;
+    for (const e of path) {
+      addVolume(e, share.trips);
+    }
+  }
+}
+
+/**
+ * Path caches: per graph (WeakMap), per cost field (FNV hash, last 4 fields
+ * kept), per anchor pair. Derived, deterministic, never iterated as state.
+ * Uncongested hours all share the free-flow field's hash — the balance
+ * replay's hit rate survives congested routing.
  */
 const pathCaches = new WeakMap<
   RoadGraph,
-  { version: number; paths: Map<number, number[] | null> }
+  { version: number; byCost: Map<string, Map<number, number[] | null>> }
 >();
 
-/** A* over supplied edge costs, returning the EDGE list (free-flow ALT bound stays admissible under congestion). */
-function findPathWithCosts(
+const COST_FIELDS_KEPT = 4;
+
+export function pathsForCostField(g: RoadGraph, costHash: string): Map<number, number[] | null> {
+  let cache = pathCaches.get(g);
+  if (cache === undefined || cache.version !== g.version) {
+    cache = { version: g.version, byCost: new Map() };
+    pathCaches.set(g, cache);
+  }
+  let paths = cache.byCost.get(costHash);
+  if (paths === undefined) {
+    if (cache.byCost.size >= COST_FIELDS_KEPT) {
+      const oldest = cache.byCost.keys().next().value as string;
+      cache.byCost.delete(oldest);
+    }
+    paths = new Map();
+    cache.byCost.set(costHash, paths);
+  }
+  return paths;
+}
+
+/** Shared pathfinder (landmark fields) per graph — refreshed on version. */
+const pathfinders = new WeakMap<RoadGraph, Pathfinder>();
+
+export function pathfinderFor(g: RoadGraph): Pathfinder {
+  let pf = pathfinders.get(g);
+  if (pf === undefined) {
+    pf = createPathfinder();
+    pathfinders.set(g, pf);
+  }
+  return pf;
+}
+
+/** Congested A* returning the EDGE list, memoized in `paths`. */
+function findEdgePath(
   g: RoadGraph,
   pf: Pathfinder,
+  paths: Map<number, number[] | null>,
   from: number,
   to: number,
   costOf: (e: number) => number,
 ): number[] | null {
-  let cache = pathCaches.get(g);
-  if (cache === undefined || cache.version !== g.version) {
-    cache = { version: g.version, paths: new Map() };
-    pathCaches.set(g, cache);
-  }
   const key = from * 0x100000 + to;
-  const hit = cache.paths.get(key);
+  const hit = paths.get(key);
   if (hit !== undefined) {
     return hit;
   }
-  // v1: reuse free-flow shortest NODE path, then map to edges with the
-  // congested cost only influencing the SECOND pass via re-timing.
-  // True congested routing joins with MSA in tranche 2 [TUNE].
-  const result = findPath(g, pf, from, to);
+  const result = findPath(g, pf, from, to, costOf);
   if (result === null) {
-    cache.paths.set(key, null);
+    paths.set(key, null);
     return null;
   }
   const edges: number[] = [];
@@ -285,10 +276,16 @@ function findPathWithCosts(
     const a = result.nodes[i] as number;
     const b = result.nodes[i + 1] as number;
     let found = -1;
+    let foundCost = -1;
     for (const e of edgesOf(g, a)) {
+      // Parallel a↔b edges: take the cheapest, tie → lowest slot (A* only
+      // fixes the node sequence; the edge pick must be deterministic too).
       if (otherEnd(g, e, a) === b) {
-        found = e;
-        break;
+        const c = costOf(e);
+        if (found === -1 || c < foundCost) {
+          found = e;
+          foundCost = c;
+        }
       }
     }
     if (found === -1) {
@@ -296,7 +293,8 @@ function findPathWithCosts(
     }
     edges.push(found);
   }
-  void costOf;
-  cache.paths.set(key, edges);
+  paths.set(key, edges);
   return edges;
 }
+
+export { edgeCost };

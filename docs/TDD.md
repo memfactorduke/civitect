@@ -123,7 +123,7 @@ Tile fields (land value, 4 pollutions, noise, coverage per service) are flat `Fl
 
 1. **Trip generation** (hourly): cohort tables × purpose rates → OD demand by (origin zone-cell, destination zone-cell, purpose). Zone-cells = 8×8-tile aggregation → OD stays small (≤ ~4k cells on L).
 2. **Mode choice:** logit over generalized cost (time + monetary + transfer penalty) for walk/bike/transit/car per OD pair. Capped car-ownership factor from wealth/policies.
-3. **Assignment:** Method of Successive Averages over edge costs with BPR volume-delay `t = t0·(1+α(v/c)^β)`, α=0.15, β=4 [TUNE]; full equilibrium solve daily (4:00), incremental MSA step hourly + on network edit (event-driven, async across ticks — solver runs in slices to respect tick budget).
+3. **Assignment:** Method of Successive Averages over edge costs with BPR volume-delay `t = t0·(1+α(v/c)^β)`, α=0.15, β=4 [TUNE]; full equilibrium solve daily (4:00), incremental MSA step hourly; solver runs in fixed work slices across ticks to respect the tick budget. Network edits re-derive congested costs immediately and join demand at the next hourly step — the originally-specced event-driven mid-hour re-solve was cut in Phase 3 tranche 2: it makes traffic state depend on edit timing, which breaks the Phase 1 exit criterion `build∘undo ≡ identity` on the state hash (volumes are canonical, keyed by canonical edge identity). Revisit as an ADR if responsiveness demands it.
 4. **Edge state out:** volume/capacity, speed, queue length → renderer tints, land value noise input, service response times, travel-time matrix for job matching (sampled, cached).
 5. **Live agents:** sampler draws journeys ∝ OD flows visible near camera + pinned cims; vehicles follow edge speeds with simple car-following spacing (visual), pedestrians walk paths. Agents carry `cohortRef` so inspection reconstructs a stable persona (seeded by building + slot — same person while observed; GDD §17.5).
 6. **Transit:** lines as ordered stop lists; vehicle agents loop with capacity; boarding from stop queues fed by mode choice; per-line ledger (riders, cost, fare) daily.
@@ -178,7 +178,9 @@ Sections (each: id u16 | compressedLen u32 | rawLen u32 | bytes):
 
 Section ids are append-only: 1–10 in the order listed above, **11 = WORLDCORE**
 (Phase 0: speed, selection, map dims, funds, population, RNG stream states —
-the whole pre-systems world). System sections take over fields from WORLDCORE
+the whole pre-systems world), **12 = TRAFFIC** (Phase 3: persistent MSA
+volumes + sliced-solver job state in canonical edge order; formatVersion 5).
+System sections take over fields from WORLDCORE
 as their systems land; each takeover is a formatVersion bump with a migration.
 Checksums cover the RAW (uncompressed) section payload, so a verified load
 proves storage, transport, and decompression end-to-end.
