@@ -11,11 +11,14 @@
 import type { CivSave, RngStreamState } from "@civitect/protocol";
 import { SAVE_FORMAT_VERSION } from "@civitect/protocol";
 import {
+  addEdge,
+  addNode,
   canonicalGraph,
   createRoadGraph,
   Pcg32,
   type Pcg32State,
   RNG_STREAM_NAMES,
+  type RoadClass,
   type World,
 } from "@civitect/sim";
 import { BOOT } from "./boot-config";
@@ -28,11 +31,6 @@ import { BOOT } from "./boot-config";
 export const SIM_VERSION = 1;
 
 export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): CivSave {
-  if (canonicalGraph(world.roads).edges.length > 0) {
-    // Roads have no save section yet (format v3, phase-1 follow-on) —
-    // refusing beats silently dropping the network (TDD §10 integrity).
-    throw new Error("this build cannot save worlds with roads yet (save format v3 pending)");
-  }
   const rngStreams: RngStreamState[] = RNG_STREAM_NAMES.map((name) => ({
     name,
     ...world.rng[name].state(),
@@ -47,6 +45,13 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
       flags: 0,
     },
     terrain: world.terrain,
+    roads: canonicalGraph(world.roads).edges.map((e) => ({
+      ax: e.ax,
+      ay: e.ay,
+      bx: e.bx,
+      by: e.by,
+      roadClass: e.roadClass,
+    })),
     worldCore: {
       speed: world.speed,
       selectedTileIdx: world.selectedTileIdx,
@@ -58,6 +63,14 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
     },
     commandTail,
   };
+}
+
+function rebuildRoads(segments: CivSave["roads"]): World["roads"] {
+  const g = createRoadGraph();
+  for (const seg of segments) {
+    addEdge(g, addNode(g, seg.ax, seg.ay), addNode(g, seg.bx, seg.by), seg.roadClass as RoadClass);
+  }
+  return g;
 }
 
 /**
@@ -103,9 +116,9 @@ export function civToWorld(save: CivSave): World {
     fundsCents: core.fundsCents,
     population: core.population,
     terrain: save.terrain,
-    // No ROADS section in v2 saves (worldToCiv guards it), and undo/redo
-    // stacks are session-local — loading starts both fresh.
-    roads: createRoadGraph(),
+    // Canonical segments rebuild deterministically (sorted order); undo/redo
+    // stacks are session-local — loading starts them fresh.
+    roads: rebuildRoads(save.roads),
     undoStack: [],
     redoStack: [],
     rng,

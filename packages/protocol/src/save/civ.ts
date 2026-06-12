@@ -16,6 +16,7 @@ import { ByteReader } from "../bytes/reader";
 import { ByteWriter } from "../bytes/writer";
 import { type Command, decodeCommandBody, encodeCommandBody } from "../commands";
 import { DecodeError, EncodeError } from "../errors";
+import type { RoadSegment } from "../snapshot";
 import {
   type ContainerHeader,
   decodeContainer,
@@ -24,6 +25,7 @@ import {
   SAVE_MAGIC,
 } from "./container";
 import { migrateSectionsV1toV2 } from "./migrations/v1_v2";
+import { migrateSectionsV2toV3 } from "./migrations/v2_v3";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -72,6 +74,8 @@ export interface CivSave {
    */
   readonly header: SaveHeader;
   readonly terrain: TerrainGrid;
+  /** Canonical road segments (endpoint-normalized, sorted — sim's form). */
+  readonly roads: readonly RoadSegment[];
   readonly worldCore: WorldCore;
   /** Commands since the snapshot, in applied (tick, seq) order. */
   readonly commandTail: readonly Command[];
@@ -115,6 +119,26 @@ function decodeWorldCore(bytes: Uint8Array): WorldCore {
   return { speed, selectedTileIdx, mapWidth, mapHeight, fundsCents, population, rngStreams };
 }
 
+function encodeRoads(roads: readonly RoadSegment[]): Uint8Array {
+  const w = new ByteWriter();
+  w.u32(roads.length);
+  for (const seg of roads) {
+    w.u16(seg.ax).u16(seg.ay).u16(seg.bx).u16(seg.by).u8(seg.roadClass);
+  }
+  return w.finish();
+}
+
+function decodeRoads(bytes: Uint8Array): RoadSegment[] {
+  const r = new ByteReader(bytes);
+  const count = r.u32();
+  const roads: RoadSegment[] = [];
+  for (let i = 0; i < count; i++) {
+    roads.push({ ax: r.u16(), ay: r.u16(), bx: r.u16(), by: r.u16(), roadClass: r.u8() });
+  }
+  r.expectEnd();
+  return roads;
+}
+
 function encodeCommandTail(commands: readonly Command[]): Uint8Array {
   const w = new ByteWriter();
   w.u32(commands.length);
@@ -150,6 +174,7 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
   // This build always writes the current format, whatever the save's provenance.
   return encodeContainer({ ...save.header, formatVersion: SAVE_FORMAT_VERSION }, [
     { id: SectionId.terrain, raw: terrainWriter.finish() },
+    { id: SectionId.roads, raw: encodeRoads(save.roads) },
     { id: SectionId.worldCore, raw: encodeWorldCore(save.worldCore) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
@@ -159,19 +184,28 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   const { header, sections: rawSections } = await decodeContainer(bytes);
   // Migration ladder (ADR-010): each step lifts one version; old fixtures
   // walk the whole ladder forever.
-  const sections =
-    header.formatVersion === 1
-      ? migrateSectionsV1toV2(rawSections, {
-          terrain: SectionId.terrain,
-          worldCore: SectionId.worldCore,
-        })
-      : rawSections;
+  let sections = rawSections;
+  if (header.formatVersion <= 1) {
+    sections = migrateSectionsV1toV2(sections, {
+      terrain: SectionId.terrain,
+      worldCore: SectionId.worldCore,
+    });
+  }
+  if (header.formatVersion <= 2) {
+    sections = migrateSectionsV2toV3(sections, { roads: SectionId.roads });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
+  const roadsRaw = sections.get(SectionId.roads);
   const worldCoreRaw = sections.get(SectionId.worldCore);
   const commandTailRaw = sections.get(SectionId.commandTail);
-  if (terrainRaw === undefined || worldCoreRaw === undefined || commandTailRaw === undefined) {
-    throw new DecodeError("save must carry TERRAIN, WORLDCORE, and COMMANDTAIL sections");
+  if (
+    terrainRaw === undefined ||
+    roadsRaw === undefined ||
+    worldCoreRaw === undefined ||
+    commandTailRaw === undefined
+  ) {
+    throw new DecodeError("save must carry TERRAIN, ROADS, WORLDCORE, and COMMANDTAIL sections");
   }
   const terrainReader = new ByteReader(terrainRaw);
   const terrain = decodeTerrainSection(terrainReader);
@@ -186,6 +220,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   return {
     header,
     terrain,
+    roads: decodeRoads(roadsRaw),
     worldCore,
     commandTail: decodeCommandTail(commandTailRaw),
   };
