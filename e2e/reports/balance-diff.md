@@ -6,19 +6,23 @@ tick/population/fundsCents; richer scalars join this table as systems land
 
 | golden | field | old | new |
 |---|---|---|---|
-| bridges-city-01 | hash | (new) | 21aa018611c93d3c |
-| bridges-city-01 | tick | (new) | 43800 |
-| bridges-city-01 | population | (new) | 0 |
-| bridges-city-01 | fundsCents | (new) | 0 |
-| empty-city-01 | hash | 9a92215ff0f2770f | 9a92215ff0f2770f |
+| bridges-city-01 | hash | f42fabb4d16cc0c6 | f42fabb4d16cc0c6 |
+| bridges-city-01 | tick | 43800 | 43800 |
+| bridges-city-01 | population | 0 | 0 |
+| bridges-city-01 | fundsCents | 0 | 0 |
+| empty-city-01 | hash | 9d2be848dc6be966 | 9d2be848dc6be966 |
 | empty-city-01 | tick | 525600 | 525600 |
 | empty-city-01 | population | 0 | 0 |
 | empty-city-01 | fundsCents | 0 | 0 |
-| road-grid-500-01 | hash | a010ce1d200aaa08 | a010ce1d200aaa08 |
+| growth-city-01 | hash | (new) | f642f43f8531827f |
+| growth-city-01 | tick | (new) | 131400 |
+| growth-city-01 | population | (new) | 649 |
+| growth-city-01 | fundsCents | (new) | 0 |
+| road-grid-500-01 | hash | 355c1ba9df138de9 | 355c1ba9df138de9 |
 | road-grid-500-01 | tick | 43800 | 43800 |
 | road-grid-500-01 | population | 0 | 0 |
 | road-grid-500-01 | fundsCents | 0 | 0 |
-| roads-city-01 | hash | 45a5415b2bd2fe43 | 45a5415b2bd2fe43 |
+| roads-city-01 | hash | 18f681018df9012f | 18f681018df9012f |
 | roads-city-01 | tick | 131400 | 131400 |
 | roads-city-01 | population | 0 | 0 |
 | roads-city-01 | fundsCents | 0 | 0 |

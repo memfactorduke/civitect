@@ -53,14 +53,23 @@ function post(bytes: Uint8Array): void {
 }
 
 let lastSentRoadVersion = -1;
+let lastSentBuildingVersion = -1;
 
 function postSnapshot(kind: Snapshot["kind"]): void {
-  // Full segment list on keyframes and whenever the network changed since
-  // the last send; otherwise deltas say "unchanged" (null) — TDD §7 deltas.
+  // Full lists ride keyframes and the first snapshot after a change;
+  // otherwise deltas say "unchanged" (null) — TDD §7 delta semantics.
   const includeRoads =
     kind === SnapshotKind.keyframe || world.roads.version !== lastSentRoadVersion;
-  post(encodeMessage({ kind: MessageKind.snapshot, body: toSnapshot(world, kind, includeRoads) }));
+  const includeBuildings =
+    kind === SnapshotKind.keyframe || world.buildings.version !== lastSentBuildingVersion;
+  post(
+    encodeMessage({
+      kind: MessageKind.snapshot,
+      body: toSnapshot(world, kind, includeRoads, includeBuildings),
+    }),
+  );
   lastSentRoadVersion = world.roads.version;
+  lastSentBuildingVersion = world.buildings.version;
 }
 
 function applyBatch(batch: readonly Command[]): void {

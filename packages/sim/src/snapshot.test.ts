@@ -24,7 +24,7 @@ describe("toSnapshot", () => {
       advisorEvents: [],
       roadVersion: 0,
       roads: [], // keyframes state the no-roads truth explicitly
-      demand: { r: 0, c: 0, i: 0, o: 0, factors: [] },
+      demand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
       buildingVersion: 0,
       buildings: [],
     });

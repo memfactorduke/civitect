@@ -7,15 +7,38 @@
  * other clock in this package, and lint enforces that.
  */
 import {
+  type AdvisorEvent,
+  AdvisorSeverity,
   ByteWriter,
   type Command,
   type CommandRejection,
   CommandType,
+  type DemandBlock,
+  EntityKind,
   flatTerrain,
   RejectionReason,
   TERRAIN_LAYER_NAMES,
   type TerrainGrid,
+  ZoneKind,
 } from "@civitect/protocol";
+import {
+  BuildingStatus,
+  type Buildings,
+  COHORT_BLOCK,
+  createBuildings,
+  PLOPPABLE_KIND_OFFSET,
+  spawnBuilding,
+} from "./growth/buildings";
+import { computeDemand } from "./growth/demand";
+import {
+  aggregates,
+  emptyFlows,
+  type GrowthFlows,
+  growthSlice,
+  lifecycleSlice,
+  TICKS_PER_HOUR,
+} from "./growth/system";
+import { computeUtilities, type UtilityState } from "./growth/utilities";
 import { fnv1a64 } from "./hash";
 import { createRng, type Pcg32, RNG_STREAM_NAMES, type RngStreamName } from "./rng";
 import { pointOnSegment, segmentRelation, supercoverTiles } from "./roads/geometry";
@@ -64,6 +87,19 @@ export interface World {
   readonly terrain: TerrainGrid;
   /** Road network (TDD §5) — canonical state, hashed in canonical form. */
   readonly roads: RoadGraph;
+  /** Buildings + cohorts (TDD §4) — canonical state, hashed canonically. */
+  readonly buildings: Buildings;
+  /** Latest demand block (recomputed each tick — derived, not hashed). */
+  lastDemand: DemandBlock;
+  /** Per-tick population flows (diagnostics for conservation tests). */
+  readonly flows: GrowthFlows;
+  /** Pending advisor events, drained by toSnapshot (transient). */
+  readonly advisorQueue: AdvisorEvent[];
+  /** Derived utility state + the versions it was computed for (not hashed). */
+  utilities: UtilityState;
+  utilitiesRoadVersion: number;
+  utilitiesBuildingVersion: number;
+  advisorIdCounter: number;
   /**
    * Undo/redo stacks (LIFO inverse ops). SESSION-LOCAL by design: not
    * hashed, not saved — the exit criterion build∘undo ≡ identity on the
@@ -86,6 +122,23 @@ export interface SegRecord {
 
 /** Inverse-operation records for undo/redo (sim-side per protocol v3). */
 export type RoadOp =
+  | {
+      readonly kind: "zone";
+      readonly x0: number;
+      readonly y0: number;
+      readonly x1: number;
+      readonly y1: number;
+      /** Previous zone values, row-major over the rect (for undo). */
+      readonly prev: Uint16Array;
+      /** New zone value; 0 for dezone. */
+      readonly zone: number;
+    }
+  | {
+      readonly kind: "place";
+      readonly x: number;
+      readonly y: number;
+      readonly building: number;
+    }
   | {
       /** Generalized build: may split crossed edges and create a chain. */
       readonly kind: "build";
@@ -145,8 +198,76 @@ export function createWorld(
     roads: createRoadGraph(),
     undoStack: [],
     redoStack: [],
+    buildings: createBuildings(),
+    lastDemand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    flows: emptyFlows(),
+    advisorQueue: [],
+    utilities: {
+      componentOf: new Int32Array(0),
+      powered: new Uint8Array(0),
+      watered: new Uint8Array(0),
+    },
+    utilitiesRoadVersion: -1,
+    utilitiesBuildingVersion: -1,
+    advisorIdCounter: 0,
     rng,
   };
+}
+
+const ZONE_ROAD_DEPTH = 4; // GDD §6: zoning depth along roads
+
+function tileIsLand(world: World, tileIdx: number): boolean {
+  return (world.terrain.layers.water[tileIdx] as number) === 0;
+}
+
+/** Within zoning depth of any road tile (the component map IS the road set). */
+function tileNearRoad(world: World, tileIdx: number): boolean {
+  if (world.utilities.componentOf.length === 0) {
+    return false;
+  }
+  const x = tileIdx % world.mapWidth;
+  const y = Math.floor(tileIdx / world.mapWidth);
+  for (let dy = -ZONE_ROAD_DEPTH; dy <= ZONE_ROAD_DEPTH; dy++) {
+    for (let dx = -ZONE_ROAD_DEPTH; dx <= ZONE_ROAD_DEPTH; dx++) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= world.mapWidth || ny >= world.mapHeight) {
+        continue;
+      }
+      if ((world.utilities.componentOf[ny * world.mapWidth + nx] as number) !== -1) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function refreshUtilities(world: World): void {
+  if (
+    world.utilitiesRoadVersion === world.roads.version &&
+    world.utilitiesBuildingVersion === world.buildings.version
+  ) {
+    return;
+  }
+  world.utilities = computeUtilities(world.roads, world.buildings, world.mapWidth, world.mapHeight);
+  world.utilitiesRoadVersion = world.roads.version;
+  world.utilitiesBuildingVersion = world.buildings.version;
+}
+
+function emitAdvisor(
+  world: World,
+  severity: AdvisorEvent["severity"],
+  messageKey: string,
+  summaryKey: string,
+  links: AdvisorEvent["cause"]["links"],
+): void {
+  world.advisorQueue.push({
+    id: world.advisorIdCounter++,
+    tick: world.tick,
+    severity,
+    messageKey,
+    cause: { summaryKey, links },
+  });
 }
 
 function inBounds(world: World, x: number, y: number): boolean {
@@ -416,6 +537,30 @@ function addSeg(g: RoadGraph, seg: SegRecord): void {
 /** Invert one op (undo). Never records onto stacks itself. */
 function applyInverse(world: World, op: RoadOp): void {
   switch (op.kind) {
+    case "zone": {
+      const w = op.x1 - op.x0 + 1;
+      for (let y = op.y0; y <= op.y1; y++) {
+        for (let x = op.x0; x <= op.x1; x++) {
+          world.terrain.layers.zone[y * world.mapWidth + x] = op.prev[
+            (y - op.y0) * w + (x - op.x0)
+          ] as number;
+        }
+      }
+      return;
+    }
+    case "place": {
+      const tileIdx = op.y * world.mapWidth + op.x;
+      const idx = world.buildings.byTile.get(tileIdx);
+      if (idx !== undefined) {
+        // demolish via the table (free-list) — LIFO guarantees it exists
+        world.buildings.alive[idx] = 0;
+        world.buildings.byTile.delete(tileIdx);
+        world.buildings.nextFree[idx] = world.buildings.freeHead;
+        world.buildings.freeHead = idx;
+        world.buildings.version++;
+      }
+      return;
+    }
     case "build": {
       // LIFO discipline guarantees every created edge still exists and
       // every created node ends isolated once they're gone.
@@ -451,6 +596,26 @@ function applyInverse(world: World, op: RoadOp): void {
 /** Re-apply one op (redo). */
 function applyForward(world: World, op: RoadOp): void {
   switch (op.kind) {
+    case "zone": {
+      for (let y = op.y0; y <= op.y1; y++) {
+        for (let x = op.x0; x <= op.x1; x++) {
+          const tileIdx = y * world.mapWidth + x;
+          if (op.zone === 0) {
+            world.terrain.layers.zone[tileIdx] = 0;
+          } else if (tileIsLand(world, tileIdx) && !world.buildings.byTile.has(tileIdx)) {
+            world.terrain.layers.zone[tileIdx] = op.zone;
+          }
+        }
+      }
+      return;
+    }
+    case "place": {
+      const tileIdx = op.y * world.mapWidth + op.x;
+      if (!world.buildings.byTile.has(tileIdx)) {
+        spawnBuilding(world.buildings, tileIdx, PLOPPABLE_KIND_OFFSET + op.building);
+      }
+      return;
+    }
     case "build": {
       for (const seg of op.removedEdges) {
         removeSeg(world.roads, seg);
@@ -567,10 +732,69 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.undoStack.push(op);
       return null;
     }
-    default:
-      // v6 zoning/building commands reject loudly until the Phase 2 sim
-      // systems PR lands them (same staging as the road commands used).
-      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
+    case CommandType.zoneRect:
+    case CommandType.dezoneRect: {
+      const zone = cmd.type === CommandType.zoneRect ? cmd.zone : ZoneKind.none;
+      const x0 = Math.min(cmd.x0, cmd.x1);
+      const y0 = Math.min(cmd.y0, cmd.y1);
+      const x1 = Math.max(cmd.x0, cmd.x1);
+      const y1 = Math.max(cmd.y0, cmd.y1);
+      if (!inBounds(world, x0, y0) || !inBounds(world, x1, y1)) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.outOfBounds };
+      }
+      refreshUtilities(world); // road set must be current for depth checks
+      const w = x1 - x0 + 1;
+      const h = y1 - y0 + 1;
+      const prev = new Uint16Array(w * h);
+      let changed = 0;
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const tileIdx = y * world.mapWidth + x;
+          prev[(y - y0) * w + (x - x0)] = world.terrain.layers.zone[tileIdx] as number;
+          // Paint only legal tiles: land, within road depth (GDD §6) — for
+          // dezone, clear unconditionally. Occupied tiles keep their zone.
+          if (zone === ZoneKind.none) {
+            if ((world.terrain.layers.zone[tileIdx] as number) !== ZoneKind.none) {
+              world.terrain.layers.zone[tileIdx] = ZoneKind.none;
+              changed++;
+            }
+          } else if (
+            tileIsLand(world, tileIdx) &&
+            tileNearRoad(world, tileIdx) &&
+            !world.buildings.byTile.has(tileIdx)
+          ) {
+            if ((world.terrain.layers.zone[tileIdx] as number) !== zone) {
+              world.terrain.layers.zone[tileIdx] = zone;
+              changed++;
+            }
+          }
+        }
+      }
+      if (changed === 0) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      world.undoStack.push({ kind: "zone", x0, y0, x1, y1, prev, zone });
+      world.redoStack.length = 0;
+      return null;
+    }
+    case CommandType.placeBuilding: {
+      if (!inBounds(world, cmd.x, cmd.y)) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.outOfBounds };
+      }
+      const tileIdx = cmd.y * world.mapWidth + cmd.x;
+      refreshUtilities(world);
+      if (
+        !tileIsLand(world, tileIdx) ||
+        !tileNearRoad(world, tileIdx) ||
+        world.buildings.byTile.has(tileIdx)
+      ) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      spawnBuilding(world.buildings, tileIdx, PLOPPABLE_KIND_OFFSET + cmd.building);
+      world.undoStack.push({ kind: "place", x: cmd.x, y: cmd.y, building: cmd.building });
+      world.redoStack.length = 0;
+      return null;
+    }
   }
 }
 
@@ -602,15 +826,50 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
       rejections.push(rejection);
     }
   }
-  // networks(power, water)            — TODO(ROADMAP Phase 2)
-  // buildings(growth/decay, 1/60th)   — TODO(ROADMAP Phase 2), rng.growth
-  // cohorts(lifecycle hourly slice)   — TODO(ROADMAP Phase 2)
+  // networks(power, water) — recompute on road/building change (Phase 2).
+  refreshUtilities(world);
+  const growthCtx = {
+    buildings: world.buildings,
+    utilities: world.utilities,
+    zoneAt: (tileIdx: number) => world.terrain.layers.zone[tileIdx] as number,
+    landAt: (tileIdx: number) => tileIsLand(world, tileIdx),
+    nearRoad: (tileIdx: number) => tileNearRoad(world, tileIdx),
+    mapTiles: world.mapWidth * world.mapHeight,
+    rng: world.rng.growth,
+    flows: world.flows,
+  };
+  // buildings(growth/decay, staggered 1/60th per tick) — rng.growth.
+  growthSlice(growthCtx, world.tick);
+  // Utilities must see THIS tick's spawns before lifecycle judges them —
+  // a stale served-array abandons newborn buildings (found by the growth
+  // test: population flatlined at 3).
+  refreshUtilities(world);
+  const lifecycleCtx = { ...growthCtx, utilities: world.utilities };
+  // cohorts(lifecycle hourly slice).
+  if (world.tick % TICKS_PER_HOUR === 0) {
+    const hourOfDay = Math.floor(world.tick / TICKS_PER_HOUR) % 24;
+    const abandonedBefore = countAbandoned(world.buildings);
+    lifecycleSlice(lifecycleCtx, hourOfDay, world.tick);
+    const abandonedAfter = countAbandoned(world.buildings);
+    if (abandonedAfter > abandonedBefore) {
+      // events/advisors — every warning carries its CauseChain (ADR-009).
+      emitAdvisor(world, AdvisorSeverity.warning, "advisor.abandonment", "cause.utilityFailure", [
+        {
+          subject: { kind: EntityKind.system, id: 0 },
+          labelKey: "cause.noUtilities",
+          weightPermille: 1000,
+        },
+      ]);
+    }
+  }
   // economy(accrual, monthly close)   — TODO(ROADMAP Phase 5)
   // trafficIncremental                — TODO(ROADMAP Phase 3), rng.traffic
   // agents(move, spawn/recycle)       — TODO(ROADMAP Phase 3), rng.agents
   // services(queues)                  — TODO(ROADMAP Phase 4), rng.services
-  // pollution/landValue(dirty regions)— TODO(ROADMAP Phase 2)
-  // events/advisors                   — TODO(ROADMAP Phase 2+), rng.events
+  // pollution/landValue(dirty regions)— land value v1 derives on demand
+  world.lastDemand = computeDemand(aggregates(world.buildings));
+  const agg = aggregates(world.buildings);
+  world.population = agg.residents;
 
   world.tick += 1;
   return rejections;
@@ -640,6 +899,26 @@ export function controlAt(world: World, node: number): IntersectionControl {
     }
   }
   return IntersectionControl.stop;
+}
+
+/** True when any building (grown or ploppable) is alive — save guard. */
+export function worldHasBuildings(world: World): boolean {
+  for (let i = 0; i < world.buildings.count; i++) {
+    if (world.buildings.alive[i] === 1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function countAbandoned(b: Buildings): number {
+  let n = 0;
+  for (let i = 0; i < b.count; i++) {
+    if (b.alive[i] === 1 && (b.status[i] as number) === BuildingStatus.abandoned) {
+      n++;
+    }
+  }
+  return n;
 }
 
 /**
@@ -678,6 +957,30 @@ export function stateHash(world: World): string {
   w.u32(roads.edges.length);
   for (const edge of roads.edges) {
     w.u16(edge.ax).u16(edge.ay).u16(edge.bx).u16(edge.by).u8(edge.roadClass).u8(edge.lanes);
+  }
+  // Buildings joined with Phase 2 — canonical: sorted by tile, full row +
+  // cohort block (the demography IS canonical state, GDD §8).
+  const order: number[] = [];
+  for (let i = 0; i < world.buildings.count; i++) {
+    if (world.buildings.alive[i] === 1) {
+      order.push(i);
+    }
+  }
+  order.sort(
+    (p, q) => (world.buildings.tileIdx[p] as number) - (world.buildings.tileIdx[q] as number),
+  );
+  w.u32(order.length);
+  for (const i of order) {
+    w.u32(world.buildings.tileIdx[i] as number)
+      .u16(world.buildings.kind[i] as number)
+      .u8(world.buildings.level[i] as number)
+      .u8(world.buildings.status[i] as number)
+      .u8(world.buildings.failDays[i] as number)
+      .u8(world.buildings.thriveDays[i] as number);
+    const base = i * COHORT_BLOCK;
+    for (let c = 0; c < COHORT_BLOCK; c++) {
+      w.u16(world.buildings.cohorts[base + c] as number);
+    }
   }
   return fnv1a64(w.finish());
 }

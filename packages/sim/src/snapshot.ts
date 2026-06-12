@@ -3,7 +3,12 @@
  * Pure projection: the sim decides WHAT is visible, never how it looks
  * (TDD §1: "sim never formats for display").
  */
-import { type RoadSegment, type Snapshot, SnapshotKind } from "@civitect/protocol";
+import {
+  type BuildingView,
+  type RoadSegment,
+  type Snapshot,
+  SnapshotKind,
+} from "@civitect/protocol";
 import { canonicalGraph } from "./roads/graph";
 import type { World } from "./world";
 
@@ -18,10 +23,29 @@ function roadSegments(world: World): RoadSegment[] {
   }));
 }
 
+function buildingViews(world: World): BuildingView[] {
+  const b = world.buildings;
+  const order: number[] = [];
+  for (let i = 0; i < b.count; i++) {
+    if (b.alive[i] === 1) {
+      order.push(i);
+    }
+  }
+  order.sort((p, q) => (b.tileIdx[p] as number) - (b.tileIdx[q] as number));
+  return order.map((i) => ({
+    x: (b.tileIdx[i] as number) % world.mapWidth,
+    y: Math.floor((b.tileIdx[i] as number) / world.mapWidth),
+    kind: b.kind[i] as number,
+    level: b.level[i] as number,
+    status: b.status[i] as number,
+  }));
+}
+
 export function toSnapshot(
   world: World,
   kind: SnapshotKind = SnapshotKind.delta,
   includeRoads = kind === SnapshotKind.keyframe,
+  includeBuildings = kind === SnapshotKind.keyframe,
 ): Snapshot {
   return {
     kind,
@@ -36,13 +60,11 @@ export function toSnapshot(
           },
     dirtyChunkIds: new Uint32Array(0), // chunk re-bake hints arrive with Phase 1 terrain
     hud: { population: world.population, fundsCents: world.fundsCents },
-    advisorEvents: [], // first emitters arrive with Phase 2 (cause chains required, ADR-009)
+    advisorEvents: world.advisorQueue.splice(0), // drained per snapshot (ADR-009 chains attached)
     roadVersion: world.roads.version,
     roads: includeRoads ? roadSegments(world) : null,
-    // Real demand/buildings land with the Phase 2 sim systems PR; the
-    // explicit empty truth rides until then (same pattern roads used).
-    demand: { r: 0, c: 0, i: 0, o: 0, factors: [] },
-    buildingVersion: 0,
-    buildings: kind === SnapshotKind.keyframe ? [] : null,
+    demand: world.lastDemand,
+    buildingVersion: world.buildings.version,
+    buildings: includeBuildings ? buildingViews(world) : null,
   };
 }

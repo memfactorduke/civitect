@@ -1,0 +1,106 @@
+{
+  "name": "growth-city-01",
+  "seed": 20262,
+  "mapWidth": 64,
+  "mapHeight": 64,
+  "untilTick": 131400,
+  "terrainRects": [],
+  "commands": [
+    {
+      "seq": 0,
+      "tick": 5,
+      "type": "buildRoad",
+      "ax": 8,
+      "ay": 24,
+      "bx": 56,
+      "by": 24,
+      "roadClass": 2
+    },
+    {
+      "seq": 1,
+      "tick": 6,
+      "type": "buildRoad",
+      "ax": 20,
+      "ay": 12,
+      "bx": 20,
+      "by": 36,
+      "roadClass": 1
+    },
+    {
+      "seq": 2,
+      "tick": 7,
+      "type": "buildRoad",
+      "ax": 40,
+      "ay": 12,
+      "bx": 40,
+      "by": 36,
+      "roadClass": 1
+    },
+    {
+      "seq": 3,
+      "tick": 10,
+      "type": "placeBuilding",
+      "x": 10,
+      "y": 25,
+      "building": 1
+    },
+    {
+      "seq": 4,
+      "tick": 11,
+      "type": "placeBuilding",
+      "x": 12,
+      "y": 25,
+      "building": 2
+    },
+    {
+      "seq": 5,
+      "tick": 20,
+      "type": "zoneRect",
+      "x0": 10,
+      "y0": 20,
+      "x1": 38,
+      "y1": 23,
+      "zone": 1
+    },
+    {
+      "seq": 6,
+      "tick": 21,
+      "type": "zoneRect",
+      "x0": 42,
+      "y0": 20,
+      "x1": 54,
+      "y1": 23,
+      "zone": 2
+    },
+    {
+      "seq": 7,
+      "tick": 22,
+      "type": "zoneRect",
+      "x0": 10,
+      "y0": 25,
+      "x1": 30,
+      "y1": 27,
+      "zone": 3
+    },
+    {
+      "seq": 8,
+      "tick": 23,
+      "type": "zoneRect",
+      "x0": 32,
+      "y0": 25,
+      "x1": 44,
+      "y1": 27,
+      "zone": 5
+    },
+    {
+      "seq": 9,
+      "tick": 24,
+      "type": "zoneRect",
+      "x0": 46,
+      "y0": 25,
+      "x1": 54,
+      "y1": 27,
+      "zone": 6
+    }
+  ]
+}

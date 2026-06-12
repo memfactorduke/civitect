@@ -14,12 +14,14 @@ import {
   addEdge,
   addNode,
   canonicalGraph,
+  createBuildings,
   createRoadGraph,
   Pcg32,
   type Pcg32State,
   RNG_STREAM_NAMES,
   type RoadClass,
   type World,
+  worldHasBuildings,
 } from "@civitect/sim";
 import { BOOT } from "./boot-config";
 
@@ -31,6 +33,9 @@ import { BOOT } from "./boot-config";
 export const SIM_VERSION = 1;
 
 export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): CivSave {
+  if (worldHasBuildings(world)) {
+    throw new Error("this build cannot save worlds with buildings yet (save format v4 pending)");
+  }
   const rngStreams: RngStreamState[] = RNG_STREAM_NAMES.map((name) => ({
     name,
     ...world.rng[name].state(),
@@ -121,6 +126,20 @@ export function civToWorld(save: CivSave): World {
     roads: rebuildRoads(save.roads),
     undoStack: [],
     redoStack: [],
+    // Phase 2 state: buildings persist with save format v4 (follow-up PR,
+    // 12f recipe); until then worldToCiv refuses worlds with buildings.
+    buildings: createBuildings(),
+    lastDemand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    flows: { births: 0, deaths: 0, immigrants: 0, emigrants: 0 },
+    advisorQueue: [],
+    utilities: {
+      componentOf: new Int32Array(0),
+      powered: new Uint8Array(0),
+      watered: new Uint8Array(0),
+    },
+    utilitiesRoadVersion: -1,
+    utilitiesBuildingVersion: -1,
+    advisorIdCounter: 0,
     rng,
   };
 }
