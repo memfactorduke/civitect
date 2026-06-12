@@ -18,6 +18,22 @@ export {
   RngStream,
   type RngStreamName,
 } from "./rng";
+export {
+  addEdge,
+  addNode,
+  type CanonicalEdge,
+  type CanonicalGraph,
+  canonicalGraph,
+  createRoadGraph,
+  edgesOf,
+  nodeAt,
+  otherEnd,
+  ROAD_CLASS_SPEC,
+  RoadClass,
+  type RoadGraph,
+  removeEdge,
+  removeNode,
+} from "./roads/graph";
 export { toSnapshot } from "./snapshot";
 export {
   createWorld,
