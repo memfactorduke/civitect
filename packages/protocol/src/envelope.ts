@@ -27,6 +27,20 @@ import {
   type InspectorRequest,
   type InspectorResponse,
 } from "./inspector";
+import {
+  decodeLoadRequestBody,
+  decodeLoadResponseBody,
+  decodeSaveRequestBody,
+  decodeSaveResponseBody,
+  encodeLoadRequestBody,
+  encodeLoadResponseBody,
+  encodeSaveRequestBody,
+  encodeSaveResponseBody,
+  type LoadRequest,
+  type LoadResponse,
+  type SaveRequest,
+  type SaveResponse,
+} from "./save/messages";
 import { decodeSnapshotBody, encodeSnapshotBody, type Snapshot } from "./snapshot";
 import { PROTOCOL_VERSION } from "./version";
 
@@ -36,6 +50,10 @@ export const MessageKind = {
   snapshot: 3,
   inspectorRequest: 4,
   inspectorResponse: 5,
+  saveRequest: 6,
+  saveResponse: 7,
+  loadRequest: 8,
+  loadResponse: 9,
 } as const;
 export type MessageKind = (typeof MessageKind)[keyof typeof MessageKind];
 
@@ -44,7 +62,11 @@ export type Message =
   | { readonly kind: typeof MessageKind.commandRejection; readonly body: CommandRejection }
   | { readonly kind: typeof MessageKind.snapshot; readonly body: Snapshot }
   | { readonly kind: typeof MessageKind.inspectorRequest; readonly body: InspectorRequest }
-  | { readonly kind: typeof MessageKind.inspectorResponse; readonly body: InspectorResponse };
+  | { readonly kind: typeof MessageKind.inspectorResponse; readonly body: InspectorResponse }
+  | { readonly kind: typeof MessageKind.saveRequest; readonly body: SaveRequest }
+  | { readonly kind: typeof MessageKind.saveResponse; readonly body: SaveResponse }
+  | { readonly kind: typeof MessageKind.loadRequest; readonly body: LoadRequest }
+  | { readonly kind: typeof MessageKind.loadResponse; readonly body: LoadResponse };
 
 export function encodeMessage(message: Message): Uint8Array {
   const w = new ByteWriter();
@@ -67,6 +89,18 @@ export function encodeMessage(message: Message): Uint8Array {
       break;
     case MessageKind.inspectorResponse:
       encodeInspectorResponseBody(w, message.body);
+      break;
+    case MessageKind.saveRequest:
+      encodeSaveRequestBody(w, message.body);
+      break;
+    case MessageKind.saveResponse:
+      encodeSaveResponseBody(w, message.body);
+      break;
+    case MessageKind.loadRequest:
+      encodeLoadRequestBody(w, message.body);
+      break;
+    case MessageKind.loadResponse:
+      encodeLoadResponseBody(w, message.body);
       break;
   }
   w.patchU32(lengthAt, w.length - bodyStart);
@@ -100,6 +134,18 @@ export function decodeMessage(bytes: Uint8Array): Message {
       break;
     case MessageKind.inspectorResponse:
       message = { kind, body: decodeInspectorResponseBody(r) };
+      break;
+    case MessageKind.saveRequest:
+      message = { kind, body: decodeSaveRequestBody(r) };
+      break;
+    case MessageKind.saveResponse:
+      message = { kind, body: decodeSaveResponseBody(r) };
+      break;
+    case MessageKind.loadRequest:
+      message = { kind, body: decodeLoadRequestBody(r) };
+      break;
+    case MessageKind.loadResponse:
+      message = { kind, body: decodeLoadResponseBody(r) };
       break;
     default:
       throw new DecodeError(`unknown MessageKind ${kind}`);
