@@ -71,14 +71,20 @@ function buildMetro() {
 }
 
 describe("metro perf (exit criterion 3: 250k pop + 10k agents)", () => {
-  it("tick p95 within budget over a full game-day", () => {
+  it("tick p95 within budget over a full game-day", async () => {
     const { world, pop } = buildMetro();
     expect(pop).toBeGreaterThanOrEqual(250_000);
 
     // Warm up through construction settling (utilities, first solves),
     // then run morning hours so peaks + the 04:00 full solve are in frame.
+    // Yield the event loop periodically — a long synchronous loop starves
+    // vitest's worker RPC on slow runners (the balance gate's lesson);
+    // yields sit BETWEEN ticks, outside every per-tick measurement.
     for (let t = 0; t < 240; t++) {
       runTick(world, []);
+      if (t % 120 === 0) {
+        await new Promise(setImmediate);
+      }
     }
     expect(world.population).toBeGreaterThanOrEqual(250_000);
 
@@ -87,6 +93,9 @@ describe("metro perf (exit criterion 3: 250k pop + 10k agents)", () => {
       const start = performance.now();
       runTick(world, []);
       durations[t] = performance.now() - start;
+      if (t % 120 === 0) {
+        await new Promise(setImmediate);
+      }
     }
     expect(world.agents.liveCount).toBeGreaterThanOrEqual(10_000 * 0.95); // pool saturated
     expect(world.population).toBeGreaterThanOrEqual(250_000); // held through the run
