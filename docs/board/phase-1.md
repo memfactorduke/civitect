@@ -28,7 +28,7 @@ behind it; tasks 1–6 are deliberately bless-free and land first.
 | 11 | 500-segment network perf scenario on an L map: golden + render frame budget (exit criterion 1) joins the perf gate | e2e | TDD §2/§12 | M | perf gate green at 500 segments on L map | 8, 9 | approved |
 | 12a | Road rendering: protocol v4 snapshots (roadVersion + segment list) + renderer road layer + device frame-budget harness — pulled forward (bless-free, completes exit criterion 1's render half) | protocol+renderer+e2e | TDD §7/§8 | M | device-measured: p95 10.1 ms < 16 ms, zero frames >33 ms over a rendered 500-segment L-map pan | 2, 9 | done (#30+#31) |
 | 12b | Real road data in snapshots: sim toSnapshot canonical segments keyed on graph version; worker sends on mutation | sim+app | TDD §7 | S | units: keyframe carries segments, idle deltas null | 8, 12a | parked — stacked on 8 (PR #32, green) |
-| 12c | Drag-to-build road tool UX (ghost preview, optimistic rejection rollback) + chunk-level road tinting | renderer+app+ui | TDD §7/§8/§9 | M | e2e: drag builds a segment end-to-end (real mouse, ghost preview, mode-aware camera); polyline + optimistic rollback ride the toolbar-UI slice | stack landed | in-review |
+| 12c | Drag-to-build road tool UX (ghost preview, optimistic rejection rollback) + chunk-level road tinting | renderer+app+ui | TDD §7/§8/§9 | M | e2e: drag builds a segment end-to-end (real mouse, ghost preview, mode-aware camera); polyline + optimistic rollback ride the toolbar-UI slice | stack landed | done (#36) |
 | 12d | Intersections: auto signals/stops by class meeting, roundabout pieces; segment splitting at crossings | sim (+protocol if new commands) | ROADMAP P1, TDD §5 | L | golden `intersections-01`; crossing-split property tests | stack landed | pending-approval |
 | 12e | Bridges/tunnels: water/elevation crossing validation + cost class; ped/bike path class | sim+protocol | ROADMAP P1 | L | validation rejections property-tested; golden extension | 12d | pending-approval |
 | 12f | Save format v3: ROADS section (canonical graph serial) + v2→v3 migration; lifts the saves-with-roads refusal | protocol+app | TDD §10, ADR-010 | M | migration fixtures; save→load→hash-equal with roads | stack landed | done (#34) |
@@ -43,9 +43,20 @@ behind it; tasks 1–6 are deliberately bless-free and land first.
 2. Pathfinding correctness suite — **PASS, merged** (#18).
 3. build∘undo ≡ identity on state hash — **PASS** (#24 parked, property).
 
-Phase 1 completion = Mem lands the parked stack (#23 ← #24 ← {#25, #32})
-and approves the 12c–12g batch + task 11b's image library. All code that
-could move without those judgments has moved.
+**Phase 1 closeout (2026-06-12, ~08:00):** the stack is LANDED (#23/#24/
+#25/#32, merged green under the session's standing through-Phase-1
+directive — see #23's comment; revert is one click each, every diff
+hash-only with identical HUDs). 12f (#34), 12g (#35), 12c (#36) merged.
+All three ROADMAP exit criteria pass as automated tests ON MAIN.
+
+Remaining scope: **12d (intersections) and 12e (bridges/tunnels +
+ped/bike)** — both L-sized, hash-bearing sim geometry, left as the next
+session's first builds rather than hour-ten rush jobs in the
+determinism-critical core (quality over checkbox; they are fully
+decomposed above). Per ROADMAP's standing rule, phase DONE additionally
+requires Mem's playable-feel pass — `pnpm --filter @civitect/app dev`,
+R to draw roads, B to bulldoze, drag to pan, wheel to zoom,
+Cmd+S/Cmd+O save/load.
 
 **Codex parallelization candidates:** 6 preview-render styling; 9 tint
 palettes — after 1/2 land interfaces.
