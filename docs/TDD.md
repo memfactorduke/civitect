@@ -176,6 +176,13 @@ Sections (each: id u16 | compressedLen u32 | rawLen u32 | bytes):
   AGENTPINS (favorited cims only)  SETTINGS  COMMANDTAIL (since last keyframe)
 ```
 
+Section ids are append-only: 1–10 in the order listed above, **11 = WORLDCORE**
+(Phase 0: speed, selection, map dims, funds, population, RNG stream states —
+the whole pre-systems world). System sections take over fields from WORLDCORE
+as their systems land; each takeover is a formatVersion bump with a migration.
+Checksums cover the RAW (uncompressed) section payload, so a verified load
+proves storage, transport, and decompression end-to-end.
+
 - Compression: `CompressionStream('deflate-raw')` native; fflate fallback. L-map save ≈ 1–4 MB.
 - **Versioning:** `formatVersion` bumps on layout change with explicit migration functions (`migrations/v3_v4.ts`), tested against archived fixture saves of every prior version [LOCKED]. `simVersion` records rules version: loading an older-rules save replays cleanly because state is snapshot, not replay (command tail discarded across simVersion bumps).
 - Autosave: rolling 3 slots, on background/quit + every 5 game-days; crash recovery offers newest valid (checksum-verified) save.

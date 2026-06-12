@@ -12,6 +12,13 @@ export class EncodeError extends ProtocolError {}
 export class DecodeError extends ProtocolError {}
 
 /**
+ * A .civ save failed integrity verification (checksum or length mismatch,
+ * TDD §10). Distinct from DecodeError so crash recovery can tell "corrupt
+ * blob, try the previous autosave slot" from "not a save file at all".
+ */
+export class SaveIntegrityError extends ProtocolError {}
+
+/**
  * Version stamp mismatch. TDD §7: mismatch = hard error at boot — no silent
  * drift between a deployed web sim worker and a cached shell.
  */
