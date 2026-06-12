@@ -12,7 +12,14 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { type Buildings, createBuildings, spawnBuilding } from "../growth/buildings";
 import { supercoverTiles } from "../roads/geometry";
-import { addEdge, addNode, createRoadGraph, edgeBetween, RoadClass, type RoadGraph } from "../roads/graph";
+import {
+  addEdge,
+  addNode,
+  createRoadGraph,
+  edgeBetween,
+  RoadClass,
+  type RoadGraph,
+} from "../roads/graph";
 import { dijkstraField, edgeCost } from "../roads/pathfind";
 import {
   anchorNode,
