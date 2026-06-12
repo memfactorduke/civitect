@@ -15,6 +15,7 @@ import {
   clampToBounds,
   containerTransform,
   createCamera,
+  frameBlend,
   pan,
   render as renderCamera,
   screenToWorld,
@@ -94,10 +95,11 @@ export async function bootRenderer(options: RendererBootOptions): Promise<Render
     stage.root.position.set(t.x, t.y);
     stage.root.scale.set(t.scale);
   };
-  // Rendered transform approaches the target each frame — blend 1 today;
-  // the ProMotion pan mode swaps in a frame-rate-aware factor (ADR-008).
-  app.ticker.add(() => {
-    renderCamera(camera, 1);
+  // Rendered transform glides toward the target with a wall-clock-true
+  // blend: identical trajectories at 60 and 120 Hz (ADR-008 ProMotion —
+  // camera-only interpolation; the sim view stays at its own rate).
+  app.ticker.add((ticker) => {
+    renderCamera(camera, frameBlend(ticker.deltaMS));
     applyCamera();
   });
   applyCamera();

@@ -12,10 +12,12 @@ export {
   type RendererHandle,
 } from "./boot";
 export {
+  CAMERA_SMOOTHING_TAU_MS,
   type CameraState,
   clampToBounds,
   containerTransform,
   createCamera,
+  frameBlend,
   LodTier,
   lodTier,
   pan,

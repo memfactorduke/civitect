@@ -127,10 +127,24 @@ export function clampToBounds(cam: CameraState, bounds: WorldBounds): void {
 }
 
 /**
+ * Frame-rate-aware blend factor (ADR-008 ProMotion contract): equal
+ * convergence per WALL-CLOCK time at any refresh rate — a 120 Hz pan takes
+ * twice the frames but lands on the same trajectory as 60 Hz. τ [TUNE] is
+ * the smoothing time-constant; exp is fine here (renderer, not sim).
+ */
+export const CAMERA_SMOOTHING_TAU_MS = 50;
+
+export function frameBlend(deltaMs: number, tauMs = CAMERA_SMOOTHING_TAU_MS): number {
+  if (deltaMs <= 0) {
+    return 0;
+  }
+  return 1 - Math.exp(-deltaMs / tauMs);
+}
+
+/**
  * Advance the rendered transform toward the target — the 120 Hz pan-mode
  * hook (ADR-008: camera-only interpolation; sim view stays at its rate).
- * `blend` 1 = snap (today's behavior); the ProMotion mode will pass the
- * frame-rate-aware factor.
+ * `blend` 1 = snap; pass frameBlend(deltaMs) for rate-independent gliding.
  */
 export function render(cam: CameraState, blend = 1): void {
   cam.renderedX += (cam.x - cam.renderedX) * blend;

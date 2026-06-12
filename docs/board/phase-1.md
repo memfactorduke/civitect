@@ -31,8 +31,8 @@ behind it; tasks 1–6 are deliberately bless-free and land first.
 | 12c | Drag-to-build road tool UX (ghost preview, optimistic rejection rollback) + chunk-level road tinting | renderer+app+ui | TDD §7/§8/§9 | M | e2e: drag builds a polyline; ghost clears on rejection | stack landed | pending-approval |
 | 12d | Intersections: auto signals/stops by class meeting, roundabout pieces; segment splitting at crossings | sim (+protocol if new commands) | ROADMAP P1, TDD §5 | L | golden `intersections-01`; crossing-split property tests | stack landed | pending-approval |
 | 12e | Bridges/tunnels: water/elevation crossing validation + cost class; ped/bike path class | sim+protocol | ROADMAP P1 | L | validation rejections property-tested; golden extension | 12d | pending-approval |
-| 12f | Save format v3: ROADS section (canonical graph serial) + v2→v3 migration; lifts the saves-with-roads refusal | protocol+app | TDD §10, ADR-010 | M | migration fixtures; save→load→hash-equal with roads | stack landed | in-review |
-| 12g | 120 Hz pan polish: ProMotion frame-rate-aware blend into the camera's render() hook | renderer | ADR-008 | S | device check; blend math units | 12c | pending-approval |
+| 12f | Save format v3: ROADS section (canonical graph serial) + v2→v3 migration; lifts the saves-with-roads refusal | protocol+app | TDD §10, ADR-010 | M | migration fixtures; save→load→hash-equal with roads | stack landed | done (#34) |
+| 12g | 120 Hz pan polish: ProMotion frame-rate-aware blend into the camera's render() hook | renderer | ADR-008 | S | 60↔120 Hz trajectory-equivalence property; device feel check remains Mem | — | in-review |
 
 **Exit criteria → task mapping & status (2026-06-12):**
 1. 500-segment network, zero dropped frames — **sim half PASS** (#25 parked:
