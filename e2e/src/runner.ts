@@ -47,7 +47,10 @@ export function runScenario(scenario: GoldenScenario): GoldenResult {
  * agree — a timed loop that drifted from `replay` would measure fiction),
  * but timing every `runTick` for the TDD §2 tick-p95 gate.
  */
-export function runScenarioTimed(scenario: GoldenScenario, now: () => number): TimedResult {
+export async function runScenarioTimed(
+  scenario: GoldenScenario,
+  now: () => number,
+): Promise<TimedResult> {
   const log = [...scenario.commands].sort((a, b) =>
     a.tick === b.tick ? a.seq - b.seq : a.tick - b.tick,
   );
@@ -72,6 +75,12 @@ export function runScenarioTimed(scenario: GoldenScenario, now: () => number): T
     const rejections = runTick(world, batch);
     durations[tickIndex] = now() - start;
     rejectionCount += rejections.length;
+    // Yield the event loop between ticks — long synchronous replays starve
+    // vitest's worker RPC on slow runners (the balance gate's lesson).
+    // Yields never land inside a measured tick.
+    if (tickIndex % 25_000 === 0) {
+      await new Promise(setImmediate);
+    }
   }
   return {
     hash: stateHash(world),
