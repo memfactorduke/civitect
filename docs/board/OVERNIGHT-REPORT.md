@@ -212,3 +212,59 @@ lint / det-lint / wall / typecheck / unit: live (det-lint caught a real
 golden: **REAL** (#4) · perf: **REAL** (#4) · assets: **REAL** (#13) ·
 e2e smoke: added to CI (#7) · determinism cross-check: **REAL**, weekly +
 dispatchable (#12) · balance: stub (Phase 2, as planned).
+
+---
+
+# Sixth leg (continuation, 2026-06-12 daytime): PHASE 3 COMPLETE
+
+**PRs #49–#55, all merged, main green.** All four Phase 3 exit criteria
+pass; Phases 0–3 are now scope-complete (content gates aside).
+
+- **#49** de-flaked the conservation property (existential richness
+  removed from a ∀-property — CI counterexample seed 2/days 3).
+- **#50 tranche 2 — sliced MSA solver** (TDD §6.3 for real): canonical
+  volumes keyed by edge IDENTITY (never slots), routing on a canonical
+  twin graph, growth RNG walking `aliveByTile` order. Three
+  construction-order leaks found by the new mid-solve save/load identity
+  test — the third was a **latent Phase-2 save/load desync** (slot-order
+  RNG scans; single-zone cities masked it). Event-driven mid-hour
+  re-solve cut (breaks build∘undo identity) — TDD §6.3 records it.
+  Save v5 (TRAFFIC section), population made exact every tick.
+- **#51/#52/#53 tranche 3 — live agents (the XL row)**: protocol v8
+  rider contract + pins + save v6 AGENTPINS; sim pool + camera-aware
+  sampler drawing from a dedicated UNHASHED rng (the **projection-purity
+  test** proves a watched world hashes identically to an unwatched one,
+  every tick for 12 game-hours); worker `{bytes, agents}` transferable
+  rider + renderer agent layer + camera→viewport plumbing (protocol v9).
+  **Exit criterion 1 (the follow test, GDD §17.5 v1 commute bar) passes
+  e2e**: one citizen id followed across a commute — continuous motion,
+  coherent identity, journey completes.
+- **#54 tranche 4 — overlay/inspector/rush curves** (protocol v10):
+  congestion block in snapshots (content-digest versioned), road
+  inspector through the real worker boundary (tap → volume/capacity/
+  travel time), traffic overlay (T), 24-hour departure curves [TUNE].
+  Road-inspector e2e proves volume goes nonzero through a real morning
+  peak.
+- **#55 tranche 6 — metro perf, EXIT CRITERION 3**: constructed 256×256
+  city, **252k pop held + 9.9k live agents at tick p95 4.92 ms** vs the
+  10 ms device floor (M-series Mac; CI runs the 20 ms structural gate).
+  Required per-origin Dijkstra trees (per-pair A* exploded quadratically),
+  DEST_CAP=16 destination choice, fixed ORIGINS_PER_TICK=8 (XL maps
+  stretch pass duration, never tick cost).
+
+**Bless ledger (one-click revertible, balance-diff per PR):** #50 hash
+layout append + growth-city 5604→5608 (+0.07%); #52 pins append
+(layout-only); #54 growth-city only (curves); #55 road-grid-500 only
+(cursor pacing). Balance city pinned at 39,937 pop / 300‰ unemployment
+throughout; balance rung 102 s (+27% vs pre-traffic, flagged, lever
+documented).
+
+**Owed to Mem (delta):** review bless-carrying PRs #50/#52/#54/#55
+post-hoc; true mobile-floor run of `metro-perf` on the device farm
+(criterion 3 is green on desk hardware); the congestion-advisor browser
+run if you want it (needs a ~12-minute jam-building session — sim-level
+proof stands); Codex sprite curation unchanged.
+
+**What's next when you point the agent again:** ROADMAP Phase 4
+(services & coverage) — the boards pattern is proven; phase-4 board
+needs decomposing first.
