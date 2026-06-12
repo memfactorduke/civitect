@@ -20,7 +20,7 @@ runnable verification, ≤ a session). Roadmap scope + exit criteria:
 | 9a | Save/load worker messages: saveRequest/saveResponse/loadRequest/loadResponse kinds, protocol v2 (interface-first split out of task 9 — .civ blobs must wear the envelope to cross the worker boundary) | protocol | TDD §7/§10 | S | symmetric codec property + v2 wire pins | 8 | done |
 | 9 | Save manager: save/load empty world, checksum verify, version-header validation | app | TDD §10 | S | e2e save→load→state-hash-equal | 7, 8, 9a | done |
 | 10 | Sprite sidecar JSON schema (footprint/anchor/states/emissive mask) — interface first for tools | protocol | TDD §11, ADR-012 | S | schema validation units | 2 | done |
-| 11 | sprite-intake gates: dimension/anchor/footprint/state validators + 64-swatch palette linter + zero-dep PNG codec. Unstubs asset gate | tools | TDD §11, ADR-012 | M | gate rejects seeded bad fixtures (wrong size / off-palette / missing state / bad anchor / unremoved bg), accepts good | 10 | in-review |
+| 11 | sprite-intake gates: dimension/anchor/footprint/state validators + 64-swatch palette linter + zero-dep PNG codec. Unstubs asset gate | tools | TDD §11, ADR-012 | M | gate rejects seeded bad fixtures (wrong size / off-palette / missing state / bad anchor / unremoved bg), accepts good | 10 | done |
 | 11b | sprite-intake processing chain: bg removal, palette snap, 3×→2×/1× fixed-kernel downscale, atlas packing (assetpack per TDD §13), contact sheets | tools | TDD §11, ADR-012 | M | processed batch passes gates; contact sheet renders | 11 | pending-approval — PARKED: needs Mem's image-library decision (sharp vs pngjs vs assetpack-only; beyond pinned toolchain) |
 | 12 | Determinism cross-check: golden replays in Chromium/WebKit/Node hash-agree. Unstubs weekly workflow | e2e | TDD §12.6, ADR-005 | S–M | three-engine hash agreement (exit criterion 1) | 4 | done |
 
@@ -31,6 +31,19 @@ Codex generates, Mem curates (AI-WORKFLOW §1/§5); hard-gated on PR 11
 **Exit criteria → task mapping:** hash-stable empty-city golden across
 Node/Chromium/WebKit ← 4 + 12 · tap round-trip <50 ms ← 7 · first 12
 style-bible sprites pass mechanical gates ← 11 + Codex batch.
+
+## Exit criteria status (verified 2026-06-12, overnight run)
+
+| # | Criterion | Status | Evidence |
+|---|---|---|---|
+| 1 | Empty-city 1-game-year golden hash-stable across Node/Chromium/WebKit | **PASS** | `bb15b4106250fb2f` in all three engines: Node golden gate (per-PR CI), Chromium + WebKit cross-check (local + Weekly run 27396517146, green) |
+| 2 | Tapped tile round-trips command→sim→snapshot→highlight in <50 ms | **PASS** | In-page measurement, real pointerdown → HUD mutation: medians 1.8 ms and 0.4 ms across runs (taps 0.3–7.4 ms). CI enforces the TDD §2 hard gate (100 ms) per-PR; `SMOKE_BUDGET_MS=50` asserts the target |
+| 3 | First 12 style-bible sprites pass mechanical gates | **PENDING CONTENT** | Gates live + negative-tested (PR 11/#13); blocked on the Codex style-bible batch + Mem's curation, not on code. Palette swatches provisional until the bible is blessed |
+
+Phase 0 code is complete: all board tasks done except 11b (processing
+chain, parked on the image-library decision). Criterion 3 is the only
+open item and it is content-gated by design (ADR-012: style bible is
+Mem-curated).
 
 **Codex parallelization candidates** (AI-WORKFLOW §1: well-specified scaffolding
 while Claude Code is in sim): 5, 6 — after 2 lands the interfaces.
