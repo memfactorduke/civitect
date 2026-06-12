@@ -124,6 +124,47 @@ export function dijkstraField(g: RoadGraph, source: number): Uint32Array {
   return dist;
 }
 
+/**
+ * Single-source shortest-path TREE (Dijkstra with predecessor edges) over
+ * optional per-edge costs — the assignment primitive at scale: one tree
+ * serves every destination of an origin cell, where per-pair A* explodes
+ * quadratically in OD cells. Deterministic: heap ties break on node index
+ * (callers route on the canonical twin, where indices are canonical).
+ */
+export function dijkstraTree(
+  g: RoadGraph,
+  source: number,
+  costOf?: (edge: number) => number,
+): { dist: Uint32Array; cameFromEdge: Int32Array } {
+  const dist = new Uint32Array(g.nodeCount).fill(INF);
+  const cameFromEdge = new Int32Array(g.nodeCount).fill(-1);
+  const settled = new Uint8Array(g.nodeCount);
+  dist[source] = 0;
+  const heap: Heap = { keys: [], nodes: [], size: 0 };
+  heapPush(heap, 0, source);
+  while (heap.size > 0) {
+    const node = heapPop(heap);
+    if (settled[node] === 1) {
+      continue;
+    }
+    settled[node] = 1;
+    for (const e of edgesOf(g, node)) {
+      const next = otherEnd(g, e, node);
+      if (settled[next] === 1) {
+        continue;
+      }
+      const candidate =
+        (dist[node] as number) + (costOf === undefined ? edgeCost(g, e) : costOf(e));
+      if (candidate < (dist[next] as number)) {
+        dist[next] = candidate;
+        cameFromEdge[next] = e;
+        heapPush(heap, candidate, next);
+      }
+    }
+  }
+  return { dist, cameFromEdge };
+}
+
 // ── landmark cache ──────────────────────────────────────────────────────────
 
 export interface Pathfinder {

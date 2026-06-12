@@ -14,11 +14,11 @@ tick/population/fundsCents; richer scalars join this table as systems land
 | empty-city-01 | tick | 525600 | 525600 |
 | empty-city-01 | population | 0 | 0 |
 | empty-city-01 | fundsCents | 0 | 0 |
-| growth-city-01 | hash | 8dabb61c7765bfc7 | 0033f94710f839a7 |
+| growth-city-01 | hash | 0033f94710f839a7 | 0033f94710f839a7 |
 | growth-city-01 | tick | 131400 | 131400 |
 | growth-city-01 | population | 5608 | 5608 |
 | growth-city-01 | fundsCents | 0 | 0 |
-| road-grid-500-01 | hash | 31e014ce61cbe57b | 31e014ce61cbe57b |
+| road-grid-500-01 | hash | 31e014ce61cbe57b | 03c4bb482a2ea249 |
 | road-grid-500-01 | tick | 43800 | 43800 |
 | road-grid-500-01 | population | 0 | 0 |
 | road-grid-500-01 | fundsCents | 0 | 0 |

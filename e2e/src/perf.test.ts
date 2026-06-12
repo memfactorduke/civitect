@@ -18,8 +18,8 @@ const TICK_P95_HARD_GATE_MS = 20;
 const scenarios = loadScenarios();
 
 describe.each(scenarios.map((s) => [s.name, s] as const))("perf %s", (name, scenario) => {
-  it(`tick p95 ≤ ${TICK_P95_HARD_GATE_MS} ms and timed loop matches replay()`, () => {
-    const timed = runScenarioTimed(scenario, () => performance.now());
+  it(`tick p95 ≤ ${TICK_P95_HARD_GATE_MS} ms and timed loop matches replay()`, async () => {
+    const timed = await runScenarioTimed(scenario, () => performance.now());
     const reference = runScenario(scenario);
     expect(timed.hash).toBe(reference.hash);
 
