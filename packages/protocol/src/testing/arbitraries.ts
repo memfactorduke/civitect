@@ -149,7 +149,7 @@ const roadSegmentArb = fc.record({
   ay: u16Arb,
   bx: u16Arb,
   by: u16Arb,
-  roadClass: fc.constantFrom(1, 2, 3),
+  roadClass: fc.constantFrom(...Object.values(RoadClassWire)),
 });
 
 export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
