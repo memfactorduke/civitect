@@ -1,14 +1,14 @@
 /**
  * Headless golden-city replay runner (TDD §12.1/§12.4).
  *
- * Environment-pure on purpose: no Node APIs, no wall clock of its own. The
- * same module runs in Node (per-PR golden + perf gates) and inside
- * Chromium/WebKit pages (board PR 12 determinism cross-check). Timing for
- * the perf gate is injected (`now`) so the sim itself never sees a clock
+ * Environment-pure on purpose: no Node-only APIs assumed, no wall clock of
+ * its own. The same module runs in Node (per-PR golden + perf gates) and
+ * inside Chromium/WebKit pages (board PR 12 determinism cross-check). Timing
+ * for the perf gate is injected (`now`) so the sim itself never sees a clock
  * (ADR-005 §5 — the ban applies to packages/sim; the harness may measure).
  */
 import type { Command } from "@civitect/protocol";
-import { createWorld, replay, runTick, stateHash } from "@civitect/sim";
+import { createWorld, runTick, stateHash } from "@civitect/sim";
 import { type GoldenScenario, scenarioTerrain } from "./scenario";
 
 /** HUD-scalar baseline recorded next to each golden hash — the balance-diff input. */
@@ -29,28 +29,37 @@ export interface TimedResult extends GoldenResult {
   readonly tickDurationsMs: Float64Array;
 }
 
-export function runScenario(scenario: GoldenScenario): GoldenResult {
-  const { world, rejections } = replay(scenario.seed, scenario.commands, scenario.untilTick, {
-    mapWidth: scenario.mapWidth,
-    mapHeight: scenario.mapHeight,
-    terrain: scenarioTerrain(scenario),
-  });
-  return {
-    hash: stateHash(world),
-    hud: { tick: world.tick, population: world.population, fundsCents: world.fundsCents },
-    rejectionCount: rejections.length,
-  };
-}
+/**
+ * Driver yield cadence, in ticks. Long synchronous replays starve vitest's
+ * worker RPC on slow runners: the worker fires `onTaskUpdate`, back-to-back
+ * synchronous tests then hold the event loop for the rest of the suite
+ * (test boundaries only yield microtasks), and the call's expired timeout
+ * timer fires ahead of the queued ACK once the loop finally unblocks — a
+ * false `Timeout calling "onTaskUpdate"` AFTER every test passed. The timed
+ * runner learned this with the balance gate; services-city-01 (a ~50 s
+ * replay) pushed the golden suite over the same threshold on PR #64
+ * (runs 27445091794 / 27445092588 — 6/6 tests green, job red, twice).
+ */
+const YIELD_EVERY_TICKS = 25_000;
+
+/** Macrotask yield that works in Node workers and browser pages alike. */
+const yieldToEventLoop: () => Promise<void> =
+  typeof setImmediate === "function"
+    ? () => new Promise((resolve) => setImmediate(resolve))
+    : () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /**
- * Same replay semantics as `runScenario` (the perf test asserts the hashes
- * agree — a timed loop that drifted from `replay` would measure fiction),
- * but timing every `runTick` for the TDD §2 tick-p95 gate.
+ * THE scenario driver: canonical (tick, seq) command order, one `runTick`
+ * per tick, an event-loop yield every YIELD_EVERY_TICKS — never inside a
+ * measured tick. `runScenario` and `runScenarioTimed` are thin wrappers, so
+ * "the timed loop replays the same program the golden gate verifies" is now
+ * structural rather than asserted. `replay()` itself keeps pinned-hash
+ * coverage in packages/sim's own tests.
  */
-export async function runScenarioTimed(
+async function driveScenario(
   scenario: GoldenScenario,
-  now: () => number,
-): Promise<TimedResult> {
+  now: (() => number) | null,
+): Promise<{ readonly result: GoldenResult; readonly tickDurationsMs: Float64Array | null }> {
   const log = [...scenario.commands].sort((a, b) =>
     a.tick === b.tick ? a.seq - b.seq : a.tick - b.tick,
   );
@@ -60,7 +69,7 @@ export async function runScenarioTimed(
     scenario.mapHeight,
     scenarioTerrain(scenario),
   );
-  const durations = new Float64Array(scenario.untilTick);
+  const durations = now === null ? null : new Float64Array(scenario.untilTick);
   let rejectionCount = 0;
   let cursor = 0;
   const batch: Command[] = [];
@@ -71,23 +80,39 @@ export async function runScenarioTimed(
       cursor++;
     }
     const tickIndex = world.tick;
-    const start = now();
-    const rejections = runTick(world, batch);
-    durations[tickIndex] = now() - start;
-    rejectionCount += rejections.length;
-    // Yield the event loop between ticks — long synchronous replays starve
-    // vitest's worker RPC on slow runners (the balance gate's lesson).
-    // Yields never land inside a measured tick.
-    if (tickIndex % 25_000 === 0) {
-      await new Promise(setImmediate);
+    if (now === null || durations === null) {
+      rejectionCount += runTick(world, batch).length;
+    } else {
+      const start = now();
+      const rejections = runTick(world, batch);
+      durations[tickIndex] = now() - start;
+      rejectionCount += rejections.length;
+    }
+    if (tickIndex % YIELD_EVERY_TICKS === 0) {
+      await yieldToEventLoop();
     }
   }
   return {
-    hash: stateHash(world),
-    hud: { tick: world.tick, population: world.population, fundsCents: world.fundsCents },
-    rejectionCount,
+    result: {
+      hash: stateHash(world),
+      hud: { tick: world.tick, population: world.population, fundsCents: world.fundsCents },
+      rejectionCount,
+    },
     tickDurationsMs: durations,
   };
+}
+
+export async function runScenario(scenario: GoldenScenario): Promise<GoldenResult> {
+  return (await driveScenario(scenario, null)).result;
+}
+
+/** `runScenario`, but timing every `runTick` for the TDD §2 tick-p95 gate. */
+export async function runScenarioTimed(
+  scenario: GoldenScenario,
+  now: () => number,
+): Promise<TimedResult> {
+  const { result, tickDurationsMs } = await driveScenario(scenario, now);
+  return { ...result, tickDurationsMs: tickDurationsMs as Float64Array };
 }
 
 /** p-th percentile (0 < p ≤ 1) by nearest-rank over a copy — input untouched. */

@@ -10,11 +10,13 @@ import { parseScenario } from "../src/scenario";
 
 declare global {
   interface Window {
-    __runGolden?: (doc: unknown) => GoldenResult;
+    __runGolden?: (doc: unknown) => Promise<GoldenResult>;
   }
 }
 
-window.__runGolden = (doc: unknown): GoldenResult => {
+// The spec's page.evaluate awaits the returned promise; in a page the
+// driver's event-loop yields ride setTimeout (no setImmediate there).
+window.__runGolden = (doc: unknown): Promise<GoldenResult> => {
   const scenario = parseScenario(doc, "cross-check");
   return runScenario(scenario);
 };
