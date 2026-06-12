@@ -64,11 +64,18 @@ function applyBatch(batch: readonly Command[]): void {
 }
 
 async function handleSaveRequest(slot: number): Promise<void> {
-  // Capture synchronously (plain numbers + RNG state tuples), THEN compress
-  // async — ticks that land mid-encode can't smear into the snapshot.
-  const captured = worldToCiv(world, commandLog);
-  const civ = await encodeCiv(captured);
-  post(encodeMessage({ kind: MessageKind.saveResponse, body: { slot, civ } }));
+  try {
+    // Capture synchronously (plain numbers + RNG state tuples), THEN compress
+    // async — ticks that land mid-encode can't smear into the snapshot.
+    const captured = worldToCiv(world, commandLog);
+    const civ = await encodeCiv(captured);
+    post(encodeMessage({ kind: MessageKind.saveResponse, body: { slot, civ } }));
+  } catch (error) {
+    // Empty civ = save failed (e.g. roads await save format v3). The
+    // manager rejects; a hung promise or a dead worker would be worse.
+    console.error("[sim] save failed:", error);
+    post(encodeMessage({ kind: MessageKind.saveResponse, body: { slot, civ: new Uint8Array(0) } }));
+  }
 }
 
 async function handleLoadRequest(civ: Uint8Array): Promise<void> {

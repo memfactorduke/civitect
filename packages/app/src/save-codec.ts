@@ -10,7 +10,14 @@
  */
 import type { CivSave, RngStreamState } from "@civitect/protocol";
 import { SAVE_FORMAT_VERSION } from "@civitect/protocol";
-import { Pcg32, type Pcg32State, RNG_STREAM_NAMES, type World } from "@civitect/sim";
+import {
+  canonicalGraph,
+  createRoadGraph,
+  Pcg32,
+  type Pcg32State,
+  RNG_STREAM_NAMES,
+  type World,
+} from "@civitect/sim";
 import { BOOT } from "./boot-config";
 
 /**
@@ -21,6 +28,11 @@ import { BOOT } from "./boot-config";
 export const SIM_VERSION = 1;
 
 export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): CivSave {
+  if (canonicalGraph(world.roads).edges.length > 0) {
+    // Roads have no save section yet (format v3, phase-1 follow-on) —
+    // refusing beats silently dropping the network (TDD §10 integrity).
+    throw new Error("this build cannot save worlds with roads yet (save format v3 pending)");
+  }
   const rngStreams: RngStreamState[] = RNG_STREAM_NAMES.map((name) => ({
     name,
     ...world.rng[name].state(),
@@ -91,6 +103,11 @@ export function civToWorld(save: CivSave): World {
     fundsCents: core.fundsCents,
     population: core.population,
     terrain: save.terrain,
+    // No ROADS section in v2 saves (worldToCiv guards it), and undo/redo
+    // stacks are session-local — loading starts both fresh.
+    roads: createRoadGraph(),
+    undoStack: [],
+    redoStack: [],
     rng,
   };
 }

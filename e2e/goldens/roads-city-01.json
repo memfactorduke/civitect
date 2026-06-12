@@ -1,0 +1,148 @@
+{
+  "name": "roads-city-01",
+  "seed": 4242,
+  "mapWidth": 64,
+  "mapHeight": 64,
+  "untilTick": 131400,
+  "commands": [
+    {
+      "seq": 0,
+      "tick": 10,
+      "type": "buildRoad",
+      "ax": 20,
+      "ay": 32,
+      "bx": 21,
+      "by": 32,
+      "roadClass": 1
+    },
+    {
+      "seq": 1,
+      "tick": 11,
+      "type": "buildRoad",
+      "ax": 21,
+      "ay": 32,
+      "bx": 22,
+      "by": 32,
+      "roadClass": 1
+    },
+    {
+      "seq": 2,
+      "tick": 12,
+      "type": "buildRoad",
+      "ax": 22,
+      "ay": 32,
+      "bx": 23,
+      "by": 32,
+      "roadClass": 1
+    },
+    {
+      "seq": 3,
+      "tick": 13,
+      "type": "buildRoad",
+      "ax": 23,
+      "ay": 32,
+      "bx": 24,
+      "by": 32,
+      "roadClass": 1
+    },
+    {
+      "seq": 4,
+      "tick": 14,
+      "type": "buildRoad",
+      "ax": 24,
+      "ay": 32,
+      "bx": 25,
+      "by": 32,
+      "roadClass": 1
+    },
+    {
+      "seq": 5,
+      "tick": 15,
+      "type": "buildRoad",
+      "ax": 25,
+      "ay": 32,
+      "bx": 26,
+      "by": 32,
+      "roadClass": 1
+    },
+    {
+      "seq": 6,
+      "tick": 30,
+      "type": "buildRoad",
+      "ax": 23,
+      "ay": 30,
+      "bx": 23,
+      "by": 31,
+      "roadClass": 2
+    },
+    {
+      "seq": 7,
+      "tick": 31,
+      "type": "buildRoad",
+      "ax": 23,
+      "ay": 31,
+      "bx": 23,
+      "by": 32,
+      "roadClass": 2
+    },
+    {
+      "seq": 8,
+      "tick": 32,
+      "type": "buildRoad",
+      "ax": 23,
+      "ay": 32,
+      "bx": 23,
+      "by": 33,
+      "roadClass": 2
+    },
+    {
+      "seq": 9,
+      "tick": 33,
+      "type": "buildRoad",
+      "ax": 23,
+      "ay": 33,
+      "bx": 23,
+      "by": 34,
+      "roadClass": 2
+    },
+    {
+      "seq": 10,
+      "tick": 50,
+      "type": "upgradeRoad",
+      "ax": 22,
+      "ay": 32,
+      "bx": 23,
+      "by": 32,
+      "roadClass": 2
+    },
+    {
+      "seq": 11,
+      "tick": 60,
+      "type": "buildRoad",
+      "ax": 26,
+      "ay": 32,
+      "bx": 30,
+      "by": 36,
+      "roadClass": 1
+    },
+    {
+      "seq": 12,
+      "tick": 70,
+      "type": "bulldozeRoad",
+      "ax": 26,
+      "ay": 32,
+      "bx": 30,
+      "by": 36
+    },
+    {
+      "seq": 13,
+      "tick": 80,
+      "type": "undo"
+    },
+    {
+      "seq": 14,
+      "tick": 90,
+      "type": "redo"
+    }
+  ]
+}

@@ -1,8 +1,16 @@
 {
   "empty-city-01": {
-    "hash": "9d4a783145a67b2f",
+    "hash": "9a92215ff0f2770f",
     "hud": {
       "tick": 525600,
+      "population": 0,
+      "fundsCents": 0
+    }
+  },
+  "roads-city-01": {
+    "hash": "45a5415b2bd2fe43",
+    "hud": {
+      "tick": 131400,
       "population": 0,
       "fundsCents": 0
     }

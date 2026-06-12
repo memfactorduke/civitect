@@ -172,7 +172,7 @@ export function removeNode(g: RoadGraph, node: number): void {
   g.version++;
 }
 
-function edgeBetween(g: RoadGraph, a: number, b: number): number {
+export function edgeBetween(g: RoadGraph, a: number, b: number): number {
   for (let e = g.nodeFirstEdge[a] as number; e !== NO_INDEX; ) {
     if ((g.edgeA[e] === a && g.edgeB[e] === b) || (g.edgeA[e] === b && g.edgeB[e] === a)) {
       return e;
@@ -274,6 +274,20 @@ export function removeEdge(g: RoadGraph, edge: number): void {
   g.edgeSlotVersion[edge] = (g.edgeSlotVersion[edge] as number) + 1;
   g.edgeNextFree[edge] = g.edgeFreeHead;
   g.edgeFreeHead = edge;
+  g.version++;
+}
+
+/** Re-class a live edge in place: lanes/speed/capacity follow; versions bump. */
+export function upgradeEdge(g: RoadGraph, edge: number, roadClass: RoadClass): void {
+  if (g.edgeAlive[edge] !== 1) {
+    throw new Error(`upgradeEdge: edge ${edge} is not alive`);
+  }
+  const spec = ROAD_CLASS_SPEC[roadClass];
+  g.edgeClass[edge] = roadClass;
+  g.edgeLanes[edge] = spec.lanes;
+  g.edgeSpeedMilliTilesPerTick[edge] = spec.speedMilliTilesPerTick;
+  g.edgeCapacity_[edge] = spec.lanes * spec.capacityPerLane;
+  g.edgeSlotVersion[edge] = (g.edgeSlotVersion[edge] as number) + 1;
   g.version++;
 }
 

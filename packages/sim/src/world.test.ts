@@ -128,42 +128,154 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   // If one of these changes, either world layout/serialization changed (fine:
   // re-pin, say so in the PR — this is a bless) or the engine broke integer
   // determinism (catastrophic: investigate before touching the pin).
-  // RE-PINNED in phase-1 task 7b: terrain layers appended to the hash
-  // (deliberate bless — see the PR's balance-diff).
+  // RE-PINNED in phase-1 task 7b (terrain appended) and again in task 8
+  // (canonical road graph appended) — deliberate stacked blesses, each
+  // with its own balance-diff in its PR.
 
   it("fresh world, seed 1234", () => {
-    expect(stateHash(createWorld(1234))).toBe("613a1fd36071550e");
+    expect(stateHash(createWorld(1234))).toBe("7e928abf254402ce");
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("90090d1233d87109");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("9c3ac62220fa2c29");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("9d4a783145a67b2f");
+    expect(stateHash(world)).toBe("9a92215ff0f2770f");
   });
 });
 
-describe("protocol v3 road commands before road state exists (phase-1 task 8)", () => {
-  it("rejects buildRoad as unknownCommand and leaves state untouched", () => {
-    const untouched = createWorld(42);
-    const poked = createWorld(42);
-    runTick(untouched, []);
-    const rejections = runTick(poked, [
-      {
-        seq: 3,
-        tick: 0,
-        type: CommandType.buildRoad,
-        ax: 1,
-        ay: 1,
-        bx: 2,
-        by: 1,
-        roadClass: 1,
-      },
+describe("road commands in the tick pipeline (phase-1 task 8)", () => {
+  const build = (seq: number, tick: number, ax: number, ay: number, bx: number, by: number) =>
+    ({ seq, tick, type: CommandType.buildRoad, ax, ay, bx, by, roadClass: 1 }) as Command;
+  const undo = (seq: number, tick: number) => ({ seq, tick, type: CommandType.undo }) as Command;
+  const redo = (seq: number, tick: number) => ({ seq, tick, type: CommandType.redo }) as Command;
+
+  it("build∘undo ≡ identity on the state hash (Phase 1 exit criterion, property)", () => {
+    fc.assert(
+      fc.property(
+        fc.maxSafeNat(),
+        fc.array(
+          fc.record({
+            ax: fc.nat({ max: 63 }),
+            ay: fc.nat({ max: 63 }),
+            bx: fc.nat({ max: 63 }),
+            by: fc.nat({ max: 63 }),
+          }),
+          { minLength: 1, maxLength: 12 },
+        ),
+        (seed, segments) => {
+          const baseline = createWorld(seed);
+          const world = createWorld(seed);
+          runTick(baseline, []);
+
+          // Build N segments on tick 0 (rejections fine — they're no-ops on
+          // both undo accounting and state), then undo exactly the number
+          // of ACCEPTED builds.
+          const commands = segments.map((s2, i) => build(i, 0, s2.ax, s2.ay, s2.bx, s2.by));
+          const rejected = runTick(world, commands).length;
+          const accepted = segments.length - rejected;
+          for (let i = 0; i < accepted; i++) {
+            const r = runTick(world, [undo(100 + i, world.tick)]);
+            expect(r).toEqual([]);
+          }
+          // Equal tick counts before comparing (ticks advance the counter).
+          while (baseline.tick < world.tick) {
+            runTick(baseline, []);
+          }
+          expect(stateHash(world)).toBe(stateHash(baseline));
+        },
+      ),
+      { numRuns: 60 },
+    );
+  });
+
+  it("build → bulldoze → undo restores the road; redo removes it again", () => {
+    const world = createWorld(7);
+    expect(runTick(world, [build(0, 0, 1, 1, 2, 1)])).toEqual([]);
+    const withRoad = stateHash(world);
+    expect(
+      runTick(world, [
+        { seq: 1, tick: 1, type: CommandType.bulldozeRoad, ax: 1, ay: 1, bx: 2, by: 1 },
+      ]),
+    ).toEqual([]);
+    expect(runTick(world, [undo(2, 2)])).toEqual([]); // un-bulldoze
+    const restored = createWorld(7);
+    runTick(restored, [build(0, 0, 1, 1, 2, 1)]);
+    while (restored.tick < world.tick) {
+      runTick(restored, []);
+    }
+    expect(stateHash(world)).toBe(stateHash(restored));
+    expect(withRoad).not.toBe(stateHash(createWorld(7))); // roads really hash
+    expect(runTick(world, [redo(3, 3)])).toEqual([]); // re-bulldoze
+  });
+
+  it("upgrade changes the hash; undo restores the old class", () => {
+    const world = createWorld(9);
+    runTick(world, [build(0, 0, 0, 0, 3, 0)]);
+    const street = stateHash(world);
+    expect(
+      runTick(world, [
+        {
+          seq: 1,
+          tick: 1,
+          type: CommandType.upgradeRoad,
+          ax: 0,
+          ay: 0,
+          bx: 3,
+          by: 0,
+          roadClass: 3,
+        },
+      ]),
+    ).toEqual([]);
+    expect(stateHash(world)).not.toBe(street);
+    runTick(world, [undo(2, 2)]);
+    const reference = createWorld(9);
+    runTick(reference, [build(0, 0, 0, 0, 3, 0)]);
+    while (reference.tick < world.tick) {
+      runTick(reference, []);
+    }
+    expect(stateHash(world)).toBe(stateHash(reference));
+  });
+
+  it("rejects out-of-bounds, degenerate, duplicate, and missing-road commands", () => {
+    const world = createWorld(11);
+    expect(runTick(world, [build(0, 0, 0, 0, 64, 0)])).toEqual([
+      { seq: 0, tick: 0, reason: RejectionReason.outOfBounds },
     ]);
-    expect(rejections).toEqual([{ seq: 3, tick: 0, reason: RejectionReason.unknownCommand }]);
-    expect(stateHash(poked)).toBe(stateHash(untouched));
+    expect(runTick(world, [build(1, 1, 5, 5, 5, 5)])).toEqual([
+      { seq: 1, tick: 1, reason: RejectionReason.invalidSegment },
+    ]);
+    runTick(world, [build(2, 2, 1, 1, 2, 2)]);
+    expect(runTick(world, [build(3, 3, 2, 2, 1, 1)])).toEqual([
+      { seq: 3, tick: 3, reason: RejectionReason.invalidSegment }, // duplicate, either direction
+    ]);
+    expect(
+      runTick(world, [
+        { seq: 4, tick: 4, type: CommandType.bulldozeRoad, ax: 9, ay: 9, bx: 8, by: 9 },
+      ]),
+    ).toEqual([{ seq: 4, tick: 4, reason: RejectionReason.noSuchRoad }]);
+  });
+
+  it("empty stacks reject undo/redo with their own reasons", () => {
+    const world = createWorld(13);
+    expect(runTick(world, [undo(0, 0)])).toEqual([
+      { seq: 0, tick: 0, reason: RejectionReason.nothingToUndo },
+    ]);
+    expect(runTick(world, [redo(1, 1)])).toEqual([
+      { seq: 1, tick: 1, reason: RejectionReason.nothingToRedo },
+    ]);
+  });
+
+  it("a new build clears the redo stack (standard editor semantics)", () => {
+    const world = createWorld(17);
+    runTick(world, [build(0, 0, 0, 0, 1, 0)]);
+    runTick(world, [undo(1, 1)]);
+    runTick(world, [build(2, 2, 0, 0, 0, 1)]);
+    expect(runTick(world, [redo(3, 3)])).toEqual([
+      { seq: 3, tick: 3, reason: RejectionReason.nothingToRedo },
+    ]);
   });
 });
