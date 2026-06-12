@@ -1,6 +1,6 @@
 {
   "bridges-city-01": {
-    "hash": "21aa018611c93d3c",
+    "hash": "f42fabb4d16cc0c6",
     "hud": {
       "tick": 43800,
       "population": 0,
@@ -8,15 +8,23 @@
     }
   },
   "empty-city-01": {
-    "hash": "9a92215ff0f2770f",
+    "hash": "9d2be848dc6be966",
     "hud": {
       "tick": 525600,
       "population": 0,
       "fundsCents": 0
     }
   },
+  "growth-city-01": {
+    "hash": "f642f43f8531827f",
+    "hud": {
+      "tick": 131400,
+      "population": 649,
+      "fundsCents": 0
+    }
+  },
   "road-grid-500-01": {
-    "hash": "a010ce1d200aaa08",
+    "hash": "355c1ba9df138de9",
     "hud": {
       "tick": 43800,
       "population": 0,
@@ -24,7 +32,7 @@
     }
   },
   "roads-city-01": {
-    "hash": "45a5415b2bd2fe43",
+    "hash": "18f681018df9012f",
     "hud": {
       "tick": 131400,
       "population": 0,

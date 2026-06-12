@@ -111,6 +111,45 @@ function parseCommand(raw: ScenarioJsonCommand, at: string): Command {
       }
       return { seq: raw.seq, tick: raw.tick, type: CommandType.bulldozeRoad, ax, ay, bx, by };
     }
+    case "zoneRect":
+    case "dezoneRect": {
+      const { x0, y0, x1, y1, zone } = raw;
+      if (
+        !isNonNegativeSafeInt(x0) ||
+        !isNonNegativeSafeInt(y0) ||
+        !isNonNegativeSafeInt(x1) ||
+        !isNonNegativeSafeInt(y1) ||
+        (raw.type === "zoneRect" && !isNonNegativeSafeInt(zone))
+      ) {
+        throw new Error(`${at}: ${raw.type} needs integer rect (and zone)`);
+      }
+      return raw.type === "zoneRect"
+        ? {
+            seq: raw.seq,
+            tick: raw.tick,
+            type: CommandType.zoneRect,
+            x0,
+            y0,
+            x1,
+            y1,
+            zone: zone as 1 | 2 | 3 | 4 | 5 | 6,
+          }
+        : { seq: raw.seq, tick: raw.tick, type: CommandType.dezoneRect, x0, y0, x1, y1 };
+    }
+    case "placeBuilding": {
+      const { x, y, building } = raw;
+      if (!isNonNegativeSafeInt(x) || !isNonNegativeSafeInt(y) || !isNonNegativeSafeInt(building)) {
+        throw new Error(`${at}: placeBuilding needs integer x/y/building`);
+      }
+      return {
+        seq: raw.seq,
+        tick: raw.tick,
+        type: CommandType.placeBuilding,
+        x,
+        y,
+        building: building as 1 | 2,
+      };
+    }
     case "undo":
       return { seq: raw.seq, tick: raw.tick, type: CommandType.undo };
     case "redo":

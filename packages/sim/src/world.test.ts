@@ -1,6 +1,8 @@
 import { type Command, CommandType, flatTerrain, RejectionReason } from "@civitect/protocol";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { computeDemand } from "./growth/demand";
+import { aggregates } from "./growth/system";
 import { replay } from "./replay";
 import { segmentRelation } from "./roads/geometry";
 import { canonicalGraph, nodeAt } from "./roads/graph";
@@ -138,22 +140,21 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   // If one of these changes, either world layout/serialization changed (fine:
   // re-pin, say so in the PR — this is a bless) or the engine broke integer
   // determinism (catastrophic: investigate before touching the pin).
-  // RE-PINNED in phase-1 task 7b (terrain appended) and again in task 8
-  // (canonical road graph appended) — deliberate stacked blesses, each
-  // with its own balance-diff in its PR.
+  // RE-PINNED at each canonical-state append (deliberate, documented):
+  // terrain (P1 7b), roads (P1 8), buildings+cohorts (P2 systems).
 
   it("fresh world, seed 1234", () => {
-    expect(stateHash(createWorld(1234))).toBe("7e928abf254402ce");
+    expect(stateHash(createWorld(1234))).toBe("ca2b0417d63adeae");
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("9c3ac62220fa2c29");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("d98fed7a616a306c");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("9a92215ff0f2770f");
+    expect(stateHash(world)).toBe("9d2be848dc6be966");
   });
 });
 
@@ -430,6 +431,142 @@ describe("intersections, bridges, paths (phase-1 12d/12e)", () => {
         },
       ),
       { numRuns: 50 },
+    );
+  });
+});
+
+describe("zoning, growth, utilities (Phase 2)", () => {
+  const road = (seq: number, tick: number, ax: number, ay: number, bx: number, by: number) =>
+    ({ seq, tick, type: CommandType.buildRoad, ax, ay, bx, by, roadClass: 1 }) as Command;
+  const zone = (
+    seq: number,
+    tick: number,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    z: number,
+  ) => ({ seq, tick, type: CommandType.zoneRect, x0, y0, x1, y1, zone: z }) as Command;
+  const place = (seq: number, tick: number, x: number, y: number, building: number) =>
+    ({ seq, tick, type: CommandType.placeBuilding, x, y, building }) as Command;
+
+  /** Road spine + plants + zones — the canonical growth scenario. */
+  function seedCity(world: World): void {
+    let seq = 0;
+    runTick(world, [road(seq++, world.tick, 10, 20, 50, 20)]);
+    runTick(world, [place(seq++, world.tick, 12, 21, 1)]); // power
+    runTick(world, [place(seq++, world.tick, 14, 21, 2)]); // water
+    runTick(world, [zone(seq++, world.tick, 15, 18, 40, 19, 1)]); // R rows above road
+    runTick(world, [zone(seq++, world.tick, 15, 21, 30, 22, 3)]); // C below
+    runTick(world, [zone(seq++, world.tick, 31, 21, 40, 22, 5)]); // I below
+  }
+
+  it("zones paint only on land within road depth; zone∘undo ≡ identity on hash", () => {
+    const world = createWorld(31);
+    runTick(world, [road(0, 0, 10, 20, 30, 20)]);
+    const before = stateHash(world);
+    expect(runTick(world, [zone(1, 1, 12, 18, 20, 26, 1)])).toEqual([]); // rows ≤4 paint, rest skipped
+    expect(world.terrain.layers.zone[18 * 64 + 12]).toBe(1);
+    expect(world.terrain.layers.zone[26 * 64 + 12]).toBe(0); // depth 6 — beyond reach
+    expect(runTick(world, [{ seq: 2, tick: 2, type: CommandType.undo } as Command])).toEqual([]);
+    const reference = createWorld(31);
+    runTick(reference, [road(0, 0, 10, 20, 30, 20)]);
+    while (reference.tick < world.tick) {
+      runTick(reference, []);
+    }
+    expect(stateHash(world)).toBe(stateHash(reference));
+    expect(before).not.toBe(stateHash(createWorld(31)));
+  });
+
+  it("zoning far from any road rejects; placing on water rejects", () => {
+    const world = createWorld(32);
+    expect(runTick(world, [zone(0, 0, 50, 50, 55, 55, 1)])).toEqual([
+      { seq: 0, tick: 0, reason: RejectionReason.invalidTarget },
+    ]);
+    expect(runTick(world, [place(1, 1, 5, 5, 1)])).toEqual([
+      { seq: 1, tick: 1, reason: RejectionReason.invalidTarget },
+    ]);
+  });
+
+  it("a seeded city grows: buildings spawn, people arrive, jobs fill", () => {
+    const world = createWorld(33);
+    seedCity(world);
+    for (let day = 0; day < 30; day++) {
+      for (let t = 0; t < 1440; t++) {
+        runTick(world, []);
+      }
+    }
+    expect(world.population).toBeGreaterThan(50);
+    const agg = aggregates(world.buildings);
+    expect(agg.housingCapacity).toBeGreaterThan(0);
+    expect(agg.jobsC + agg.jobsI).toBeGreaterThan(0);
+    expect(agg.employed).toBeGreaterThan(0);
+  });
+
+  it("population conservation: residents ≡ births + immigrants − deaths − emigrants", () => {
+    const world = createWorld(34);
+    seedCity(world);
+    for (let t = 0; t < 1440 * 20; t++) {
+      runTick(world, []);
+    }
+    const f = world.flows;
+    expect(world.population).toBe(f.births + f.immigrants - f.deaths - f.emigrants);
+  });
+
+  it("losing utilities abandons buildings (with an advisor cause chain) and empties them", () => {
+    const world = createWorld(35);
+    seedCity(world);
+    for (let t = 0; t < 1440 * 10; t++) {
+      runTick(world, []);
+    }
+    const popBefore = world.population;
+    expect(popBefore).toBeGreaterThan(0);
+    // Bulldoze the power plant's tile building? Plants are buildings — no
+    // bulldoze command for buildings yet; instead sever the ROAD the grid
+    // rides on: everything disconnects.
+    runTick(world, [
+      { seq: 90, tick: world.tick, type: CommandType.bulldozeRoad, ax: 10, ay: 20, bx: 50, by: 20 },
+    ]);
+    let sawAdvisor = false;
+    for (let t = 0; t < 1440 * 4; t++) {
+      runTick(world, []);
+      if (world.advisorQueue.some((e) => e.messageKey === "advisor.abandonment")) {
+        sawAdvisor = world.advisorQueue.every((e) => e.cause.links.length > 0);
+        world.advisorQueue.length = 0;
+      }
+    }
+    expect(world.population).toBeLessThan(popBefore);
+    expect(sawAdvisor).toBe(true); // every warning carries its chain (ADR-009)
+  });
+
+  it("demand factors sum EXACTLY to net demand (exit criterion property)", () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          housingCapacity: fc.nat({ max: 10000 }),
+          residents: fc.nat({ max: 10000 }),
+          jobsC: fc.nat({ max: 5000 }),
+          jobsI: fc.nat({ max: 5000 }),
+          jobsO: fc.nat({ max: 5000 }),
+          employed: fc.nat({ max: 10000 }),
+          adults: fc.nat({ max: 10000 }),
+          educatedPermille: fc.nat({ max: 1000 }),
+          countC: fc.nat({ max: 500 }),
+          countI: fc.nat({ max: 500 }),
+          countO: fc.nat({ max: 500 }),
+        }),
+        (agg) => {
+          const d = computeDemand(agg);
+          const sum = (from: number) =>
+            (d.factors[from] as number) +
+            (d.factors[from + 1] as number) +
+            (d.factors[from + 2] as number);
+          expect(d.r).toBe(sum(0));
+          expect(d.c).toBe(sum(3));
+          expect(d.i).toBe(sum(6));
+          expect(d.o).toBe(sum(9));
+        },
+      ),
     );
   });
 });

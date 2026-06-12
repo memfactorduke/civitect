@@ -7,6 +7,22 @@
  * no DOM/Pixi, no object-key iteration over sim state, money in integer
  * cents. PCG32 streams via ./rng only.
  */
+
+export {
+  adultsOf,
+  BuildingStatus,
+  type Buildings,
+  COHORT_BLOCK,
+  capacityFor,
+  createBuildings,
+  employedOf,
+  PLOPPABLE_KIND_OFFSET,
+  residentsOf,
+  spawnBuilding,
+} from "./growth/buildings";
+export { type CityAggregates, computeDemand } from "./growth/demand";
+export { aggregates, TICKS_PER_DAY, TICKS_PER_HOUR } from "./growth/system";
+export { computeUtilities, type UtilityState, utilityDemand } from "./growth/utilities";
 export { fnv1a64 } from "./hash";
 export { add64, hex64, mul64, type U64 } from "./math64";
 export { type ReplayOptions, type ReplayResult, replay } from "./replay";
@@ -65,4 +81,5 @@ export {
   TICK_HZ,
   TICKS_PER_GAME_YEAR,
   type World,
+  worldHasBuildings,
 } from "./world";
