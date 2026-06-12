@@ -42,3 +42,22 @@ describe("toSnapshot", () => {
     expect(decodeSnapshotBody(new ByteReader(w.finish()))).toEqual(snap);
   });
 });
+
+describe("road segments in snapshots (phase-1 task 12b)", () => {
+  it("keyframes carry the canonical segment list; idle deltas say unchanged", () => {
+    const world = createWorld(42);
+    runTick(world, [
+      { seq: 0, tick: 0, type: CommandType.buildRoad, ax: 1, ay: 1, bx: 4, by: 1, roadClass: 2 },
+    ]);
+    const keyframe = toSnapshot(world, SnapshotKind.keyframe);
+    expect(keyframe.roads).toEqual([{ ax: 1, ay: 1, bx: 4, by: 1, roadClass: 2 }]);
+    expect(keyframe.roadVersion).toBe(world.roads.version);
+
+    const idleDelta = toSnapshot(world, SnapshotKind.delta);
+    expect(idleDelta.roads).toBeNull();
+    expect(idleDelta.roadVersion).toBe(world.roads.version);
+
+    const forced = toSnapshot(world, SnapshotKind.delta, true);
+    expect(forced.roads).toHaveLength(1);
+  });
+});

@@ -3,10 +3,26 @@
  * Pure projection: the sim decides WHAT is visible, never how it looks
  * (TDD §1: "sim never formats for display").
  */
-import { type Snapshot, SnapshotKind } from "@civitect/protocol";
+import { type RoadSegment, type Snapshot, SnapshotKind } from "@civitect/protocol";
+import { canonicalGraph } from "./roads/graph";
 import type { World } from "./world";
 
-export function toSnapshot(world: World, kind: SnapshotKind = SnapshotKind.delta): Snapshot {
+/** Canonical road segments in renderer form — stable order, id-free. */
+function roadSegments(world: World): RoadSegment[] {
+  return canonicalGraph(world.roads).edges.map((e) => ({
+    ax: e.ax,
+    ay: e.ay,
+    bx: e.bx,
+    by: e.by,
+    roadClass: e.roadClass,
+  }));
+}
+
+export function toSnapshot(
+  world: World,
+  kind: SnapshotKind = SnapshotKind.delta,
+  includeRoads = kind === SnapshotKind.keyframe,
+): Snapshot {
   return {
     kind,
     tick: world.tick,
@@ -21,9 +37,7 @@ export function toSnapshot(world: World, kind: SnapshotKind = SnapshotKind.delta
     dirtyChunkIds: new Uint32Array(0), // chunk re-bake hints arrive with Phase 1 terrain
     hud: { population: world.population, fundsCents: world.fundsCents },
     advisorEvents: [], // first emitters arrive with Phase 2 (cause chains required, ADR-009)
-    // Roads join the World behind the task-7/8 bless; until then the truth
-    // IS "no roads": keyframes say so explicitly, deltas say "unchanged".
-    roadVersion: 0,
-    roads: kind === SnapshotKind.keyframe ? [] : null,
+    roadVersion: world.roads.version,
+    roads: includeRoads ? roadSegments(world) : null,
   };
 }
