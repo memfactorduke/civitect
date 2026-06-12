@@ -35,6 +35,9 @@ importers:
       '@civitect/protocol':
         specifier: workspace:*
         version: link:../packages/protocol
+      '@civitect/renderer':
+        specifier: workspace:*
+        version: link:../packages/renderer
       '@civitect/sim':
         specifier: workspace:*
         version: link:../packages/sim

@@ -21,5 +21,9 @@ export function toSnapshot(world: World, kind: SnapshotKind = SnapshotKind.delta
     dirtyChunkIds: new Uint32Array(0), // chunk re-bake hints arrive with Phase 1 terrain
     hud: { population: world.population, fundsCents: world.fundsCents },
     advisorEvents: [], // first emitters arrive with Phase 2 (cause chains required, ADR-009)
+    // Roads join the World behind the task-7/8 bless; until then the truth
+    // IS "no roads": keyframes say so explicitly, deltas say "unchanged".
+    roadVersion: 0,
+    roads: kind === SnapshotKind.keyframe ? [] : null,
   };
 }
