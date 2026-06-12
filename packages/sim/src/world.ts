@@ -58,6 +58,7 @@ import {
   removeNode,
   upgradeEdge,
 } from "./roads/graph";
+import { assignTraffic, emptyTraffic, type TrafficState } from "./traffic/assignment";
 
 /** GDD §13: pause / 1× / 3× / 9× [TUNE]. The value IS the multiplier, not an index. */
 export const SIM_SPEEDS: readonly number[] = [0, 1, 3, 9];
@@ -102,6 +103,8 @@ export interface World {
   advisorIdCounter: number;
   /** Bumps on every zone paint (incl. undo/redo) — snapshot change key. */
   zoneVersion: number;
+  /** Hourly stateless assignment output (DERIVED — never hashed/saved). */
+  traffic: TrafficState;
   /**
    * Undo/redo stacks (LIFO inverse ops). SESSION-LOCAL by design: not
    * hashed, not saved — the exit criterion build∘undo ≡ identity on the
@@ -213,6 +216,7 @@ export function createWorld(
     utilitiesBuildingVersion: -1,
     advisorIdCounter: 0,
     zoneVersion: 0,
+    traffic: emptyTraffic(),
     rng,
   };
 }
@@ -871,7 +875,12 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     }
   }
   // economy(accrual, monthly close)   — TODO(ROADMAP Phase 5)
-  // trafficIncremental                — TODO(ROADMAP Phase 3), rng.traffic
+  // trafficIncremental (Phase 3 v1): stateless hourly solve at the hour
+  // boundary — derived from world state, so replay AND save/load agree
+  // without traffic joining the hash (tranche-2 MSA changes that).
+  if (world.tick % TICKS_PER_HOUR === 0) {
+    world.traffic = assignTraffic(world.buildings, world.roads, world.mapWidth, world.mapHeight);
+  }
   // agents(move, spawn/recycle)       — TODO(ROADMAP Phase 3), rng.agents
   // services(queues)                  — TODO(ROADMAP Phase 4), rng.services
   // pollution/landValue(dirty regions)— land value v1 derives on demand

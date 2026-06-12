@@ -180,6 +180,17 @@ export function civToWorld(save: CivSave): World {
     utilitiesBuildingVersion: -1,
     advisorIdCounter: 0,
     zoneVersion: 0,
+    // Derived hourly; recomputed at the next boundary. Traffic feeds back
+    // into nothing yet (tranche 2), so load-time emptiness cannot diverge
+    // the sim — the continued-identity test enforces that claim.
+    traffic: {
+      volumes: new Uint32Array(0),
+      congestedCost: new Uint32Array(0),
+      generated: 0,
+      assigned: 0,
+      walked: 0,
+      unroutable: 0,
+    },
     rng,
   };
 }
