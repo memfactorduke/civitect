@@ -52,8 +52,15 @@ function post(bytes: Uint8Array): void {
   ctx.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
 }
 
+let lastSentRoadVersion = -1;
+
 function postSnapshot(kind: Snapshot["kind"]): void {
-  post(encodeMessage({ kind: MessageKind.snapshot, body: toSnapshot(world, kind) }));
+  // Full segment list on keyframes and whenever the network changed since
+  // the last send; otherwise deltas say "unchanged" (null) — TDD §7 deltas.
+  const includeRoads =
+    kind === SnapshotKind.keyframe || world.roads.version !== lastSentRoadVersion;
+  post(encodeMessage({ kind: MessageKind.snapshot, body: toSnapshot(world, kind, includeRoads) }));
+  lastSentRoadVersion = world.roads.version;
 }
 
 function applyBatch(batch: readonly Command[]): void {
