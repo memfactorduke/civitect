@@ -51,6 +51,29 @@ export function decodeViewportHintBody(r: ByteReader): ViewportHint {
   return { x0: r.u16(), y0: r.u16(), x1: r.u16(), y1: r.u16() };
 }
 
+/**
+ * Overlay selection, UI → sim worker (v11): which service's coverage layer
+ * should ride snapshots; 0 = none. WORKER-HELD presentation state, like the
+ * viewport hint — it never reaches the sim world and can never move the
+ * state hash (projection purity, ADR-002 pattern).
+ */
+export interface OverlayRequest {
+  /** ServiceId, or 0 to turn the coverage overlay off. */
+  readonly service: number;
+}
+
+export function encodeOverlayRequestBody(w: ByteWriter, o: OverlayRequest): void {
+  w.u8(o.service);
+}
+
+export function decodeOverlayRequestBody(r: ByteReader): OverlayRequest {
+  const service = r.u8();
+  if (service > 9) {
+    throw new DecodeError(`overlay service id ${service} out of range (0–9)`);
+  }
+  return { service };
+}
+
 export const SnapshotKind = {
   keyframe: 1,
   delta: 2,
@@ -143,6 +166,18 @@ export interface Snapshot {
    * capped 3000. Null = unchanged since the last carried block.
    */
   readonly congestion: Uint16Array | null;
+  /**
+   * The service whose coverage layer is active (v11); 0 = no overlay.
+   * Selected by the OverlayRequest message — worker-held, never sim state.
+   */
+  readonly coverageService: number;
+  /** Bumps when the active coverage field recomputes; 0 while inactive. */
+  readonly coverageVersion: number;
+  /**
+   * Coverage 0–255 per tile for `coverageService` (full map, row-major).
+   * Null = no overlay active OR unchanged since the last carried layer.
+   */
+  readonly coverage: Uint8Array | null;
 }
 
 export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
@@ -205,6 +240,16 @@ export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
     w.u8(1).u32(snap.congestion.length);
     for (const c of snap.congestion) {
       w.u16(c);
+    }
+  }
+  w.u8(snap.coverageService);
+  w.u32(snap.coverageVersion);
+  if (snap.coverage === null) {
+    w.u8(0);
+  } else {
+    w.u8(1).u32(snap.coverage.length);
+    for (const v of snap.coverage) {
+      w.u8(v);
     }
   }
 }
@@ -295,6 +340,20 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
       congestion[i] = r.u16();
     }
   }
+  const coverageService = r.u8();
+  const coverageVersion = r.u32();
+  const hasCoverage = r.u8();
+  if (hasCoverage > 1) {
+    throw new DecodeError(`coverage presence flag must be 0|1, got ${hasCoverage}`);
+  }
+  let coverage: Uint8Array | null = null;
+  if (hasCoverage === 1) {
+    const count = r.u32();
+    coverage = new Uint8Array(count);
+    for (let i = 0; i < count; i++) {
+      coverage[i] = r.u8();
+    }
+  }
   return {
     kind,
     tick,
@@ -313,5 +372,8 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
     agentCount,
     congestionVersion,
     congestion,
+    coverageService,
+    coverageVersion,
+    coverage,
   };
 }

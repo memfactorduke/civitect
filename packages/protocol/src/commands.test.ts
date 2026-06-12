@@ -44,3 +44,28 @@ describe("command codec", () => {
     expect(() => decodeRejectionBody(new ByteReader(badRejection))).toThrow(DecodeError);
   });
 });
+
+describe("setServiceBudget decode validation (v11, GDD §7 domain)", () => {
+  const body = (service: number, permille: number) =>
+    new ByteWriter().u32(1).u64(0).u16(13).u8(service).u16(permille).finish();
+
+  it("accepts the domain corners", () => {
+    for (const [service, permille] of [
+      [1, 500],
+      [9, 1500],
+    ] as const) {
+      const cmd = decodeCommandBody(new ByteReader(body(service, permille)));
+      expect(cmd).toMatchObject({ type: 13, service, permille });
+    }
+  });
+
+  it("rejects unknown service ids", () => {
+    expect(() => decodeCommandBody(new ByteReader(body(0, 1000)))).toThrow(DecodeError);
+    expect(() => decodeCommandBody(new ByteReader(body(10, 1000)))).toThrow(DecodeError);
+  });
+
+  it("rejects budgets outside 50–150% (the slider's wire contract)", () => {
+    expect(() => decodeCommandBody(new ByteReader(body(1, 499)))).toThrow(DecodeError);
+    expect(() => decodeCommandBody(new ByteReader(body(1, 1501)))).toThrow(DecodeError);
+  });
+});

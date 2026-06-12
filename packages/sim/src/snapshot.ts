@@ -79,6 +79,11 @@ export function toSnapshot(
     // re-derives from canonical volumes on both sides.
     congestionVersion: Number.parseInt(world.traffic.costHash.slice(0, 8), 16),
     congestion: includeCongestion ? congestionPermille(world) : null,
+    // Coverage layers join with the Phase 4 services core (board task 2);
+    // until then no overlay is ever active.
+    coverageService: 0,
+    coverageVersion: 0,
+    coverage: null,
   };
 }
 

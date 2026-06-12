@@ -32,6 +32,9 @@ describe("toSnapshot", () => {
       agentCount: 0,
       congestionVersion: 3_421_674_724, // empty cost field's content digest
       congestion: new Uint16Array(0),
+      coverageService: 0, // no overlay until the services core (phase-4 task 2)
+      coverageVersion: 0,
+      coverage: null,
     });
   });
 

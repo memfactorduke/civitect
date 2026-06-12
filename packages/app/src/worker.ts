@@ -182,6 +182,7 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
       const target = message.body.target;
       let tile = null;
       let road = null;
+      let building = null;
       if (target.kind === EntityKind.tile) {
         const tileIdx = target.id;
         tile = {
@@ -204,11 +205,34 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
             congestedCost: world.traffic.congestedCost[e] as number,
           };
         }
+        const b = world.buildings.byTile.get(tileIdx);
+        if (b !== undefined && world.buildings.alive[b] === 1) {
+          building = {
+            kind: world.buildings.kind[b] as number,
+            level: world.buildings.level[b] as number,
+            status: world.buildings.status[b] as number,
+            // Service capacity/queue/effectiveness fill with the Phase 4
+            // services core (board task 2) — zeros mean "no service data".
+            serviceId: 0,
+            capacityTotal: 0,
+            capacityUsed: 0,
+            queueLength: 0,
+            effectivenessPermille: 0,
+          };
+        }
       }
       post(
         encodeMessage({
           kind: MessageKind.inspectorResponse,
-          body: { requestId: message.body.requestId, tick: world.tick, tile, road },
+          body: {
+            requestId: message.body.requestId,
+            tick: world.tick,
+            tile,
+            road,
+            building,
+            // Environment fields join with pollution (board task 4).
+            environ: null,
+          },
         }),
       );
       break;
@@ -217,6 +241,12 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
       // Sampler input ONLY (ADR-002) — by construction it cannot move the
       // hash: the projection-purity test in sim holds that line.
       world.viewport = message.body;
+      break;
+    case MessageKind.overlayRequest:
+      // Worker-held presentation state (viewportHint pattern): selects
+      // which coverage layer rides snapshots once the services core (board
+      // phase-4 task 2) computes them. Accepted, not yet acted on — the
+      // snapshot's coverage block stays inactive until then.
       break;
     default:
       throw new Error(`sim worker received unexpected MessageKind ${message.kind}`);

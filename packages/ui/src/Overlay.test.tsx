@@ -35,6 +35,9 @@ function snapshot(partial: Partial<Snapshot>): Snapshot {
     agentCount: 0,
     congestionVersion: 0,
     congestion: null,
+    coverageService: 0,
+    coverageVersion: 0,
+    coverage: null,
     ...partial,
   };
 }

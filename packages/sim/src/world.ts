@@ -842,6 +842,12 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.pins.splice(at, 1);
       return null;
     }
+    case CommandType.setServiceBudget: {
+      // Protocol v11 is ahead of the sim here by design (interface-first,
+      // board phase-4 task 1): budget state + the services step land with
+      // task 2. Until then the sim honestly says "not implemented".
+      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
+    }
     case CommandType.placeBuilding: {
       if (!inBounds(world, cmd.x, cmd.y)) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.outOfBounds };
