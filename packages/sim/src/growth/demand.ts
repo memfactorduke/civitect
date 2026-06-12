@@ -41,7 +41,13 @@ export function computeDemand(a: CityAggregates): DemandBlock {
   const unemployedAdults = Math.max(0, a.adults - a.employed);
 
   const rJobs = Math.min(500, openJobs * 2);
-  const rAttract = a.residents === 0 ? 300 : 100; // pioneer bonus [TUNE]
+  // Attractiveness sinks with unemployment — a jobless city stops pulling
+  // people in (the balance gate caught a 24k-pop/88%-unemployment spiral
+  // when this was a constant) [TUNE].
+  const unemploymentPermille =
+    a.adults === 0 ? 0 : Math.floor((unemployedAdults * 1000) / a.adults);
+  const rAttract =
+    a.residents === 0 ? 300 : Math.max(-300, 100 - Math.floor(unemploymentPermille / 3));
   const rVacancy = vacancy(a.housingCapacity, a.residents);
 
   const cPurchasing = Math.min(500, Math.floor(a.residents / 4));

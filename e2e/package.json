@@ -8,7 +8,8 @@
     "perf": "vitest run --config vitest.perf.config.ts",
     "bless": "BLESS=1 vitest run --config vitest.golden.config.ts",
     "smoke": "playwright test",
-    "cross-check": "playwright test --config playwright.cross-check.config.ts"
+    "cross-check": "playwright test --config playwright.cross-check.config.ts",
+    "balance": "vitest run --config vitest.balance.config.ts"
   },
   "dependencies": {
     "@civitect/protocol": "workspace:*",

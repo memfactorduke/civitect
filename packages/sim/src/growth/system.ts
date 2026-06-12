@@ -105,9 +105,13 @@ export interface GrowthContext {
 }
 
 /** Per-tick growth slice: spawn buildings on demand, move people in. */
-export function growthSlice(ctx: GrowthContext, tick: number): void {
+export function growthSlice(
+  ctx: GrowthContext,
+  tick: number,
+  agg = aggregates(ctx.buildings),
+): void {
   const b = ctx.buildings;
-  const demand = computeDemand(aggregates(b));
+  const demand = computeDemand(agg);
   const slice = tick % GROWTH_SLICES;
 
   // 1. Spawn pass over this tick's share of tiles.
@@ -136,9 +140,13 @@ export function growthSlice(ctx: GrowthContext, tick: number): void {
     }
   }
 
-  // 2. Occupancy: immigration into vacant R, employment into vacant jobs —
-  //    a few moves per tick, demand-gated [TUNE].
-  if (demand.r > 0) {
+  // 2. Occupancy: immigration into vacant R, employment into vacant jobs.
+  //    Gated on PULL factors (jobs + attractiveness), NOT net demand —
+  //    vacancy throttles construction, never move-ins (a vacancy-gated
+  //    inflow deadlocks the city the moment housing overshoots; the
+  //    balance gate caught exactly that at pop 22) [TUNE].
+  const pull = (demand.factors[0] as number) + (demand.factors[1] as number);
+  if (pull > 0 && agg.housingCapacity > agg.residents) {
     const moves = 1 + (ctx.rng.nextBounded(3) | 0);
     for (let m = 0; m < moves; m++) {
       const target = pickVacantResidential(b, ctx.rng);
@@ -152,7 +160,7 @@ export function growthSlice(ctx: GrowthContext, tick: number): void {
       ctx.flows.immigrants++;
     }
   }
-  employmentPass(b, ctx.rng);
+  employmentPass(b, ctx.rng, agg);
 }
 
 function pickVacantResidential(b: Buildings, rng: Pcg32): number {
@@ -178,8 +186,11 @@ function pickVacantResidential(b: Buildings, rng: Pcg32): number {
 }
 
 /** Move unemployed adults into open job slots (a trickle per tick) [TUNE]. */
-function employmentPass(b: Buildings, rng: Pcg32): void {
-  const agg = aggregates(b);
+function employmentPass(b: Buildings, rng: Pcg32, agg: ReturnType<typeof aggregates>): void {
+  // One aggregate scan per tick serves spawn, immigration, AND hiring —
+  // intra-tick staleness is deterministic and costs nothing semantically
+  // (the per-tick trickles are tiny vs. the aggregate scale) [PERF: this
+  // took the year-long balance run from 302 s to ~⅓].
   const openJobs = agg.jobsC + agg.jobsI + agg.jobsO - agg.employed;
   const unemployed = agg.adults - agg.employed;
   if (openJobs <= 0 || unemployed <= 0) {

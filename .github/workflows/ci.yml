@@ -50,7 +50,7 @@ jobs:
       - name: Golden-master cities (TDD §12.1)
         run: pnpm gate:golden
 
-      - name: Balance simulations (STUB — ROADMAP Phase 2)
+      - name: Balance simulations (ADR-013 §3 bands)
         run: pnpm gate:balance
 
       - name: Perf gate (TDD §2 / §12.4)

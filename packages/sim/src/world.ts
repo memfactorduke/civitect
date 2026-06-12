@@ -839,7 +839,10 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     flows: world.flows,
   };
   // buildings(growth/decay, staggered 1/60th per tick) — rng.growth.
-  growthSlice(growthCtx, world.tick);
+  // ONE aggregate scan per tick (the balance gate's year-long replay made
+  // the 3-scan version a 5-minute CI rung).
+  const agg = aggregates(world.buildings);
+  growthSlice(growthCtx, world.tick, agg);
   // Utilities must see THIS tick's spawns before lifecycle judges them —
   // a stale served-array abandons newborn buildings (found by the growth
   // test: population flatlined at 3).
@@ -867,8 +870,9 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // agents(move, spawn/recycle)       — TODO(ROADMAP Phase 3), rng.agents
   // services(queues)                  — TODO(ROADMAP Phase 4), rng.services
   // pollution/landValue(dirty regions)— land value v1 derives on demand
-  world.lastDemand = computeDemand(aggregates(world.buildings));
-  const agg = aggregates(world.buildings);
+  // HUD/demand reuse the same scan (one tick of staleness on spawn counts
+  // is deterministic and invisible at city scale).
+  world.lastDemand = computeDemand(agg);
   world.population = agg.residents;
 
   world.tick += 1;
