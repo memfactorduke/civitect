@@ -237,8 +237,18 @@ function pickWithUnemployed(b: Buildings, rng: Pcg32): number {
 
 /** Hourly lifecycle slice: status clocks, leveling, abandonment, births/aging.
  * Returns the tile indices of buildings abandoned THIS slice (advisor fuel). */
-export function lifecycleSlice(ctx: GrowthContext, hourOfDay: number, tick: number): number[] {
+export function lifecycleSlice(
+  ctx: GrowthContext,
+  hourOfDay: number,
+  tick: number,
+  agg = aggregates(ctx.buildings),
+): number[] {
   const newlyAbandoned: number[] = [];
+  const totalJobs = agg.jobsC + agg.jobsI + agg.jobsO;
+  // City job-fill ratio drives WORKPLACE leveling: a C/I/O building's own
+  // cohort block is empty by design (workers LIVE in R buildings) — the
+  // jam-diagnosis scenario found workplaces frozen at L1 forever.
+  const jobFillPermille = totalJobs === 0 ? 0 : Math.floor((agg.employed * 1000) / totalJobs);
   const b = ctx.buildings;
   const slice = Math.floor(tick / TICKS_PER_HOUR) % LIFECYCLE_SLICES;
   for (let i = slice; i < b.count; i += LIFECYCLE_SLICES) {
@@ -291,7 +301,7 @@ export function lifecycleSlice(ctx: GrowthContext, hourOfDay: number, tick: numb
     const used =
       kind === ZoneKind.residentialLow || kind === ZoneKind.residentialHigh
         ? residentsOf(b, i)
-        : Math.min(cap, employedOf(b, i)); // jobs proxy until matching matures
+        : Math.floor((cap * jobFillPermille) / 1000);
     if (cap > 0 && used * 5 >= cap * 4) {
       b.thriveDays[i] = Math.min(255, (b.thriveDays[i] as number) + 1);
       if ((b.thriveDays[i] as number) >= LEVEL_AFTER_DAYS && (b.level[i] as number) < 5) {
