@@ -35,6 +35,8 @@ function syntheticSnapshot(tick: number): Snapshot {
     coverageService: 0,
     coverageVersion: 0,
     coverage: null,
+    report: null,
+    milestone: null,
   };
 }
 
