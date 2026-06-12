@@ -4,7 +4,7 @@
  * decodeCiv → civToWorld). The Playwright spec covers the same loop through
  * the real worker boundary observably; this test proves bit-equality.
  */
-import { CommandType, decodeCiv, encodeCiv } from "@civitect/protocol";
+import { CommandType, decodeCiv, encodeCiv, flatTerrain } from "@civitect/protocol";
 import { replay, runTick, stateHash } from "@civitect/sim";
 import { describe, expect, it } from "vitest";
 import { BOOT } from "./boot-config";
@@ -71,5 +71,39 @@ describe("save → load → state-hash-equal (TDD §10)", () => {
     };
     const decoded = await decodeCiv(await encodeCiv(broken));
     expect(() => civToWorld(decoded)).toThrow(/missing RNG stream/);
+  });
+});
+
+describe("terrain through the save pipeline (phase-1 task 7b)", () => {
+  it("non-flat terrain round-trips bit-exactly, hash included", async () => {
+    const terrain = flatTerrain(BOOT.mapWidth, BOOT.mapHeight);
+    terrain.layers.elevation[100] = 3;
+    terrain.layers.water[200] = 1;
+    terrain.layers.resource[300] = 2;
+    const { world } = replay(BOOT.seed, [], 50, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+      terrain,
+    });
+    const before = stateHash(world);
+
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(before);
+    expect(restored.terrain.layers.elevation[100]).toBe(3);
+  });
+
+  it("terrain differences move the state hash (it is canonical state now)", () => {
+    const flat = replay(BOOT.seed, [], 10, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+    }).world;
+    const bumpy = flatTerrain(BOOT.mapWidth, BOOT.mapHeight);
+    bumpy.layers.elevation[0] = 1;
+    const hilly = replay(BOOT.seed, [], 10, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+      terrain: bumpy,
+    }).world;
+    expect(stateHash(hilly)).not.toBe(stateHash(flat));
   });
 });
