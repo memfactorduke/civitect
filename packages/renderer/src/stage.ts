@@ -79,9 +79,15 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
       g.stroke({ color: GRID_COLOR, width: 1, pixelLine: true });
     }
     container.addChild(g);
-    // The ADR-008 bake: chunk renders once to a cached texture; the world
-    // costs ~zero per frame until this chunk is dirtied again.
-    container.cacheAsTexture(true);
+    if (options.terrain !== undefined) {
+      // The ADR-008 bake: chunk renders once to a cached texture; the world
+      // costs ~zero per frame until this chunk is dirtied again.
+      container.cacheAsTexture(true);
+    }
+    // No-terrain (Phase 0 grid) chunks stay UNCACHED: on software GL (CI
+    // runners) large cached render textures sampled per frame cost ~5× the
+    // direct stroke pass and blew the input-latency hard gate — measured
+    // 35-44 ms medians before #26, 227 ms after, on the same runner class.
     chunkContainers[chunkId] = container;
     // Plain append: chunks never overlap meaningfully, so z-order among
     // them is cosmetic — and index-based insertion would fight rebakes.
