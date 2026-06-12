@@ -17,13 +17,30 @@ const KIND_NAMES: Readonly<Record<number, string>> = {
 
 export function AdvisorFeed(props: { readonly store: UiStore }): ReactNode {
   const events = useUiStore(props.store, (s) => s.advisorEvents);
+  // GROUPED BY CAUSE (GDD §15 [LOCKED]: "problem notifications grouped by
+  // cause"): one row per summaryKey, newest exemplar shown, count badged.
+  const groups = new Map<string, { latest: (typeof events)[number]; count: number }>();
+  for (const event of events) {
+    const group = groups.get(event.cause.summaryKey);
+    if (group === undefined) {
+      groups.set(event.cause.summaryKey, { latest: event, count: 1 });
+    } else {
+      group.count++;
+    }
+  }
   return (
     <section aria-label={t("advisor.title")}>
       <h2>{t("advisor.title")}</h2>
       <ul data-testid="advisor-feed">
-        {events.map((event) => (
-          <li key={event.id} data-testid="advisor-event" data-message-key={event.messageKey}>
+        {[...groups.values()].map(({ latest: event, count }) => (
+          <li
+            key={event.cause.summaryKey}
+            data-testid="advisor-event"
+            data-message-key={event.messageKey}
+            data-severity={event.severity}
+          >
             <span>{event.messageKey}</span>
+            {count > 1 && <strong data-testid="advisor-count">×{count}</strong>}
             <em>{event.cause.summaryKey}</em>
             <ul>
               {event.cause.links.map((link) => (

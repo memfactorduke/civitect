@@ -12,7 +12,14 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { type Buildings, createBuildings, spawnBuilding } from "../growth/buildings";
 import { supercoverTiles } from "../roads/geometry";
-import { addEdge, addNode, createRoadGraph, RoadClass, type RoadGraph } from "../roads/graph";
+import {
+  addEdge,
+  addNode,
+  createRoadGraph,
+  edgeBetween,
+  RoadClass,
+  type RoadGraph,
+} from "../roads/graph";
 import { dijkstraField, edgeCost } from "../roads/pathfind";
 import {
   anchorNode,
@@ -152,8 +159,12 @@ const sceneArb: fc.Arbitrary<Scene> = fc
       }
       const a = addNode(g, s.x, s.y);
       const b = addNode(g, bx, by);
-      // Parallel/duplicate edges are legal in the raw graph; coverage math
-      // must tolerate whatever the validated build pipeline forbids anyway.
+      // The raw graph REJECTS parallel edges (addEdge throws) — a rare
+      // fast-check seed generated two identical segments and CI caught it.
+      // Duplicates carry no coverage information; skip them.
+      if (edgeBetween(g, a, b) !== -1) {
+        continue;
+      }
       addEdge(g, a, b, RoadClass.street);
     }
     const buildings = createBuildings();

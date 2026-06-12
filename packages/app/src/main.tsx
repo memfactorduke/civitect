@@ -241,7 +241,17 @@ async function main(): Promise<void> {
   sendViewport();
   setInterval(sendViewport, 500);
 
-  createRoot(overlayHost).render(<Overlay store={store} dispatch={dispatch} />);
+  // Coverage overlay selection: presentation state, posted as an
+  // overlayRequest message (viewportHint pattern, never a command).
+  const selectOverlay = (service: number): void => {
+    const bytes = encodeMessage({ kind: MessageKind.overlayRequest, body: { service } });
+    worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
+    renderer.stage.setCoverageOverlay(service !== 0);
+  };
+
+  createRoot(overlayHost).render(
+    <Overlay store={store} dispatch={dispatch} onSelectOverlay={selectOverlay} />,
+  );
 
   // Test/debug hook: lets the e2e smoke (and humans in devtools) observe the
   // renderer's display state without reaching into Pixi internals.
@@ -264,6 +274,19 @@ async function main(): Promise<void> {
       trafficOverlayOn = on;
       renderer.stage.setTrafficOverlay(on);
     },
+    selectOverlay: (service: number) => {
+      selectOverlay(service);
+    },
+    coverage: () => {
+      const state = renderer.state();
+      return {
+        service: state.coverageService,
+        version: state.coverageVersion,
+        field: state.coverage === null ? null : Array.from(state.coverage),
+      };
+    },
+    buildingInfo: () => store.getState().buildingInfo,
+    environInfo: () => store.getState().environInfo,
     // Agents observability for the follow e2e (GDD §17.5): the latest
     // transform rider, decoded into plain objects.
     agents: () => {

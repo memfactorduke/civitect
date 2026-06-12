@@ -37,6 +37,11 @@ export interface DisplayState {
   readonly congestionVersion: number;
   /** v/c permille parallel to `roads` (deltas with null keep the previous). */
   readonly congestion: Uint16Array | null;
+  /** Active coverage overlay's service (0 = none) + content digest. */
+  readonly coverageService: number;
+  readonly coverageVersion: number;
+  /** Coverage 0–255 per tile (deltas with null keep the previous layer). */
+  readonly coverage: Uint8Array | null;
 }
 
 export function initialDisplayState(): DisplayState {
@@ -54,6 +59,9 @@ export function initialDisplayState(): DisplayState {
     agentCount: 0,
     congestionVersion: -1,
     congestion: null,
+    coverageService: 0,
+    coverageVersion: -1,
+    coverage: null,
   };
 }
 
@@ -86,5 +94,11 @@ export function applySnapshot(state: DisplayState, snapshot: Snapshot): DisplayS
     agentCount: snapshot.agentCount,
     congestionVersion: snapshot.congestionVersion,
     congestion: snapshot.congestion ?? state.congestion,
+    coverageService: snapshot.coverageService,
+    coverageVersion: snapshot.coverageVersion,
+    // A service switch invalidates the kept layer; same service keeps it.
+    coverage:
+      snapshot.coverage ??
+      (snapshot.coverageService === state.coverageService ? state.coverage : null),
   };
 }

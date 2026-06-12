@@ -8,7 +8,9 @@
  */
 import {
   type AdvisorEvent,
+  type BuildingInfo,
   type DemandBlock,
+  type EnvironInfo,
   type InspectorResponse,
   type RoadInfo,
   type Snapshot,
@@ -29,6 +31,9 @@ export interface UiState {
   readonly demand: DemandBlock;
   /** Road inspector payload for the selected tile (GDD §9.5); null = none. */
   readonly roadInfo: RoadInfo | null;
+  /** Building + environment payloads for the selected tile (v11). */
+  readonly buildingInfo: BuildingInfo | null;
+  readonly environInfo: EnvironInfo | null;
   applySnapshot(snapshot: Snapshot): void;
   applyInspectorResponse(response: InspectorResponse): void;
 }
@@ -45,6 +50,8 @@ export function createUiStore(): UiStore {
     advisorEvents: [],
     demand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
     roadInfo: null,
+    buildingInfo: null,
+    environInfo: null,
     applySnapshot(snapshot: Snapshot): void {
       // Keyframes are authoritative resets (scene load / save-load rewind,
       // TDD §7) and apply even to an older tick; stale DELTAS lose.
@@ -63,7 +70,11 @@ export function createUiStore(): UiStore {
       });
     },
     applyInspectorResponse(response: InspectorResponse): void {
-      set({ roadInfo: response.road });
+      set({
+        roadInfo: response.road,
+        buildingInfo: response.building,
+        environInfo: response.environ,
+      });
     },
   }));
 }
