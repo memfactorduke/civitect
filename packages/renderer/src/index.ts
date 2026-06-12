@@ -28,6 +28,16 @@ export {
   ZOOM_MIN,
   zoomAt,
 } from "./camera";
+export {
+  CHUNK_TILES,
+  type ChunkLayout,
+  chunkIdOf,
+  chunkLayout,
+  chunkTiles,
+  dirtyChunks,
+  type TileRect,
+  terrainTint,
+} from "./chunks";
 export { applySnapshot, type DisplayState, initialDisplayState } from "./display";
 export {
   TILE_H,

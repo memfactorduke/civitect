@@ -24,6 +24,9 @@
     },
     {
       "path": "tools/sprite-intake"
+    },
+    {
+      "path": "tools/map-generator"
     }
   ]
 }

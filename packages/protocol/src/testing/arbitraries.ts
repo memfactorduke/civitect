@@ -144,6 +144,14 @@ export const rejectionArb: fc.Arbitrary<CommandRejection> = fc.record({
   reason: fc.constantFrom(...Object.values(RejectionReason)),
 });
 
+const roadSegmentArb = fc.record({
+  ax: u16Arb,
+  ay: u16Arb,
+  bx: u16Arb,
+  by: u16Arb,
+  roadClass: fc.constantFrom(1, 2, 3),
+});
+
 export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
   kind: fc.constantFrom(...Object.values(SnapshotKind)),
   tick: tickArb,
@@ -152,6 +160,8 @@ export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
   dirtyChunkIds: fc.array(u32Arb, { maxLength: 32 }).map((ids) => Uint32Array.from(ids)),
   hud: fc.record({ population: u32Arb, fundsCents: moneyCentsArb }),
   advisorEvents: fc.array(advisorEventArb, { maxLength: 4 }),
+  roadVersion: u32Arb,
+  roads: fc.option(fc.array(roadSegmentArb, { maxLength: 12 }), { nil: null }),
 });
 
 export const tileInfoArb: fc.Arbitrary<TileInfo> = fc.record({

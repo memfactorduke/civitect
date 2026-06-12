@@ -4,14 +4,42 @@ Brief: drive Phase 0 to completion and into Phase 1 as far as the gates
 allow, PR by PR, under the standing merge policy (self-merge only when the
 full ladder + CI are green and no human judgment is involved).
 
-**Result: Phase 0 is code-complete with both code-side exit criteria
-passing. Phase 1 is decomposed and 4 of its 12 tasks are merged.**
-16 PRs landed (#4–#19), all gates green, zero gate erosion, nothing red on
-main at any point.
+**Result (final, ~07:00): Phase 0 code-complete; Phase 1 driven to the
+limit of what the gates allow without you** — every bless-free task is
+merged (#4–#22, #26, #27); everything hash-moving is built, green, and
+parked as a three-deep stacked PR chain awaiting your bless (#23 ← #24
+← #25). Remaining Phase 1 items are all Mem-gated: the bless, two slice
+approvals (map generator, follow-on batch), and the image-library pick.
 
 ---
 
-## Merged PRs (chronological, all CI-green)
+## Phase 1 continuation (second half of the night)
+
+| PR | Status | One-liner |
+|---|---|---|
+| #21 | merged | Camera: pan/zoom transform (anchor-invariant zoom, property-tested), LOD tier skeleton, 120 Hz interpolation hook; picking inverts the live camera |
+| #22 | merged | Save format v2: saves carry TERRAIN; first ADR-010 migration (v1→flat-terrain injection); v1 fixture exercises the ladder forever |
+| #23 | **PARKED — your bless** | Terrain in World: stateHash appends the five layers; tripwires re-pinned; empty-city re-blessed `9d4a7831…` with HUD identical (pure serialization move); balance-diff is the review artifact |
+| #24 | **PARKED — stacked on #23** | Roads in World: v3 commands in the tick pipeline, session-local undo/redo. **Exit criterion `build∘undo ≡ identity on state hash` passes** (property, 60 runs). Second hash append (re-pin + re-bless, HUD identical); first golden `roads-city-01` |
+| #25 | **PARKED — stacked on #24** | 500-segment L-map golden through golden+perf gates (**tick p95 0.0001 ms**) + roads e2e through the real worker (undo depth exact, rejects observed). Render-frame half of exit criterion 1 awaits road rendering — recorded, not glossed |
+| #26 | merged | Chunked terrain rendering: 32×32 baked chunks, dirty re-bake wired to snapshot dirtyChunkIds, v0 tints, dev-harness island |
+| #27 | merged (hotfix) | #26 regressed CI tap latency 35-44→227 ms (software-GL render-texture sampling); fix: texture-cache only terrain chunks. **Main was red for ~6 min** — see incident 2 |
+
+### Phase 1 exit criteria status
+
+1. **500-segment network, zero dropped frames** — sim half PASSES in parked #25 (tick p95 0.0001 ms vs 20 ms gate, in the per-PR perf gate once merged); render-frame half is unmeasurable until road RENDERING exists (follow-on task 12; board says so).
+2. **Pathfinding correctness suite** — **PASSES, merged** (#18: oracle-equality property vs Dijkstra, 120 random networks).
+3. **Undo/redo property (build∘undo ≡ identity on state hash)** — **PASSES** in parked #24.
+
+### The parked stack, and how to land it
+
+Read #23's balance-diff (hash moves, HUD identical) → merge #23 → retarget #24 to main (BEFORE deleting the 7b branch — the stacked-PR gotcha) → merge #24 (its diff: second hash move + the new roads golden) → retarget #25 → merge. Each level is fully green including the Chromium+WebKit cross-check.
+
+### Incident 2 (mine, with the fix)
+
+#26 merged while its CI was still running: my merge pattern piped `gh pr checks` through `head`, which masks the pending/fail exit status — so "check then merge" silently became "merge regardless". Sixteen PRs got lucky; #26 didn't (the smoke gate caught a real 5× input-latency regression on software GL) and main was red ~6 minutes until #27. Fixed both: the regression (texture-cache only terrain chunks, rationale + measurements pinned in stage.ts) and the procedure (`gh pr checks --watch`, merge only on verified pass). Recommend branch protection requiring the gate ladder so a bad merge pattern can never do this again — one checkbox in repo settings.
+
+## Merged PRs — Phase 0 half (chronological, all CI-green)
 
 | PR | One-liner |
 |---|---|
@@ -61,20 +89,20 @@ doesn't cover that. Everything from PR #11 on was built from a dedicated
 worktree at `Projects/Civitect-worktree-overnight` (remove with
 `git worktree remove` when convenient — but see recommendation below).
 
-## Recommended next three items
+## Recommended next three items (updated, end of night)
 
-1. **Phase 1 task 7 — the terrain bless.** Everything stacks behind it
-   (roads-in-World, terrain rendering, the 500-segment perf criterion).
-   It's an L: terrain layers + accessors in World, map loading at boot,
-   stateHash append, save v2 + flat-terrain migration, `pnpm bless` with
-   the balance-diff as your review artifact.
-2. **Phase 1 task 2 — camera** (pan/zoom/LOD skeleton, renderer-only,
-   bless-free). Unblocks chunked terrain rendering (task 9); also listed
-   as a Codex-parallelizable candidate once you bless its slice.
-3. **AI-WORKFLOW §1 edit: per-agent git worktrees as the standing rule**
-   (one paragraph + a CLAUDE.md line). Cheap insurance against the only
-   real incident of the night. Decide 11b's image library while you're at
-   it if you want the full intake chain moving.
+1. **Land the parked stack**: read two balance-diffs (#23, #24 — both
+   show hash-only moves with identical HUDs), merge top-down with the
+   retarget-before-delete dance described above. ~15 minutes, unlocks
+   everything.
+2. **Turn on branch protection** (require the ADR-013 gate ladder to
+   merge) + the AI-WORKFLOW §1 worktree rule — the night's two incidents,
+   each one checkbox/paragraph from impossible.
+3. **Approve the two pending slices**: task 6 (map generator — needed for
+   real maps and the map-selection boot flow) and task 12's decomposition
+   (intersections, bridges, ped/bike, road RENDERING + drag-to-build UX,
+   save v3 ROADS section — road rendering also completes exit criterion
+   1's render half). Pick 11b's image library when convenient.
 
 ## State of the gates (none weakened, three made real)
 
