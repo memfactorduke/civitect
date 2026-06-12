@@ -7,6 +7,8 @@ export default defineConfig({
     // jsdom` (packages/ui RTL tests) — the sim/protocol hot path never pays
     // the DOM tax.
     environment: "node",
-    include: ["packages/*/src/**/*.test.{ts,tsx}"],
+    include: ["packages/*/src/**/*.test.{ts,tsx}", "tools/*/src/**/*.test.{ts,tsx}"],
+    // Gate suites run on their own ADR-013 rungs (gate:assets), not under unit.
+    exclude: ["**/node_modules/**", "tools/*/src/gate.test.ts"],
   },
 });

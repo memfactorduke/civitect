@@ -56,7 +56,7 @@ jobs:
       - name: Perf gate (TDD §2 / §12.4)
         run: pnpm gate:perf
 
-      - name: Asset gates (STUB — ROADMAP Phase 0)
+      - name: Asset gates (ADR-012 sprite intake)
         run: pnpm gate:assets
 
       # TDD §12.5 boot smoke: tap→command→sim→snapshot→highlight in a real

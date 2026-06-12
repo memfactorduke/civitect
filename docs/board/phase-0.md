@@ -20,8 +20,9 @@ runnable verification, ≤ a session). Roadmap scope + exit criteria:
 | 9a | Save/load worker messages: saveRequest/saveResponse/loadRequest/loadResponse kinds, protocol v2 (interface-first split out of task 9 — .civ blobs must wear the envelope to cross the worker boundary) | protocol | TDD §7/§10 | S | symmetric codec property + v2 wire pins | 8 | done |
 | 9 | Save manager: save/load empty world, checksum verify, version-header validation | app | TDD §10 | S | e2e save→load→state-hash-equal | 7, 8, 9a | done |
 | 10 | Sprite sidecar JSON schema (footprint/anchor/states/emissive mask) — interface first for tools | protocol | TDD §11, ADR-012 | S | schema validation units | 2 | done |
-| 11 | sprite-intake chain (bg removal, palette snap, 3×→2×/1× fixed-kernel downscale) + atlas packer validation + 64-swatch palette linter + contact sheets. Unstubs asset gate | tools | TDD §11, ADR-012 | L | gate rejects seeded bad fixtures (wrong size / off-palette / missing state), accepts good | 10 | approved |
-| 12 | Determinism cross-check: golden replays in Chromium/WebKit/Node hash-agree. Unstubs weekly workflow | e2e | TDD §12.6, ADR-005 | S–M | three-engine hash agreement (exit criterion 1) | 4 | in-review |
+| 11 | sprite-intake gates: dimension/anchor/footprint/state validators + 64-swatch palette linter + zero-dep PNG codec. Unstubs asset gate | tools | TDD §11, ADR-012 | M | gate rejects seeded bad fixtures (wrong size / off-palette / missing state / bad anchor / unremoved bg), accepts good | 10 | in-review |
+| 11b | sprite-intake processing chain: bg removal, palette snap, 3×→2×/1× fixed-kernel downscale, atlas packing (assetpack per TDD §13), contact sheets | tools | TDD §11, ADR-012 | M | processed batch passes gates; contact sheet renders | 11 | pending-approval — PARKED: needs Mem's image-library decision (sharp vs pngjs vs assetpack-only; beyond pinned toolchain) |
+| 12 | Determinism cross-check: golden replays in Chromium/WebKit/Node hash-agree. Unstubs weekly workflow | e2e | TDD §12.6, ADR-005 | S–M | three-engine hash agreement (exit criterion 1) | 4 | done |
 
 **Parallel, not a Claude Code PR:** style-bible seed batch (~12 hero sprites) —
 Codex generates, Mem curates (AI-WORKFLOW §1/§5); hard-gated on PR 11
