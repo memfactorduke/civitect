@@ -1,11 +1,11 @@
 # ADR-013 gate ladder, in its binding order: lint → typecheck → unit → golden-masters → perf.
 # (ADR-007: GitHub Actions, trunk-based; AI-WORKFLOW: CI is the arbiter of done.)
 #
-# Gate status at scaffold time (each stub references the roadmap phase that makes it real):
+# Gate status (each remaining stub references the roadmap phase that makes it real):
 #   lint / wall / typecheck / unit ... LIVE
-#   golden-masters ................... STUB (ROADMAP Phase 0 — board PR 4)
+#   golden-masters ................... LIVE (e2e golden corpus, board PR 4)
 #   balance simulations .............. STUB (ROADMAP Phase 2)
-#   perf gate ........................ STUB (ROADMAP Phase 0 — board PR 4)
+#   perf gate ........................ LIVE (tick p95 vs TDD §2 hard gate, board PR 4)
 #   asset gates ...................... STUB (ROADMAP Phase 0 — board PR 11)
 name: CI
 
@@ -47,13 +47,13 @@ jobs:
       - name: Unit (Vitest, Node-mode)
         run: pnpm test
 
-      - name: Golden-master cities (STUB — ROADMAP Phase 0)
+      - name: Golden-master cities (TDD §12.1)
         run: pnpm gate:golden
 
       - name: Balance simulations (STUB — ROADMAP Phase 2)
         run: pnpm gate:balance
 
-      - name: Perf gate (STUB — ROADMAP Phase 0)
+      - name: Perf gate (TDD §2 / §12.4)
         run: pnpm gate:perf
 
       - name: Asset gates (STUB — ROADMAP Phase 0)

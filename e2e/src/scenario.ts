@@ -1,0 +1,94 @@
+/**
+ * Golden-city scenario format (TDD §12.1, ADR-013 §1).
+ *
+ * A scenario is the *input* half of a golden master: seed + map + command log
+ * + replay horizon, stored as readable JSON in `e2e/goldens/`. The *expected
+ * output* half (state hash + HUD baseline) lives in `e2e/goldens/hashes.json`
+ * and changes only via `pnpm bless`.
+ *
+ * This module is environment-pure (no Node APIs) so the determinism
+ * cross-check (board PR 12) can ship scenarios into Chromium/WebKit pages
+ * unchanged.
+ */
+import { type Command, CommandType } from "@civitect/protocol";
+
+export interface GoldenScenario {
+  readonly name: string;
+  readonly seed: number;
+  readonly mapWidth: number;
+  readonly mapHeight: number;
+  readonly untilTick: number;
+  readonly commands: readonly Command[];
+}
+
+/** JSON wire shape: commands carry their type by NAME for human review. */
+interface ScenarioJsonCommand {
+  readonly seq: number;
+  readonly tick: number;
+  readonly type: string;
+  readonly [field: string]: unknown;
+}
+
+function isNonNegativeSafeInt(v: unknown): v is number {
+  return typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+}
+
+function parseCommand(raw: ScenarioJsonCommand, at: string): Command {
+  if (!isNonNegativeSafeInt(raw.seq) || !isNonNegativeSafeInt(raw.tick)) {
+    throw new Error(`${at}: seq/tick must be non-negative safe integers`);
+  }
+  switch (raw.type) {
+    case "selectTile": {
+      const { x, y } = raw;
+      if (!isNonNegativeSafeInt(x) || !isNonNegativeSafeInt(y)) {
+        throw new Error(`${at}: selectTile needs non-negative integer x/y`);
+      }
+      return { seq: raw.seq, tick: raw.tick, type: CommandType.selectTile, x, y };
+    }
+    case "setSpeed": {
+      const { speed } = raw;
+      if (!isNonNegativeSafeInt(speed)) {
+        throw new Error(`${at}: setSpeed needs a non-negative integer speed`);
+      }
+      return { seq: raw.seq, tick: raw.tick, type: CommandType.setSpeed, speed };
+    }
+    default:
+      // Unknown names must be loud: a typo that silently dropped a command
+      // would still replay "successfully" — to the wrong world.
+      throw new Error(`${at}: unknown command type "${raw.type}"`);
+  }
+}
+
+/** Parse + validate one scenario JSON document (already JSON.parse'd). */
+export function parseScenario(doc: unknown, source: string): GoldenScenario {
+  if (typeof doc !== "object" || doc === null) {
+    throw new Error(`${source}: scenario must be a JSON object`);
+  }
+  const d = doc as Record<string, unknown>;
+  if (typeof d.name !== "string" || d.name.length === 0) {
+    throw new Error(`${source}: missing scenario name`);
+  }
+  if (!isNonNegativeSafeInt(d.seed)) {
+    throw new Error(`${source}: seed must be a non-negative safe integer`);
+  }
+  if (!isNonNegativeSafeInt(d.mapWidth) || !isNonNegativeSafeInt(d.mapHeight)) {
+    throw new Error(`${source}: mapWidth/mapHeight must be non-negative safe integers`);
+  }
+  if (!isNonNegativeSafeInt(d.untilTick)) {
+    throw new Error(`${source}: untilTick must be a non-negative safe integer`);
+  }
+  if (!Array.isArray(d.commands)) {
+    throw new Error(`${source}: commands must be an array`);
+  }
+  const commands = d.commands.map((c, i) =>
+    parseCommand(c as ScenarioJsonCommand, `${source} commands[${i}]`),
+  );
+  return {
+    name: d.name,
+    seed: d.seed,
+    mapWidth: d.mapWidth,
+    mapHeight: d.mapHeight,
+    untilTick: d.untilTick,
+    commands,
+  };
+}

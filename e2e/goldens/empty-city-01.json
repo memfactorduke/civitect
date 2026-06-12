@@ -1,0 +1,8 @@
+{
+  "name": "empty-city-01",
+  "seed": 1234,
+  "mapWidth": 64,
+  "mapHeight": 64,
+  "untilTick": 525600,
+  "commands": []
+}
