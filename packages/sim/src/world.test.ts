@@ -128,19 +128,21 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   // If one of these changes, either world layout/serialization changed (fine:
   // re-pin, say so in the PR — this is a bless) or the engine broke integer
   // determinism (catastrophic: investigate before touching the pin).
+  // RE-PINNED in phase-1 task 7b: terrain layers appended to the hash
+  // (deliberate bless — see the PR's balance-diff).
 
   it("fresh world, seed 1234", () => {
-    expect(stateHash(createWorld(1234))).toBe("5a856993df0e550e");
+    expect(stateHash(createWorld(1234))).toBe("613a1fd36071550e");
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("4700fd9615a1f109");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("90090d1233d87109");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("bb15b4106250fb2f");
+    expect(stateHash(world)).toBe("9d4a783145a67b2f");
   });
 });
 

@@ -11,7 +11,10 @@ import {
   type Command,
   type CommandRejection,
   CommandType,
+  flatTerrain,
   RejectionReason,
+  TERRAIN_LAYER_NAMES,
+  type TerrainGrid,
 } from "@civitect/protocol";
 import { fnv1a64 } from "./hash";
 import { createRng, type Pcg32, RNG_STREAM_NAMES, type RngStreamName } from "./rng";
@@ -40,6 +43,8 @@ export interface World {
   /** Integer cents, always (ADR-005). 0 until the Phase 2 economy defines starting funds. */
   fundsCents: number;
   population: number;
+  /** Tile layers (TDD §5) — part of the canonical state (and the hash). */
+  readonly terrain: TerrainGrid;
   readonly rng: Readonly<Record<RngStreamName, Pcg32>>;
 }
 
@@ -47,12 +52,18 @@ export function createWorld(
   seed: number,
   mapWidth = DEFAULT_MAP_SIZE,
   mapHeight = DEFAULT_MAP_SIZE,
+  terrain?: TerrainGrid,
 ): World {
   if (!Number.isSafeInteger(seed) || seed < 0) {
     throw new Error(`world seed must be a non-negative safe integer, got ${seed}`);
   }
   if (!isU16Dim(mapWidth) || !isU16Dim(mapHeight)) {
     throw new Error(`map dimensions must be in [1, 65535], got ${mapWidth}×${mapHeight}`);
+  }
+  if (terrain !== undefined && (terrain.width !== mapWidth || terrain.height !== mapHeight)) {
+    throw new Error(
+      `terrain is ${terrain.width}×${terrain.height}, world wants ${mapWidth}×${mapHeight}`,
+    );
   }
   const rng = {} as Record<RngStreamName, Pcg32>;
   for (const name of RNG_STREAM_NAMES) {
@@ -67,6 +78,7 @@ export function createWorld(
     mapHeight,
     fundsCents: 0,
     population: 0,
+    terrain: terrain ?? flatTerrain(mapWidth, mapHeight),
     rng,
   };
 }
@@ -160,6 +172,13 @@ export function stateHash(world: World): string {
   for (const name of RNG_STREAM_NAMES) {
     const s = world.rng[name].state();
     w.u32(s.stateHi).u32(s.stateLo).u32(s.incHi).u32(s.incLo);
+  }
+  // Appended fields (re-bless points). Terrain joined with phase-1 task 7b.
+  for (const name of TERRAIN_LAYER_NAMES) {
+    const layer = world.terrain.layers[name];
+    for (let i = 0; i < layer.length; i++) {
+      w.u16(layer[i] as number);
+    }
   }
   return fnv1a64(w.finish());
 }

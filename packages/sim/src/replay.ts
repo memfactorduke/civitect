@@ -7,7 +7,7 @@
  * of commands always produces the same world no matter how the log was
  * assembled.
  */
-import type { Command, CommandRejection } from "@civitect/protocol";
+import type { Command, CommandRejection, TerrainGrid } from "@civitect/protocol";
 import { createWorld, runTick, type World } from "./world";
 
 export interface ReplayResult {
@@ -18,6 +18,7 @@ export interface ReplayResult {
 export interface ReplayOptions {
   readonly mapWidth?: number;
   readonly mapHeight?: number;
+  readonly terrain?: TerrainGrid;
 }
 
 export function replay(
@@ -38,7 +39,12 @@ export function replay(
     );
   }
 
-  const world = createWorld(seed, options.mapWidth ?? undefined, options.mapHeight ?? undefined);
+  const world = createWorld(
+    seed,
+    options.mapWidth ?? undefined,
+    options.mapHeight ?? undefined,
+    options.terrain,
+  );
   const rejections: CommandRejection[] = [];
   let cursor = 0;
   const batch: Command[] = [];
