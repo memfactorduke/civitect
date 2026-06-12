@@ -35,6 +35,34 @@ export interface TileCoord {
   readonly y: number;
 }
 
+/** RCIO demand with its factor breakdown — the panel shows FACTORS (GDD §6). */
+export interface DemandBlock {
+  /** Net demand per sector, -1000..1000 permille. */
+  readonly r: number;
+  readonly c: number;
+  readonly i: number;
+  readonly o: number;
+  /**
+   * Factor contributions per sector, permille, SUMMING to the net value
+   * (exit criterion: the panel proves it with a property test).
+   * Layout: [jobs, attractiveness, vacancy] for R; [purchasing, vacancy,
+   * supply] for C; [orders, vacancy, workforce] for I; [educated, adminNeed,
+   * vacancy] for O — fixed wire order, i16 each.
+   */
+  readonly factors: readonly number[];
+}
+
+/** One building as renderers/inspectors need it. */
+export interface BuildingView {
+  readonly x: number;
+  readonly y: number;
+  /** ZoneKind for grown buildings; 100+BuildingKind for ploppables. */
+  readonly kind: number;
+  readonly level: number;
+  /** 0 normal, 1 unpowered, 2 unwatered, 3 abandoned (worst wins). */
+  readonly status: number;
+}
+
 /** One road segment as the renderer needs it (tile-pair + class). */
 export interface RoadSegment {
   readonly ax: number;
@@ -64,6 +92,11 @@ export interface Snapshot {
    * after a road mutation); null = unchanged since the last list.
    */
   readonly roads: readonly RoadSegment[] | null;
+  /** Current demand + factors (small, rides every snapshot). */
+  readonly demand: DemandBlock;
+  /** Building-set version; list rides keyframes/changes (road pattern). */
+  readonly buildingVersion: number;
+  readonly buildings: readonly BuildingView[] | null;
 }
 
 export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
@@ -90,6 +123,23 @@ export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
     w.u8(1).u32(snap.roads.length);
     for (const seg of snap.roads) {
       w.u16(seg.ax).u16(seg.ay).u16(seg.bx).u16(seg.by).u8(seg.roadClass);
+    }
+  }
+  w.i64(snap.demand.r);
+  w.i64(snap.demand.c);
+  w.i64(snap.demand.i);
+  w.i64(snap.demand.o);
+  w.u8(snap.demand.factors.length);
+  for (const f of snap.demand.factors) {
+    w.i64(f);
+  }
+  w.u32(snap.buildingVersion);
+  if (snap.buildings === null) {
+    w.u8(0);
+  } else {
+    w.u8(1).u32(snap.buildings.length);
+    for (const b of snap.buildings) {
+      w.u16(b.x).u16(b.y).u16(b.kind).u8(b.level).u8(b.status);
     }
   }
 }
@@ -130,5 +180,41 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
       roads.push({ ax: r.u16(), ay: r.u16(), bx: r.u16(), by: r.u16(), roadClass: r.u8() });
     }
   }
-  return { kind, tick, speed, selectedTile, dirtyChunkIds, hud, advisorEvents, roadVersion, roads };
+  const dr = r.i64();
+  const dc = r.i64();
+  const di = r.i64();
+  const dod = r.i64();
+  const factorCount = r.u8();
+  const factors: number[] = [];
+  for (let i = 0; i < factorCount; i++) {
+    factors.push(r.i64());
+  }
+  const demand = { r: dr, c: dc, i: di, o: dod, factors };
+  const buildingVersion = r.u32();
+  const hasBuildings = r.u8();
+  if (hasBuildings > 1) {
+    throw new DecodeError(`buildings presence flag must be 0|1, got ${hasBuildings}`);
+  }
+  let buildings: BuildingView[] | null = null;
+  if (hasBuildings === 1) {
+    const count = r.u32();
+    buildings = [];
+    for (let i = 0; i < count; i++) {
+      buildings.push({ x: r.u16(), y: r.u16(), kind: r.u16(), level: r.u8(), status: r.u8() });
+    }
+  }
+  return {
+    kind,
+    tick,
+    speed,
+    selectedTile,
+    dirtyChunkIds,
+    hud,
+    advisorEvents,
+    roadVersion,
+    roads,
+    demand,
+    buildingVersion,
+    buildings,
+  };
 }

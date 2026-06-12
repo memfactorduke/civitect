@@ -22,6 +22,9 @@ export const CommandType = {
   upgradeRoad: 5,
   undo: 6,
   redo: 7,
+  zoneRect: 8,
+  dezoneRect: 9,
+  placeBuilding: 10,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -66,6 +69,29 @@ export type RoadClassWire = (typeof RoadClassWire)[keyof typeof RoadClassWire];
 
 export const BRIDGE_CLASS_OFFSET = 10;
 
+/** Zone kinds painted into the terrain zone layer (GDD §6). Append-only. */
+export const ZoneKind = {
+  none: 0,
+  residentialLow: 1,
+  residentialHigh: 2,
+  commercialLow: 3,
+  commercialHigh: 4,
+  industrial: 5,
+  office: 6,
+} as const;
+export type ZoneKind = (typeof ZoneKind)[keyof typeof ZoneKind];
+
+const ZONE_KINDS: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 6]);
+
+/** Player-placed (ploppable) building kinds, Phase 2 utility set. Append-only. */
+export const BuildingKind = {
+  powerPlant: 1,
+  waterPump: 2,
+} as const;
+export type BuildingKind = (typeof BuildingKind)[keyof typeof BuildingKind];
+
+const BUILDING_KINDS: ReadonlySet<number> = new Set([1, 2]);
+
 const ROAD_CLASSES: ReadonlySet<number> = new Set([1, 2, 3, 4, 11, 12, 13, 14]);
 
 export interface BuildRoadCommand extends CommandBase {
@@ -103,6 +129,30 @@ export interface RedoCommand extends CommandBase {
   readonly type: typeof CommandType.redo;
 }
 
+export interface ZoneRectCommand extends CommandBase {
+  readonly type: typeof CommandType.zoneRect;
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+  readonly zone: ZoneKind;
+}
+
+export interface DezoneRectCommand extends CommandBase {
+  readonly type: typeof CommandType.dezoneRect;
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+}
+
+export interface PlaceBuildingCommand extends CommandBase {
+  readonly type: typeof CommandType.placeBuilding;
+  readonly x: number;
+  readonly y: number;
+  readonly building: BuildingKind;
+}
+
 export type Command =
   | SelectTileCommand
   | SetSpeedCommand
@@ -110,7 +160,10 @@ export type Command =
   | BulldozeRoadCommand
   | UpgradeRoadCommand
   | UndoCommand
-  | RedoCommand;
+  | RedoCommand
+  | ZoneRectCommand
+  | DezoneRectCommand
+  | PlaceBuildingCommand;
 
 export const RejectionReason = {
   outOfBounds: 1,
@@ -158,6 +211,15 @@ export function encodeCommandBody(w: ByteWriter, cmd: Command): void {
     case CommandType.undo:
     case CommandType.redo:
       break; // no body beyond the base
+    case CommandType.zoneRect:
+      w.u16(cmd.x0).u16(cmd.y0).u16(cmd.x1).u16(cmd.y1).u8(cmd.zone);
+      break;
+    case CommandType.dezoneRect:
+      w.u16(cmd.x0).u16(cmd.y0).u16(cmd.x1).u16(cmd.y1);
+      break;
+    case CommandType.placeBuilding:
+      w.u16(cmd.x).u16(cmd.y).u8(cmd.building);
+      break;
   }
 }
 
@@ -214,6 +276,43 @@ export function decodeCommandBody(r: ByteReader): Command {
       return { seq, tick, type: CommandType.undo };
     case CommandType.redo:
       return { seq, tick, type: CommandType.redo };
+    case CommandType.zoneRect: {
+      const x0 = r.u16();
+      const y0 = r.u16();
+      const x1 = r.u16();
+      const y1 = r.u16();
+      const zone = r.u8();
+      if (!ZONE_KINDS.has(zone)) {
+        throw new DecodeError(`unknown ZoneKind ${zone}`);
+      }
+      return { seq, tick, type: CommandType.zoneRect, x0, y0, x1, y1, zone: zone as ZoneKind };
+    }
+    case CommandType.dezoneRect:
+      return {
+        seq,
+        tick,
+        type: CommandType.dezoneRect,
+        x0: r.u16(),
+        y0: r.u16(),
+        x1: r.u16(),
+        y1: r.u16(),
+      };
+    case CommandType.placeBuilding: {
+      const x = r.u16();
+      const y = r.u16();
+      const building = r.u8();
+      if (!BUILDING_KINDS.has(building)) {
+        throw new DecodeError(`unknown BuildingKind ${building}`);
+      }
+      return {
+        seq,
+        tick,
+        type: CommandType.placeBuilding,
+        x,
+        y,
+        building: building as BuildingKind,
+      };
+    }
     default:
       throw new DecodeError(`unknown CommandType ${type}`);
   }

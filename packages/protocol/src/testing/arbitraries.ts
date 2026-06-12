@@ -14,11 +14,14 @@ import {
   type EntityRef,
 } from "../cause";
 import {
+  BuildingKind,
   type BuildRoadCommand,
   type BulldozeRoadCommand,
   type Command,
   type CommandRejection,
   CommandType,
+  type DezoneRectCommand,
+  type PlaceBuildingCommand,
   type RedoCommand,
   RejectionReason,
   RoadClassWire,
@@ -26,6 +29,8 @@ import {
   type SetSpeedCommand,
   type UndoCommand,
   type UpgradeRoadCommand,
+  ZoneKind,
+  type ZoneRectCommand,
 } from "../commands";
 import { type Message, MessageKind } from "../envelope";
 import type { InspectorRequest, InspectorResponse, TileInfo } from "../inspector";
@@ -128,6 +133,43 @@ export const redoCommandArb: fc.Arbitrary<RedoCommand> = fc.record({
   type: fc.constant(CommandType.redo),
 });
 
+export const zoneRectCommandArb: fc.Arbitrary<ZoneRectCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.zoneRect),
+  x0: u16Arb,
+  y0: u16Arb,
+  x1: u16Arb,
+  y1: u16Arb,
+  zone: fc.constantFrom(
+    ZoneKind.residentialLow,
+    ZoneKind.residentialHigh,
+    ZoneKind.commercialLow,
+    ZoneKind.commercialHigh,
+    ZoneKind.industrial,
+    ZoneKind.office,
+  ),
+});
+
+export const dezoneRectCommandArb: fc.Arbitrary<DezoneRectCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.dezoneRect),
+  x0: u16Arb,
+  y0: u16Arb,
+  x1: u16Arb,
+  y1: u16Arb,
+});
+
+export const placeBuildingCommandArb: fc.Arbitrary<PlaceBuildingCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.placeBuilding),
+  x: u16Arb,
+  y: u16Arb,
+  building: fc.constantFrom(...Object.values(BuildingKind)),
+});
+
 export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   selectTileCommandArb,
   setSpeedCommandArb,
@@ -136,6 +178,9 @@ export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   upgradeRoadCommandArb,
   undoCommandArb,
   redoCommandArb,
+  zoneRectCommandArb,
+  dezoneRectCommandArb,
+  placeBuildingCommandArb,
 );
 
 export const rejectionArb: fc.Arbitrary<CommandRejection> = fc.record({
@@ -152,6 +197,22 @@ const roadSegmentArb = fc.record({
   roadClass: fc.constantFrom(...Object.values(RoadClassWire)),
 });
 
+const demandArb = fc.record({
+  r: fc.integer({ min: -1000, max: 1000 }),
+  c: fc.integer({ min: -1000, max: 1000 }),
+  i: fc.integer({ min: -1000, max: 1000 }),
+  o: fc.integer({ min: -1000, max: 1000 }),
+  factors: fc.array(fc.integer({ min: -1000, max: 1000 }), { maxLength: 12 }),
+});
+
+const buildingViewArb = fc.record({
+  x: u16Arb,
+  y: u16Arb,
+  kind: u16Arb,
+  level: fc.integer({ min: 1, max: 5 }),
+  status: fc.integer({ min: 0, max: 3 }),
+});
+
 export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
   kind: fc.constantFrom(...Object.values(SnapshotKind)),
   tick: tickArb,
@@ -162,6 +223,9 @@ export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
   advisorEvents: fc.array(advisorEventArb, { maxLength: 4 }),
   roadVersion: u32Arb,
   roads: fc.option(fc.array(roadSegmentArb, { maxLength: 12 }), { nil: null }),
+  demand: demandArb,
+  buildingVersion: u32Arb,
+  buildings: fc.option(fc.array(buildingViewArb, { maxLength: 12 }), { nil: null }),
 });
 
 export const tileInfoArb: fc.Arbitrary<TileInfo> = fc.record({

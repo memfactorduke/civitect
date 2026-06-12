@@ -567,6 +567,10 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.undoStack.push(op);
       return null;
     }
+    default:
+      // v6 zoning/building commands reject loudly until the Phase 2 sim
+      // systems PR lands them (same staging as the road commands used).
+      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
   }
 }
 

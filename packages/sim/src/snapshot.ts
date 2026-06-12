@@ -39,5 +39,10 @@ export function toSnapshot(
     advisorEvents: [], // first emitters arrive with Phase 2 (cause chains required, ADR-009)
     roadVersion: world.roads.version,
     roads: includeRoads ? roadSegments(world) : null,
+    // Real demand/buildings land with the Phase 2 sim systems PR; the
+    // explicit empty truth rides until then (same pattern roads used).
+    demand: { r: 0, c: 0, i: 0, o: 0, factors: [] },
+    buildingVersion: 0,
+    buildings: kind === SnapshotKind.keyframe ? [] : null,
   };
 }
