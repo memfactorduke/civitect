@@ -28,8 +28,8 @@ const results = new Map<string, GoldenResult>();
 describe.each(scenarios.map((s) => [s.name, s] as const))("golden %s", (name, scenario) => {
   it(
     blessing ? "replays (blessing — hash will be pinned)" : "replays to the committed hash",
-    () => {
-      const result = runScenario(scenario);
+    async () => {
+      const result = await runScenario(scenario);
       results.set(name, result);
       expect(result.hud.tick).toBe(scenario.untilTick);
       if (!blessing) {
