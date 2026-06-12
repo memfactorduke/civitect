@@ -18,13 +18,16 @@ import {
 } from "@civitect/protocol";
 import { fnv1a64 } from "./hash";
 import { createRng, type Pcg32, RNG_STREAM_NAMES, type RngStreamName } from "./rng";
+import { pointOnSegment, segmentRelation, supercoverTiles } from "./roads/geometry";
 import {
   addEdge,
   addNode,
+  baseClass,
   canonicalGraph,
   createRoadGraph,
   edgeBetween,
   edgesOf,
+  isBridgeClass,
   nodeAt,
   type RoadClass,
   type RoadGraph,
@@ -72,17 +75,23 @@ export interface World {
   readonly rng: Readonly<Record<RngStreamName, Pcg32>>;
 }
 
+/** A segment by tile pair + class — the currency of undo bookkeeping. */
+export interface SegRecord {
+  readonly ax: number;
+  readonly ay: number;
+  readonly bx: number;
+  readonly by: number;
+  readonly roadClass: RoadClass;
+}
+
 /** Inverse-operation records for undo/redo (sim-side per protocol v3). */
 export type RoadOp =
   | {
+      /** Generalized build: may split crossed edges and create a chain. */
       readonly kind: "build";
-      readonly ax: number;
-      readonly ay: number;
-      readonly bx: number;
-      readonly by: number;
-      readonly roadClass: RoadClass;
-      readonly createdA: boolean;
-      readonly createdB: boolean;
+      readonly removedEdges: readonly SegRecord[];
+      readonly createdEdges: readonly SegRecord[];
+      readonly createdNodes: readonly { readonly x: number; readonly y: number }[];
     }
   | {
       readonly kind: "bulldoze";
@@ -144,7 +153,30 @@ function inBounds(world: World, x: number, y: number): boolean {
   return x < world.mapWidth && y < world.mapHeight;
 }
 
-/** Apply a build (forward or via redo). Returns the op for the undo stack, or a rejection. */
+function water(world: World, x: number, y: number): boolean {
+  return (world.terrain.layers.water[y * world.mapWidth + x] as number) !== 0;
+}
+
+function terrace(world: World, x: number, y: number): number {
+  return world.terrain.layers.elevation[y * world.mapWidth + x] as number;
+}
+
+const MAX_TERRACE_STEP = 1; // [TUNE] steeper crossings need tunnels (deferred)
+
+/**
+ * Apply a build with the full 12d/12e semantics. Plans first, mutates only
+ * when every rule passes — a rejected build leaves no fingerprints.
+ *
+ * - Crossing an existing non-bridge edge at an integer point splits it and
+ *   threads the new road through (auto-intersections); T-junctions split
+ *   the touched edge; existing nodes on the line join the chain.
+ * - Non-integer crossings and collinear overlaps reject.
+ * - Bridges (class > BRIDGE_CLASS_OFFSET) are grade-separated: they neither
+ *   split nor connect mid-span, and they must cross water (which non-bridge
+ *   roads may never touch). Bridge endpoints anchor on land.
+ * - Adjacent walked tiles climbing > MAX_TERRACE_STEP terraces reject
+ *   (tunnels are a later slice).
+ */
 function applyBuild(
   world: World,
   ax: number,
@@ -154,34 +186,195 @@ function applyBuild(
   roadClass: RoadClass,
   seq: number,
 ): RoadOp | CommandRejection {
+  const reject = (reason: RejectionReason = RejectionReason.invalidSegment): CommandRejection => ({
+    seq,
+    tick: world.tick,
+    reason,
+  });
   if (!inBounds(world, ax, ay) || !inBounds(world, bx, by)) {
-    return { seq, tick: world.tick, reason: RejectionReason.outOfBounds };
+    return reject(RejectionReason.outOfBounds);
   }
   if (ax === bx && ay === by) {
-    return { seq, tick: world.tick, reason: RejectionReason.invalidSegment };
+    return reject();
   }
-  const existingA = nodeAt(world.roads, ax, ay);
-  const existingB = nodeAt(world.roads, bx, by);
-  if (
-    existingA !== -1 &&
-    existingB !== -1 &&
-    edgeBetween(world.roads, existingA, existingB) !== -1
-  ) {
-    return { seq, tick: world.tick, reason: RejectionReason.invalidSegment };
+  const g = world.roads;
+  const bridge = isBridgeClass(roadClass);
+
+  // Terrain rules over the walked tiles.
+  const walk = supercoverTiles(ax, ay, bx, by);
+  let wetInterior = 0;
+  for (let i = 0; i < walk.length; i++) {
+    const t = walk[i] as { x: number; y: number };
+    if (!inBounds(world, t.x, t.y)) {
+      return reject(RejectionReason.outOfBounds);
+    }
+    const wet = water(world, t.x, t.y);
+    const isEndpoint = i === 0 || i === walk.length - 1;
+    if (wet && isEndpoint) {
+      return reject(); // both bridge and road must anchor/stand on land
+    }
+    if (wet && !bridge) {
+      return reject(); // water needs a bridge
+    }
+    if (wet) {
+      wetInterior++;
+    }
+    if (i > 0) {
+      const prev = walk[i - 1] as { x: number; y: number };
+      const dryPair = !wet && !water(world, prev.x, prev.y);
+      if (
+        dryPair &&
+        Math.abs(terrace(world, t.x, t.y) - terrace(world, prev.x, prev.y)) > MAX_TERRACE_STEP
+      ) {
+        return reject(); // cliff: tunnel territory (later slice)
+      }
+    }
   }
-  const a = addNode(world.roads, ax, ay);
-  const b = addNode(world.roads, bx, by);
-  addEdge(world.roads, a, b, roadClass);
-  return {
-    kind: "build",
-    ax,
-    ay,
-    bx,
-    by,
-    roadClass,
-    createdA: existingA === -1,
-    createdB: existingB === -1,
+  if (bridge && wetInterior === 0) {
+    return reject(); // bridges exist to cross water
+  }
+
+  // Plan splits and chain points against every alive edge.
+  interface Split {
+    readonly edge: number;
+    readonly x: number;
+    readonly y: number;
+  }
+  const splits: Split[] = [];
+  const chainPts: { x: number; y: number }[] = [];
+  const isEndpointOfNew = (x: number, y: number): boolean =>
+    (x === ax && y === ay) || (x === bx && y === by);
+
+  for (let e = 0; e < g.edgeCount; e++) {
+    if (g.edgeAlive[e] !== 1) {
+      continue;
+    }
+    const eax = g.nodeX[g.edgeA[e] as number] as number;
+    const eay = g.nodeY[g.edgeA[e] as number] as number;
+    const ebx = g.nodeX[g.edgeB[e] as number] as number;
+    const eby = g.nodeY[g.edgeB[e] as number] as number;
+    const rel = segmentRelation(ax, ay, bx, by, eax, eay, ebx, eby);
+    if (rel.kind === "none") {
+      continue;
+    }
+    const otherIsBridge = isBridgeClass(g.edgeClass[e] as number);
+    if (rel.kind === "collinearOverlap") {
+      return reject(); // even bridges may not stack on a collinear road
+    }
+    if (bridge || otherIsBridge) {
+      continue; // grade separation: over/under-pass, no junction, no split
+    }
+    if (rel.kind === "nonInteger") {
+      return reject();
+    }
+    const onNewInterior =
+      pointOnSegment(rel.x, rel.y, ax, ay, bx, by) && !isEndpointOfNew(rel.x, rel.y);
+    const isExistingEndpoint = (rel.x === eax && rel.y === eay) || (rel.x === ebx && rel.y === eby);
+    if (!isExistingEndpoint) {
+      splits.push({ edge: e, x: rel.x, y: rel.y });
+    }
+    if (onNewInterior) {
+      chainPts.push({ x: rel.x, y: rel.y });
+    }
+    if (isExistingEndpoint && !onNewInterior && !isEndpointOfNew(rel.x, rel.y)) {
+    }
+  }
+
+  if (!bridge) {
+    // Existing nodes sitting on the new line connect through it.
+    for (let n = 0; n < g.nodeCount; n++) {
+      if (g.nodeAlive[n] !== 1) {
+        continue;
+      }
+      const nx = g.nodeX[n] as number;
+      const ny = g.nodeY[n] as number;
+      if (!isEndpointOfNew(nx, ny) && pointOnSegment(nx, ny, ax, ay, bx, by)) {
+        chainPts.push({ x: nx, y: ny });
+      }
+    }
+  }
+
+  // Duplicate guard for the splitless whole-segment case (collinear checks
+  // make sub-segment duplicates impossible otherwise).
+  const a0 = nodeAt(g, ax, ay);
+  const b0 = nodeAt(g, bx, by);
+  if (a0 !== -1 && b0 !== -1 && edgeBetween(g, a0, b0) !== -1) {
+    return reject();
+  }
+
+  // ── Mutate ────────────────────────────────────────────────────────────
+  const removedEdges: SegRecord[] = [];
+  const createdEdges: SegRecord[] = [];
+  const createdNodes: { x: number; y: number }[] = [];
+  const noteNode = (x: number, y: number): number => {
+    const existing = nodeAt(g, x, y);
+    if (existing !== -1) {
+      return existing;
+    }
+    createdNodes.push({ x, y });
+    return addNode(g, x, y);
   };
+
+  for (const split of splits) {
+    const e = split.edge;
+    const na = g.edgeA[e] as number;
+    const nb = g.edgeB[e] as number;
+    const cls = g.edgeClass[e] as RoadClass;
+    removedEdges.push({
+      ax: g.nodeX[na] as number,
+      ay: g.nodeY[na] as number,
+      bx: g.nodeX[nb] as number,
+      by: g.nodeY[nb] as number,
+      roadClass: cls,
+    });
+    removeEdge(g, e);
+    const mid = noteNode(split.x, split.y);
+    addEdge(g, na, mid, cls);
+    addEdge(g, mid, nb, cls);
+    createdEdges.push(
+      {
+        ax: g.nodeX[na] as number,
+        ay: g.nodeY[na] as number,
+        bx: split.x,
+        by: split.y,
+        roadClass: cls,
+      },
+      {
+        ax: split.x,
+        ay: split.y,
+        bx: g.nodeX[nb] as number,
+        by: g.nodeY[nb] as number,
+        roadClass: cls,
+      },
+    );
+  }
+
+  // Chain through sorted unique interior points.
+  const dirX = bx - ax;
+  const dirY = by - ay;
+  const seen = new Set<number>();
+  const points = [{ x: ax, y: ay }, ...chainPts, { x: bx, y: by }]
+    .filter((pt) => {
+      const key = pt.x * 0x10000 + pt.y;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .sort(
+      (p, q) => (p.x - ax) * dirX + (p.y - ay) * dirY - ((q.x - ax) * dirX + (q.y - ay) * dirY),
+    );
+  for (let i = 0; i + 1 < points.length; i++) {
+    const pa = points[i] as { x: number; y: number };
+    const pb = points[i + 1] as { x: number; y: number };
+    const na = noteNode(pa.x, pa.y);
+    const nb = noteNode(pb.x, pb.y);
+    addEdge(g, na, nb, roadClass);
+    createdEdges.push({ ax: pa.x, ay: pa.y, bx: pb.x, by: pb.y, roadClass });
+  }
+
+  return { kind: "build", removedEdges, createdEdges, createdNodes };
 }
 
 /** Apply a bulldoze. Returns the op (with the removed class) or a rejection. */
@@ -210,20 +403,33 @@ function applyBulldoze(
   return { kind: "bulldoze", ax, ay, bx, by, roadClass };
 }
 
+function removeSeg(g: RoadGraph, seg: SegRecord): void {
+  const a = nodeAt(g, seg.ax, seg.ay);
+  const b = nodeAt(g, seg.bx, seg.by);
+  removeEdge(g, edgeBetween(g, a, b));
+}
+
+function addSeg(g: RoadGraph, seg: SegRecord): void {
+  addEdge(g, addNode(g, seg.ax, seg.ay), addNode(g, seg.bx, seg.by), seg.roadClass);
+}
+
 /** Invert one op (undo). Never records onto stacks itself. */
 function applyInverse(world: World, op: RoadOp): void {
   switch (op.kind) {
     case "build": {
-      // Inverse of build = bulldoze. LIFO discipline guarantees the edge
-      // exists and created nodes are isolated again by the time we get here.
-      const a = nodeAt(world.roads, op.ax, op.ay);
-      const b = nodeAt(world.roads, op.bx, op.by);
-      removeEdge(world.roads, edgeBetween(world.roads, a, b));
-      if (op.createdA && edgesOf(world.roads, a).length === 0) {
-        removeNode(world.roads, a);
+      // LIFO discipline guarantees every created edge still exists and
+      // every created node ends isolated once they're gone.
+      for (const seg of op.createdEdges) {
+        removeSeg(world.roads, seg);
       }
-      if (op.createdB && edgesOf(world.roads, b).length === 0) {
-        removeNode(world.roads, b);
+      for (const pt of op.createdNodes) {
+        const n = nodeAt(world.roads, pt.x, pt.y);
+        if (n !== -1 && edgesOf(world.roads, n).length === 0) {
+          removeNode(world.roads, n);
+        }
+      }
+      for (const seg of op.removedEdges) {
+        addSeg(world.roads, seg);
       }
       return;
     }
@@ -246,9 +452,12 @@ function applyInverse(world: World, op: RoadOp): void {
 function applyForward(world: World, op: RoadOp): void {
   switch (op.kind) {
     case "build": {
-      const a = addNode(world.roads, op.ax, op.ay);
-      const b = addNode(world.roads, op.bx, op.by);
-      addEdge(world.roads, a, b, op.roadClass);
+      for (const seg of op.removedEdges) {
+        removeSeg(world.roads, seg);
+      }
+      for (const seg of op.createdEdges) {
+        addSeg(world.roads, seg);
+      }
       return;
     }
     case "bulldoze": {
@@ -401,6 +610,32 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
 
   world.tick += 1;
   return rejections;
+}
+
+export const IntersectionControl = {
+  none: 0,
+  stop: 1,
+  signal: 2,
+} as const;
+export type IntersectionControl = (typeof IntersectionControl)[keyof typeof IntersectionControl];
+
+/**
+ * Auto signals/stops (12d): DERIVED from the graph, never stored — no hash
+ * or save impact. Degree ≥ 3 makes an intersection; any avenue/highway leg
+ * warrants a signal, all-street/path corners get stops [TUNE].
+ */
+export function controlAt(world: World, node: number): IntersectionControl {
+  const legs = edgesOf(world.roads, node);
+  if (legs.length < 3) {
+    return IntersectionControl.none;
+  }
+  for (const e of legs) {
+    const cls = baseClass(world.roads.edgeClass[e] as RoadClass);
+    if (cls === 2 || cls === 3) {
+      return IntersectionControl.signal;
+    }
+  }
+  return IntersectionControl.stop;
 }
 
 /**

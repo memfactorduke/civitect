@@ -19,13 +19,23 @@ export {
   type RngStreamName,
 } from "./rng";
 export {
+  type Pt,
+  pointOnSegment,
+  type SegmentRelation,
+  segmentRelation,
+  supercoverTiles,
+} from "./roads/geometry";
+export {
   addEdge,
   addNode,
+  BRIDGE_CLASS_OFFSET,
+  baseClass,
   type CanonicalEdge,
   type CanonicalGraph,
   canonicalGraph,
   createRoadGraph,
   edgesOf,
+  isBridgeClass,
   nodeAt,
   otherEnd,
   ROAD_CLASS_SPEC,
@@ -44,8 +54,12 @@ export {
 } from "./roads/pathfind";
 export { toSnapshot } from "./snapshot";
 export {
+  controlAt,
   createWorld,
+  IntersectionControl,
+  type RoadOp,
   runTick,
+  type SegRecord,
   SIM_SPEEDS,
   stateHash,
   TICK_HZ,

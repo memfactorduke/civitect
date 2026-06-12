@@ -43,6 +43,11 @@ const ROAD_STYLE: Readonly<Record<number, { width: number; color: number }>> = {
   1: { width: 6, color: 0x4a4a4a }, // street
   2: { width: 10, color: 0x5a5a5e }, // avenue
   3: { width: 14, color: 0x6b6b70 }, // highway
+  4: { width: 3, color: 0xa8865c }, // ped/bike path
+  11: { width: 7, color: 0x77818c }, // bridges read lighter + a hair wider
+  12: { width: 11, color: 0x848e99 },
+  13: { width: 15, color: 0x919ba6 },
+  14: { width: 4, color: 0xb59a76 },
 };
 
 function diamondPath(g: Graphics, wx: number, wy: number): Graphics {

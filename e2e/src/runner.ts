@@ -9,7 +9,7 @@
  */
 import type { Command } from "@civitect/protocol";
 import { createWorld, replay, runTick, stateHash } from "@civitect/sim";
-import type { GoldenScenario } from "./scenario";
+import { type GoldenScenario, scenarioTerrain } from "./scenario";
 
 /** HUD-scalar baseline recorded next to each golden hash — the balance-diff input. */
 export interface HudBaseline {
@@ -33,6 +33,7 @@ export function runScenario(scenario: GoldenScenario): GoldenResult {
   const { world, rejections } = replay(scenario.seed, scenario.commands, scenario.untilTick, {
     mapWidth: scenario.mapWidth,
     mapHeight: scenario.mapHeight,
+    terrain: scenarioTerrain(scenario),
   });
   return {
     hash: stateHash(world),
@@ -50,7 +51,12 @@ export function runScenarioTimed(scenario: GoldenScenario, now: () => number): T
   const log = [...scenario.commands].sort((a, b) =>
     a.tick === b.tick ? a.seq - b.seq : a.tick - b.tick,
   );
-  const world = createWorld(scenario.seed, scenario.mapWidth, scenario.mapHeight);
+  const world = createWorld(
+    scenario.seed,
+    scenario.mapWidth,
+    scenario.mapHeight,
+    scenarioTerrain(scenario),
+  );
   const durations = new Float64Array(scenario.untilTick);
   let rejectionCount = 0;
   let cursor = 0;
