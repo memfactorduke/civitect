@@ -140,6 +140,7 @@ export function civToWorld(save: CivSave): World {
     utilitiesRoadVersion: -1,
     utilitiesBuildingVersion: -1,
     advisorIdCounter: 0,
+    zoneVersion: 0,
     rng,
   };
 }

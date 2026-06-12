@@ -27,6 +27,8 @@ function syntheticSnapshot(tick: number): Snapshot {
     demand: { r: 0, c: 0, i: 0, o: 0, factors: [] },
     buildingVersion: 0,
     buildings: null,
+    zoneVersion: 0,
+    zones: null,
   };
 }
 

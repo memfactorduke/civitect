@@ -100,6 +100,8 @@ export interface World {
   utilitiesRoadVersion: number;
   utilitiesBuildingVersion: number;
   advisorIdCounter: number;
+  /** Bumps on every zone paint (incl. undo/redo) — snapshot change key. */
+  zoneVersion: number;
   /**
    * Undo/redo stacks (LIFO inverse ops). SESSION-LOCAL by design: not
    * hashed, not saved — the exit criterion build∘undo ≡ identity on the
@@ -210,6 +212,7 @@ export function createWorld(
     utilitiesRoadVersion: -1,
     utilitiesBuildingVersion: -1,
     advisorIdCounter: 0,
+    zoneVersion: 0,
     rng,
   };
 }
@@ -538,6 +541,7 @@ function addSeg(g: RoadGraph, seg: SegRecord): void {
 function applyInverse(world: World, op: RoadOp): void {
   switch (op.kind) {
     case "zone": {
+      world.zoneVersion++;
       const w = op.x1 - op.x0 + 1;
       for (let y = op.y0; y <= op.y1; y++) {
         for (let x = op.x0; x <= op.x1; x++) {
@@ -597,6 +601,7 @@ function applyInverse(world: World, op: RoadOp): void {
 function applyForward(world: World, op: RoadOp): void {
   switch (op.kind) {
     case "zone": {
+      world.zoneVersion++;
       for (let y = op.y0; y <= op.y1; y++) {
         for (let x = op.x0; x <= op.x1; x++) {
           const tileIdx = y * world.mapWidth + x;
@@ -773,6 +778,7 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       if (changed === 0) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
       }
+      world.zoneVersion++;
       world.undoStack.push({ kind: "zone", x0, y0, x1, y1, prev, zone });
       world.redoStack.length = 0;
       return null;
@@ -851,14 +857,13 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // cohorts(lifecycle hourly slice).
   if (world.tick % TICKS_PER_HOUR === 0) {
     const hourOfDay = Math.floor(world.tick / TICKS_PER_HOUR) % 24;
-    const abandonedBefore = countAbandoned(world.buildings);
-    lifecycleSlice(lifecycleCtx, hourOfDay, world.tick);
-    const abandonedAfter = countAbandoned(world.buildings);
-    if (abandonedAfter > abandonedBefore) {
-      // events/advisors — every warning carries its CauseChain (ADR-009).
+    const newlyAbandoned = lifecycleSlice(lifecycleCtx, hourOfDay, world.tick);
+    // events/advisors — every warning carries its CauseChain pointing at the
+    // ACTUAL building (ADR-009; the e2e resolves these links). Cap 3/slice.
+    for (const tileIdx of newlyAbandoned.slice(0, 3)) {
       emitAdvisor(world, AdvisorSeverity.warning, "advisor.abandonment", "cause.utilityFailure", [
         {
-          subject: { kind: EntityKind.system, id: 0 },
+          subject: { kind: EntityKind.building, id: tileIdx },
           labelKey: "cause.noUtilities",
           weightPermille: 1000,
         },
@@ -913,16 +918,6 @@ export function worldHasBuildings(world: World): boolean {
     }
   }
   return false;
-}
-
-function countAbandoned(b: Buildings): number {
-  let n = 0;
-  for (let i = 0; i < b.count; i++) {
-    if (b.alive[i] === 1 && (b.status[i] as number) === BuildingStatus.abandoned) {
-      n++;
-    }
-  }
-  return n;
 }
 
 /**

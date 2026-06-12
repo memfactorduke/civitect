@@ -54,6 +54,7 @@ function post(bytes: Uint8Array): void {
 
 let lastSentRoadVersion = -1;
 let lastSentBuildingVersion = -1;
+let lastSentZoneVersion = -1;
 
 function postSnapshot(kind: Snapshot["kind"]): void {
   // Full lists ride keyframes and the first snapshot after a change;
@@ -62,14 +63,16 @@ function postSnapshot(kind: Snapshot["kind"]): void {
     kind === SnapshotKind.keyframe || world.roads.version !== lastSentRoadVersion;
   const includeBuildings =
     kind === SnapshotKind.keyframe || world.buildings.version !== lastSentBuildingVersion;
+  const includeZones = kind === SnapshotKind.keyframe || world.zoneVersion !== lastSentZoneVersion;
   post(
     encodeMessage({
       kind: MessageKind.snapshot,
-      body: toSnapshot(world, kind, includeRoads, includeBuildings),
+      body: toSnapshot(world, kind, includeRoads, includeBuildings, includeZones),
     }),
   );
   lastSentRoadVersion = world.roads.version;
   lastSentBuildingVersion = world.buildings.version;
+  lastSentZoneVersion = world.zoneVersion;
 }
 
 function applyBatch(batch: readonly Command[]): void {

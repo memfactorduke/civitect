@@ -97,6 +97,7 @@ async function main(): Promise<void> {
   // preview; camera drag-pan only in select mode (wheel zoom always).
   type Tool = "select" | "road" | "bulldoze";
   let tool: Tool = "select";
+  let zoneOverlayOn = false;
   let anchor: { x: number; y: number } | null = null;
 
   const tileAt = (event: PointerEvent): { x: number; y: number } | null => {
@@ -154,7 +155,10 @@ async function main(): Promise<void> {
     if (event.metaKey || event.ctrlKey) {
       return; // quicksave bindings live below
     }
-    if (event.key === "r") tool = "road";
+    if (event.key === "z") {
+      zoneOverlayOn = !zoneOverlayOn;
+      renderer.stage.setZoneOverlay(zoneOverlayOn);
+    } else if (event.key === "r") tool = "road";
     else if (event.key === "b") tool = "bulldoze";
     else if (event.key === "s" || event.key === "Escape") tool = "select";
   });

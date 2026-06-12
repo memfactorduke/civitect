@@ -4,6 +4,8 @@
  * paragraphs it's DOM; if it's anchored to a world position it's Pixi.
  */
 import type { ReactNode } from "react";
+import { AdvisorFeed } from "./AdvisorFeed";
+import { DemandPanel } from "./DemandPanel";
 import { type DispatchFn, DispatchProvider } from "./dispatch";
 import { Hud } from "./Hud";
 import { SpeedControls } from "./SpeedControls";
@@ -17,6 +19,8 @@ export function Overlay(props: {
     <DispatchProvider dispatch={props.dispatch}>
       <Hud store={props.store} />
       <SpeedControls store={props.store} />
+      <DemandPanel store={props.store} />
+      <AdvisorFeed store={props.store} />
     </DispatchProvider>
   );
 }

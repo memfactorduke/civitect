@@ -23,9 +23,14 @@
         color: #e8efe9;
         font-family: system-ui, sans-serif;
       }
-      /* Panels re-enable hit-testing; the world stays tappable between them. */
+      /* Panels re-enable hit-testing; the world stays tappable between
+         them — so panels must hug their content, never span the canvas
+         (a full-width section silently ate the road tool's drags; the
+         drag e2e caught it). */
       #overlay > * {
         pointer-events: auto;
+        width: max-content;
+        max-width: 320px;
       }
     </style>
   </head>
