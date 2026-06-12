@@ -8,7 +8,7 @@
  * worker round trip is board PR 7's job.
  */
 import { type Snapshot, SnapshotKind } from "@civitect/protocol";
-import { bootRenderer } from "../boot";
+import { attachCameraControls, bootRenderer } from "../boot";
 
 const MAP = 64;
 
@@ -31,6 +31,7 @@ async function main(): Promise<void> {
     throw new Error("dev page is missing #world");
   }
   const renderer = await bootRenderer({ host, mapWidth: MAP, mapHeight: MAP });
+  attachCameraControls(renderer, host); // drag to pan, wheel to zoom
 
   let tick = 0;
   renderer.app.ticker.add(() => {

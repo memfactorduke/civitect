@@ -4,7 +4,30 @@
  * Boundary (TDD §1): consumes protocol snapshots, knows nothing of rules —
  * never imports @civitect/sim (dependency-cruiser enforced).
  */
-export { bootRenderer, type RendererBootOptions, type RendererHandle } from "./boot";
+export {
+  attachCameraControls,
+  bootRenderer,
+  isDragSequence,
+  type RendererBootOptions,
+  type RendererHandle,
+} from "./boot";
+export {
+  type CameraState,
+  clampToBounds,
+  containerTransform,
+  createCamera,
+  LodTier,
+  lodTier,
+  pan,
+  render as renderCamera,
+  screenToWorld,
+  type ViewSize,
+  type WorldBounds,
+  worldToScreen,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  zoomAt,
+} from "./camera";
 export { applySnapshot, type DisplayState, initialDisplayState } from "./display";
 export {
   TILE_H,

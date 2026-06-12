@@ -5,12 +5,12 @@
  * the worker (ADR-006); everything it learns arrives as protocol snapshots.
  */
 import { CommandType, decodeMessage, encodeMessage, MessageKind } from "@civitect/protocol";
-import { bootRenderer } from "@civitect/renderer";
+import { attachCameraControls, bootRenderer } from "@civitect/renderer";
 import { type CommandIntent, createUiStore, Overlay } from "@civitect/ui";
 import { createRoot } from "react-dom/client";
 import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
-import { pickTile } from "./picking";
+import { pickTileAt } from "./picking";
 import { createSaveManager } from "./save-manager";
 
 async function main(): Promise<void> {
@@ -85,23 +85,18 @@ async function main(): Promise<void> {
     queue.dispatch(intent);
   };
 
+  // Tap selects on pointerdown (keeps the <50 ms path hot); dragging past
+  // the threshold pans via the camera controls. A drag still selects its
+  // start tile first — acceptable until the Phase 1 tool-mode UX pass.
   renderer.app.canvas.addEventListener("pointerdown", (event: PointerEvent) => {
     const rect = renderer.app.canvas.getBoundingClientRect();
-    const tile = pickTile(
-      {
-        offsetX: renderer.stage.root.position.x + rect.left,
-        offsetY: renderer.stage.root.position.y + rect.top,
-        scale: 1,
-      },
-      event.clientX,
-      event.clientY,
-      BOOT.mapWidth,
-      BOOT.mapHeight,
-    );
+    const w = renderer.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+    const tile = pickTileAt(w.wx, w.wy, BOOT.mapWidth, BOOT.mapHeight);
     if (tile !== null) {
       dispatch({ type: CommandType.selectTile, x: tile.x, y: tile.y });
     }
   });
+  attachCameraControls(renderer, renderer.app.canvas as unknown as HTMLElement);
 
   createRoot(overlayHost).render(<Overlay store={store} dispatch={dispatch} />);
 
