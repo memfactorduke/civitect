@@ -8,5 +8,6 @@
  * reason codes) are append-only; never renumber.
  */
 // v2: save/load kinds. v3: road commands. v4: road snapshots.
-// v5: path + bridge road classes (tasks 12d/12e).
-export const PROTOCOL_VERSION = 5;
+// v5: path + bridge classes. v6: zoning/building commands + demand &
+// building snapshot blocks (Phase 2).
+export const PROTOCOL_VERSION = 6;

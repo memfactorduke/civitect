@@ -26,6 +26,9 @@ function snapshot(partial: Partial<Snapshot>): Snapshot {
     advisorEvents: [],
     roadVersion: 0,
     roads: null,
+    demand: { r: 0, c: 0, i: 0, o: 0, factors: [] },
+    buildingVersion: 0,
+    buildings: null,
     ...partial,
   };
 }

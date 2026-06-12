@@ -50,6 +50,9 @@ function snapshotWithRoads(roads: RoadSegment[]): Snapshot {
     advisorEvents: [],
     roadVersion: 1,
     roads,
+    demand: { r: 0, c: 0, i: 0, o: 0, factors: [] },
+    buildingVersion: 0,
+    buildings: null,
   };
 }
 

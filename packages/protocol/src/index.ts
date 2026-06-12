@@ -28,15 +28,18 @@ export {
 } from "./cause";
 export {
   BRIDGE_CLASS_OFFSET,
+  BuildingKind,
   type BuildRoadCommand,
   type BulldozeRoadCommand,
   type Command,
   type CommandRejection,
   CommandType,
+  type DezoneRectCommand,
   decodeCommandBody,
   decodeRejectionBody,
   encodeCommandBody,
   encodeRejectionBody,
+  type PlaceBuildingCommand,
   type RedoCommand,
   RejectionReason,
   RoadClassWire,
@@ -44,6 +47,8 @@ export {
   type SetSpeedCommand,
   type UndoCommand,
   type UpgradeRoadCommand,
+  ZoneKind,
+  type ZoneRectCommand,
 } from "./commands";
 export { decodeMessage, encodeMessage, type Message, MessageKind } from "./envelope";
 export {
@@ -106,6 +111,8 @@ export {
 } from "./save/terrain";
 export { xxh64, xxh64Hex } from "./save/xxhash64";
 export {
+  type BuildingView,
+  type DemandBlock,
   decodeSnapshotBody,
   encodeSnapshotBody,
   type HudScalars,
