@@ -35,6 +35,7 @@ import {
   createWorld,
   edgeAtTile,
   edgeCost,
+  pollutionAt,
   runTick,
   scaledCapacity,
   serviceCoverage,
@@ -273,8 +274,18 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
             tile,
             road,
             building,
-            // Environment fields join with pollution (board task 4).
-            environ: null,
+            environ:
+              tile === null
+                ? null
+                : (() => {
+                    const p = pollutionAt(world, tile.tileIdx);
+                    return {
+                      airPollution: p.air,
+                      groundPollution: p.ground,
+                      noise: p.noise,
+                      waterPollution: p.water,
+                    };
+                  })(),
           },
         }),
       );

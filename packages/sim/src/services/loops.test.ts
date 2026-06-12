@@ -53,6 +53,8 @@ function makeCtx(
       buildings: b,
       budgetsPermille: budgets ?? new Uint16Array(9).fill(1000),
       coverageAt: coverage,
+      extraSickPermille: () => 0,
+      groundPollution: new Uint8Array(64 * 64),
       rng: createRng(1, "services"),
       flows: emptyServiceFlows(),
       emit: (messageKey, summaryKey, tile) => advisors.push({ messageKey, summaryKey, tile }),
