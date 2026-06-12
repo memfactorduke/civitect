@@ -190,6 +190,21 @@ export const setServiceBudgetCommandArb: fc.Arbitrary<SetServiceBudgetCommand> =
   permille: fc.integer({ min: SERVICE_BUDGET_MIN_PERMILLE, max: SERVICE_BUDGET_MAX_PERMILLE }),
 });
 
+export const setTaxRateCommandArb: fc.Arbitrary<Command> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.setTaxRate),
+  zone: fc.constantFrom(1, 2, 3, 4, 5, 6),
+  permille: fc.integer({ min: 10, max: 290 }),
+}) as fc.Arbitrary<Command>;
+
+export const loanCommandArb: fc.Arbitrary<Command> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constantFrom(CommandType.takeLoan, CommandType.repayLoan),
+  tier: fc.integer({ min: 1, max: 3 }),
+}) as fc.Arbitrary<Command>;
+
 export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   selectTileCommandArb,
   setSpeedCommandArb,
@@ -203,6 +218,8 @@ export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   placeBuildingCommandArb,
   pinCimCommandArb,
   setServiceBudgetCommandArb,
+  setTaxRateCommandArb,
+  loanCommandArb,
 );
 
 export const rejectionArb: fc.Arbitrary<CommandRejection> = fc.record({
@@ -259,10 +276,28 @@ export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
     fc.array(fc.integer({ min: 0, max: 6 }), { maxLength: 64 }).map((zs) => Uint16Array.from(zs)),
     { nil: null },
   ),
-  coverageService: fc.integer({ min: 0, max: 9 }),
+  coverageService: fc.integer({ min: 0, max: 14 }),
   coverageVersion: u32Arb,
   coverage: fc.option(
     fc.array(u8Arb, { maxLength: 64 }).map((vs) => Uint8Array.from(vs)),
+    { nil: null },
+  ),
+  report: fc.option(
+    fc.record({
+      month: u32Arb,
+      lines: fc.array(
+        fc.record({
+          kind: fc.integer({ min: 1, max: 13 }) as fc.Arbitrary<1>,
+          amountCents: moneyCentsArb,
+          deltaCents: moneyCentsArb,
+        }),
+        { maxLength: 13 },
+      ),
+    }),
+    { nil: null },
+  ),
+  milestone: fc.option(
+    fc.record({ index: u8Arb, populationTarget: u32Arb, unlockedMask: u32Arb }),
     { nil: null },
   ),
 });
@@ -272,6 +307,7 @@ export const tileInfoArb: fc.Arbitrary<TileInfo> = fc.record({
   terrainKind: u8Arb,
   elevationTerrace: u8Arb,
   zoneKind: u8Arb,
+  landValue: u8Arb,
 });
 
 export const inspectorRequestArb: fc.Arbitrary<InspectorRequest> = fc.record({
@@ -342,7 +378,7 @@ export const messageArb: fc.Arbitrary<Message> = fc.oneof(
     .record({ x0: u16Arb, y0: u16Arb, x1: u16Arb, y1: u16Arb })
     .map((body): Message => ({ kind: MessageKind.viewportHint, body })),
   fc
-    .record({ service: fc.integer({ min: 0, max: 9 }) })
+    .record({ service: fc.integer({ min: 0, max: 14 }) })
     .map((body): Message => ({ kind: MessageKind.overlayRequest, body })),
   inspectorRequestArb.map((body): Message => ({ kind: MessageKind.inspectorRequest, body })),
   inspectorResponseArb.map((body): Message => ({ kind: MessageKind.inspectorResponse, body })),

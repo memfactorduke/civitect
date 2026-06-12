@@ -35,7 +35,13 @@ import type { Pcg32 } from "../rng";
 import { edgeBetween, nodeAt, otherEnd, type RoadGraph } from "../roads/graph";
 import { dijkstraTree } from "../roads/pathfind";
 import type { TrafficCore } from "../traffic/solver";
-import { anchorNode, interpolateEdgeDistances, windowMin, windowVia } from "./coverage";
+import {
+  type AnchorSource,
+  anchorSources,
+  interpolateEdgeDistances,
+  windowMin,
+  windowVia,
+} from "./coverage";
 import { SERVICE_BUILDING_SPECS, scaledCapacity, scaledRadius, specForTableKind } from "./registry";
 
 export interface FireCauseLink {
@@ -100,11 +106,11 @@ export interface FireContext {
   ) => void;
 }
 
-/** A fire station ready to dispatch: twin anchor + budget-scaled reach. */
+/** A fire station ready to dispatch: twin sources + budget-scaled reach. */
 interface Station {
   readonly buildingIndex: number;
   readonly tile: number;
-  readonly twinAnchor: number;
+  readonly sources: readonly AnchorSource[];
   readonly radius: number;
   trucks: number;
 }
@@ -120,14 +126,14 @@ function collectStations(ctx: FireContext): Station[] {
       continue;
     }
     const tile = b.tileIdx[i] as number;
-    const twinAnchor = anchorNode(twin, tile, ctx.mapWidth, ctx.mapHeight);
-    if (twinAnchor === -1) {
+    const sources = anchorSources(twin, tile, ctx.mapWidth, ctx.mapHeight);
+    if (sources.length === 0) {
       continue; // island station: decor (pillar 2)
     }
     stations.push({
       buildingIndex: i,
       tile,
-      twinAnchor,
+      sources,
       radius: scaledRadius(spec, budget),
       trucks: Math.max(1, scaledCapacity(spec, budget)),
     });
@@ -232,21 +238,40 @@ export function fireSlice(ctx: FireContext, tick: number): void {
   if (burning.length > 0) {
     const twin = ctx.traffic.twin;
     const stations = collectStations(ctx);
-    // One CONGESTED shortest-path tree per station serves every fire,
-    // interpolated along edge interiors exactly like coverage — response
-    // distance is "coverage distance measured on the jammed network".
+    // One CONGESTED shortest-path tree per station SOURCE, min-folded
+    // with the source offsets and interpolated along edge interiors
+    // exactly like coverage — response distance is "coverage distance
+    // measured on the jammed network".
     const trees = stations.map((s) =>
-      dijkstraTree(twin, s.twinAnchor, (e) => ctx.traffic.twinCosts[e] as number),
-    );
-    const fields = trees.map((tree) =>
-      interpolateEdgeDistances(
+      dijkstraTree(
         twin,
-        tree.dist,
-        ctx.mapWidth,
-        ctx.mapHeight,
+        (s.sources[0] as AnchorSource).node,
         (e) => ctx.traffic.twinCosts[e] as number,
       ),
     );
+    const fields = stations.map((s, at) => {
+      const primary = trees[at] as { dist: Uint32Array };
+      const folded = new Uint32Array(primary.dist.length).fill(0xffffffff);
+      for (const src of s.sources) {
+        const tree =
+          src.node === (s.sources[0] as AnchorSource).node
+            ? primary
+            : dijkstraTree(twin, src.node, (e) => ctx.traffic.twinCosts[e] as number);
+        for (let n = 0; n < folded.length; n++) {
+          const d = tree.dist[n] as number;
+          if (d !== 0xffffffff && d + src.offset < (folded[n] as number)) {
+            folded[n] = d + src.offset;
+          }
+        }
+      }
+      return interpolateEdgeDistances(
+        twin,
+        folded,
+        ctx.mapWidth,
+        ctx.mapHeight,
+        (e) => ctx.traffic.twinCosts[e] as number,
+      );
+    });
     for (const i of burning) {
       const tile = b.tileIdx[i] as number;
       // Cheapest CONGESTED responder with a free truck.
@@ -296,7 +321,7 @@ export function fireSlice(ctx: FireContext, tick: number): void {
               : worstEdgeOnPath(
                   ctx,
                   trees[bestStation] as { dist: Uint32Array; cameFromEdge: Int32Array },
-                  responder.twinAnchor,
+                  (responder.sources[0] as AnchorSource).node,
                   viaNode,
                 );
           if (worst !== -1) {

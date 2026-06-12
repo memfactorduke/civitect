@@ -17,7 +17,8 @@ export const SAVE_MAGIC = "CIVT";
 // v6: AGENTPINS (empty-list injection — pinning ships with Phase 3 agents).
 // v7: SERVICES (default budgets + zero pollution injection) and BUILDINGS
 // rows grow stock/sick/corpses/fireTicks (zero-fill — Phase 4 services).
-export const SAVE_FORMAT_VERSION = 7;
+// v8: ECONOMY (default-taxes/no-loans injection — Phase 5 money cycle).
+export const SAVE_FORMAT_VERSION = 8;
 
 export interface ContainerHeader {
   readonly formatVersion: number;

@@ -80,6 +80,12 @@ import {
   type ServiceFieldInputs,
 } from "./services/coverage";
 import { emptyFireFlows, type FireFlows, fireSlice } from "./services/fire";
+import {
+  createLandValueCache,
+  type LandValueCache,
+  type LandValueInputs,
+  landValueFor,
+} from "./services/landvalue";
 import { emptyServiceFlows, type ServiceFlows, servicesSlice } from "./services/loops";
 import {
   airFor,
@@ -176,6 +182,8 @@ export interface World {
   readonly pollutionCache: PollutionCache;
   /** Fire diagnostics ledger (not hashed). */
   readonly fireFlows: FireFlows;
+  /** Land-value field cache (GDD §6) — derived, fenced, never hashed. */
+  readonly landValueCache: LandValueCache;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
   agents: AgentPool;
   /** Camera bounds from the viewportHint message — sampler input ONLY. */
@@ -300,6 +308,7 @@ export function createWorld(
     serviceFlows: emptyServiceFlows(),
     pollutionCache: createPollutionCache(),
     fireFlows: emptyFireFlows(),
+    landValueCache: createLandValueCache(),
     agents: createAgentPool(seed),
     viewport: null,
     rng,
@@ -366,6 +375,31 @@ export function pollutionAt(
     noise: noiseFor(world.pollutionCache, inputs, fence)[tileIdx] as number,
     water: waterFor(world.pollutionCache, inputs, fence)[tileIdx] as number,
   };
+}
+
+/**
+ * Land-value field + digest (GDD §6): derived from coverage + pollution +
+ * water view; its fence is the union of theirs (coverage fence already
+ * includes budgets; pollution fence includes traffic costs).
+ */
+export function landValueField(world: World): { field: Uint8Array; digestU32: number } {
+  const { fenceKey } = coverageInputs(world);
+  const { fence: pollFence } = pollutionInputs(world);
+  const inputs: LandValueInputs = {
+    coverageAt: (service, tileIdx) => serviceCoverageAt(world, service, tileIdx),
+    airAt: (tileIdx) => pollutionAt(world, tileIdx).air,
+    groundAt: (tileIdx) => world.groundPollution[tileIdx] as number,
+    noiseAt: (tileIdx) => pollutionAt(world, tileIdx).noise,
+    waterLayer: world.terrain.layers.water,
+    mapWidth: world.mapWidth,
+    mapHeight: world.mapHeight,
+  };
+  return landValueFor(world.landValueCache, inputs, `${fenceKey}|${pollFence}`);
+}
+
+/** Spot-read land value at one tile (taxes task 2, inspector). */
+export function landValueAtTile(world: World, tileIdx: number): number {
+  return landValueField(world).field[tileIdx] as number;
 }
 
 /** Full derived pollution field + digest (overlay surface, task 6). */
@@ -988,6 +1022,14 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.services.budgetsPermille[at] = cmd.permille;
       world.services.version++;
       return null;
+    }
+    case CommandType.setTaxRate:
+    case CommandType.takeLoan:
+    case CommandType.repayLoan: {
+      // Protocol v12 is ahead of the sim by design (interface-first, board
+      // phase-5 task 1): the money cycle lands with task 2. Until then the
+      // sim honestly says "not implemented".
+      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
     }
     case CommandType.placeBuilding: {
       if (!inBounds(world, cmd.x, cmd.y)) {

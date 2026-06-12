@@ -57,8 +57,25 @@ export function decodeViewportHintBody(r: ByteReader): ViewportHint {
  * viewport hint — it never reaches the sim world and can never move the
  * state hash (projection purity, ADR-002 pattern).
  */
+/**
+ * Overlay ids (v12, append-only): 0 = off, 1–9 = ServiceId coverage,
+ * 10 = land value, 11 = air, 12 = ground, 13 = noise, 14 = water.
+ */
+export const OverlayId = {
+  off: 0,
+  landValue: 10,
+  airPollution: 11,
+  groundPollution: 12,
+  noise: 13,
+  waterPollution: 14,
+} as const;
+
+export const OVERLAY_MAX = 14;
+
+const REPORT_LINE_KINDS: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+
 export interface OverlayRequest {
-  /** ServiceId, or 0 to turn the coverage overlay off. */
+  /** Overlay id: 0 off, 1–9 ServiceId, 10–14 fields (OverlayId). */
   readonly service: number;
 }
 
@@ -68,8 +85,8 @@ export function encodeOverlayRequestBody(w: ByteWriter, o: OverlayRequest): void
 
 export function decodeOverlayRequestBody(r: ByteReader): OverlayRequest {
   const service = r.u8();
-  if (service > 9) {
-    throw new DecodeError(`overlay service id ${service} out of range (0–9)`);
+  if (service > OVERLAY_MAX) {
+    throw new DecodeError(`overlay id ${service} out of range (0–${OVERLAY_MAX})`);
   }
   return { service };
 }
@@ -178,6 +195,51 @@ export interface Snapshot {
    * Null = no overlay active OR unchanged since the last carried layer.
    */
   readonly coverage: Uint8Array | null;
+  /** Monthly budget report (v12) — rides the close + keyframes; null between. */
+  readonly report: MonthlyReport | null;
+  /** Milestone progression block (v12) — null until progression lands. */
+  readonly milestone: MilestoneBlock | null;
+}
+
+/** Report line kinds (GDD §8 monthly report). Append-only. */
+export const ReportLineKind = {
+  taxResidential: 1,
+  taxCommercial: 2,
+  taxIndustrial: 3,
+  taxOffice: 4,
+  serviceUpkeep: 5,
+  roadMaintenance: 6,
+  loanInterest: 7,
+  loanPrincipal: 8,
+  imports: 9,
+  exports: 10,
+  tourism: 11,
+  bailout: 12,
+  construction: 13,
+} as const;
+export type ReportLineKind = (typeof ReportLineKind)[keyof typeof ReportLineKind];
+
+export interface ReportLine {
+  readonly kind: ReportLineKind;
+  /** Integer cents (ADR-005); income positive, expense negative. */
+  readonly amountCents: number;
+  /** Month-over-month delta, cents (pillar 2: the report explains itself). */
+  readonly deltaCents: number;
+}
+
+export interface MonthlyReport {
+  /** Months since city start (close index). */
+  readonly month: number;
+  readonly lines: readonly ReportLine[];
+}
+
+export interface MilestoneBlock {
+  /** Current milestone index (0-based into the GDD §13 ladder). */
+  readonly index: number;
+  /** Population needed for the NEXT milestone (0 = ladder complete). */
+  readonly populationTarget: number;
+  /** Unlock bitmask (bit = unlock slot, append-only). */
+  readonly unlockedMask: number;
 }
 
 export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
@@ -251,6 +313,22 @@ export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
     for (const v of snap.coverage) {
       w.u8(v);
     }
+  }
+  if (snap.report === null) {
+    w.u8(0);
+  } else {
+    w.u8(1).u32(snap.report.month).u8(snap.report.lines.length);
+    for (const line of snap.report.lines) {
+      w.u8(line.kind).i64(line.amountCents).i64(line.deltaCents);
+    }
+  }
+  if (snap.milestone === null) {
+    w.u8(0);
+  } else {
+    w.u8(1)
+      .u8(snap.milestone.index)
+      .u32(snap.milestone.populationTarget)
+      .u32(snap.milestone.unlockedMask);
   }
 }
 
@@ -354,6 +432,30 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
       coverage[i] = r.u8();
     }
   }
+  const hasReport = r.u8();
+  if (hasReport > 1) {
+    throw new DecodeError(`report presence flag must be 0|1, got ${hasReport}`);
+  }
+  let report: MonthlyReport | null = null;
+  if (hasReport === 1) {
+    const month = r.u32();
+    const lineCount = r.u8();
+    const lines: ReportLine[] = [];
+    for (let i = 0; i < lineCount; i++) {
+      const kind = r.u8();
+      if (!REPORT_LINE_KINDS.has(kind)) {
+        throw new DecodeError(`unknown ReportLineKind ${kind}`);
+      }
+      lines.push({ kind: kind as ReportLineKind, amountCents: r.i64(), deltaCents: r.i64() });
+    }
+    report = { month, lines };
+  }
+  const hasMilestone = r.u8();
+  if (hasMilestone > 1) {
+    throw new DecodeError(`milestone presence flag must be 0|1, got ${hasMilestone}`);
+  }
+  const milestone: MilestoneBlock | null =
+    hasMilestone === 1 ? { index: r.u8(), populationTarget: r.u32(), unlockedMask: r.u32() } : null;
   return {
     kind,
     tick,
@@ -375,5 +477,7 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
     coverageService,
     coverageVersion,
     coverage,
+    report,
+    milestone,
   };
 }

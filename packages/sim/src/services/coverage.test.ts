@@ -22,7 +22,7 @@ import {
 } from "../roads/graph";
 import { dijkstraField, edgeCost } from "../roads/pathfind";
 import {
-  anchorNode,
+  anchorSources,
   computeCoverageField,
   decay,
   SERVICE_REACH,
@@ -52,12 +52,22 @@ function oracleField(service: ServiceId, inputs: ServiceFieldInputs): Uint8Array
     if (spec === null || spec.service !== service) {
       continue;
     }
-    const anchor = anchorNode(g, buildings.tileIdx[bi] as number, mapWidth, mapHeight);
-    if (anchor === -1) {
+    const sources = anchorSources(g, buildings.tileIdx[bi] as number, mapWidth, mapHeight);
+    if (sources.length === 0) {
       continue;
     }
     const radius = scaledRadius(spec, budget);
-    const nodeDist = dijkstraField(g, anchor);
+    // Per-station min-fold over its (possibly offset) sources.
+    const nodeDist = new Uint32Array(g.nodeCount).fill(INF);
+    for (const src of sources) {
+      const field = dijkstraField(g, src.node);
+      for (let n = 0; n < g.nodeCount; n++) {
+        const d = field[n] as number;
+        if (d !== INF && d + src.offset < (nodeDist[n] as number)) {
+          nodeDist[n] = d + src.offset;
+        }
+      }
+    }
     // Naive per-road-tile distance for THIS station only.
     const roadDist = new Uint32Array(tiles).fill(INF);
     for (let e = 0; e < g.edgeCount; e++) {

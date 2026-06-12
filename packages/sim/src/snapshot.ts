@@ -90,6 +90,10 @@ export function toSnapshot(
     coverageService: activeOverlay,
     coverageVersion: overlay === null ? 0 : overlay.digestU32,
     coverage: overlay !== null && includeCoverage ? overlay.coverage : null,
+    // Monthly report + milestone blocks fill with the Phase 5 economy
+    // (board tasks 2/4); the wire shapes shipped with v12.
+    report: null,
+    milestone: null,
   };
 }
 

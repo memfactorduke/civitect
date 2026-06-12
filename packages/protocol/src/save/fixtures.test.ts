@@ -24,6 +24,22 @@ const V4_PATH = join(FIXTURES_DIR, "v4", "empty-world-y1.civ");
 const V5_PATH = join(FIXTURES_DIR, "v5", "empty-world-y1.civ");
 const V6_PATH = join(FIXTURES_DIR, "v6", "empty-world-y1.civ");
 const V7_PATH = join(FIXTURES_DIR, "v7", "empty-world-y1.civ");
+const V8_PATH = join(FIXTURES_DIR, "v8", "empty-world-y1.civ");
+
+/** What every pre-v8 save migrates to: default taxes, no loans, Mayor. */
+function defaultEconomy(): CivSave["economy"] {
+  return {
+    taxRatesPermille: new Uint16Array(6).fill(90),
+    loans: [],
+    monthAccumCents: new Array(13).fill(0),
+    lastMonthCents: new Array(13).fill(0),
+    milestoneIndex: 0,
+    achievements: new Uint8Array(8),
+    uniquesMask: 0,
+    difficulty: 1,
+    receivership: 0,
+  };
+}
 
 /** What every pre-v7 save migrates to: default sliders, clean ground. */
 function defaultServices(): CivSave["services"] {
@@ -41,7 +57,15 @@ function defaultServices(): CivSave["services"] {
  */
 const V1_SAVE: Omit<
   CivSave,
-  "terrain" | "roads" | "buildings" | "cohorts" | "traffic" | "pins" | "services"
+  | "terrain"
+  | "roads"
+  | "buildings"
+  | "cohorts"
+  | "traffic"
+  | "pins"
+  | "services"
+  | "economy"
+  | "economy"
 > = {
   header: {
     formatVersion: 1,
@@ -94,13 +118,14 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       traffic: emptyTraffic(0),
       pins: [],
       services: defaultServices(),
+      economy: defaultEconomy(),
     });
     expect(decoded.header.formatVersion).toBe(1);
   });
 
   const V2_SAVE: Omit<
     CivSave,
-    "roads" | "buildings" | "cohorts" | "traffic" | "pins" | "services"
+    "roads" | "buildings" | "cohorts" | "traffic" | "pins" | "services" | "economy"
   > = {
     ...V1_SAVE,
     header: { ...V1_SAVE.header, formatVersion: 2 },
@@ -120,11 +145,15 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       traffic: emptyTraffic(0),
       pins: [],
       services: defaultServices(),
+      economy: defaultEconomy(),
     });
     expect(decoded.header.formatVersion).toBe(2);
   });
 
-  const V3_SAVE: Omit<CivSave, "buildings" | "cohorts" | "traffic" | "pins" | "services"> = {
+  const V3_SAVE: Omit<
+    CivSave,
+    "buildings" | "cohorts" | "traffic" | "pins" | "services" | "economy"
+  > = {
     ...V2_SAVE,
     header: { ...V2_SAVE.header, formatVersion: 3 },
     roads: [{ ax: 3, ay: 3, bx: 7, by: 3, roadClass: 1 }],
@@ -142,13 +171,14 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       traffic: emptyTraffic(1),
       pins: [],
       services: defaultServices(),
+      economy: defaultEconomy(),
     });
     expect(decoded.header.formatVersion).toBe(3);
   });
 
   // Building rows carry the v7 zero-fill the migration injects — the
   // archived v4 bytes hold the old 10-byte rows.
-  const V4_SAVE: Omit<CivSave, "traffic" | "pins" | "services"> = {
+  const V4_SAVE: Omit<CivSave, "traffic" | "pins" | "services" | "economy"> = {
     ...V3_SAVE,
     header: { ...V3_SAVE.header, formatVersion: 4 },
     buildings: [
@@ -180,13 +210,14 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       traffic: emptyTraffic(1),
       pins: [],
       services: defaultServices(),
+      economy: defaultEconomy(),
     });
     expect(decoded.header.formatVersion).toBe(4);
   });
 
   // The v5 fixture carries a NON-trivial traffic state including an
   // in-flight solver job — the archived contract covers the job codec.
-  const V5_SAVE: Omit<CivSave, "pins" | "services"> = {
+  const V5_SAVE: Omit<CivSave, "pins" | "services" | "economy"> = {
     ...V4_SAVE,
     header: { ...V4_SAVE.header, formatVersion: 5 },
     traffic: {
@@ -214,11 +245,16 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       throw new Error(`fixture missing: ${V5_PATH}`);
     }
     const decoded = await decodeCiv(new Uint8Array(readFileSync(V5_PATH)));
-    expect(decoded).toEqual({ ...V5_SAVE, pins: [], services: defaultServices() });
+    expect(decoded).toEqual({
+      ...V5_SAVE,
+      pins: [],
+      services: defaultServices(),
+      economy: defaultEconomy(),
+    });
     expect(decoded.header.formatVersion).toBe(5);
   });
 
-  const V6_SAVE: Omit<CivSave, "services"> = {
+  const V6_SAVE: Omit<CivSave, "services" | "economy"> = {
     ...V5_SAVE,
     header: { ...V5_SAVE.header, formatVersion: 6 },
     pins: [{ tileIdx: 200, slot: 8 }],
@@ -229,14 +265,14 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       throw new Error(`fixture missing: ${V6_PATH}`);
     }
     const decoded = await decodeCiv(new Uint8Array(readFileSync(V6_PATH)));
-    expect(decoded).toEqual({ ...V6_SAVE, services: defaultServices() });
+    expect(decoded).toEqual({ ...V6_SAVE, services: defaultServices(), economy: defaultEconomy() });
     expect(decoded.header.formatVersion).toBe(6);
   });
 
   // The v7 fixture carries NON-default services — sliders off 1000 and a
   // dimension-matched sparse pollution field — so the archived contract
   // covers the codec, not just the migration's defaults.
-  const V7_SAVE: CivSave = {
+  const V7_SAVE: Omit<CivSave, "economy"> = {
     ...V6_SAVE,
     header: { ...V6_SAVE.header, formatVersion: 7 },
     services: {
@@ -251,22 +287,50 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
     },
   };
 
-  if (process.env.SEED_FIXTURES === "1" && !existsSync(V7_PATH)) {
-    it("seeds the v7 fixture (first time only)", async () => {
-      mkdirSync(dirname(V7_PATH), { recursive: true });
-      writeFileSync(V7_PATH, await encodeCiv(V7_SAVE));
-      expect(existsSync(V7_PATH)).toBe(true);
+  it("v7 fixture loads forever — migrated to default economy, provenance preserved", async () => {
+    if (!existsSync(V7_PATH)) {
+      throw new Error(`fixture missing: ${V7_PATH}`);
+    }
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V7_PATH)));
+    expect(decoded).toEqual({ ...V7_SAVE, economy: defaultEconomy() });
+    expect(decoded.header.formatVersion).toBe(7);
+  });
+
+  // The v8 fixture carries NON-default economy — off-default taxes, an
+  // active loan, mid-month accumulators, progression state — so the codec
+  // itself is the archived contract, not just the migration default.
+  const V8_SAVE: CivSave = {
+    ...V7_SAVE,
+    header: { ...V7_SAVE.header, formatVersion: 8 },
+    economy: {
+      taxRatesPermille: Uint16Array.from([90, 110, 120, 95, 140, 80]),
+      loans: [{ principalCents: 50_000_00, monthlyPaymentCents: 1_250_00, monthsLeft: 44 }],
+      monthAccumCents: [100, -200, 300, 0, -50, 0, 0, 0, 0, 0, 0, 0, 0],
+      lastMonthCents: [90, -180, 250, 0, -40, 0, 0, 0, 0, 0, 0, 0, 0],
+      milestoneIndex: 3,
+      achievements: Uint8Array.from([0b101, 0, 0, 0, 0, 0, 0, 0b1000_0000]),
+      uniquesMask: 0b1010,
+      difficulty: 2,
+      receivership: 0,
+    },
+  };
+
+  if (process.env.SEED_FIXTURES === "1" && !existsSync(V8_PATH)) {
+    it("seeds the v8 fixture (first time only)", async () => {
+      mkdirSync(dirname(V8_PATH), { recursive: true });
+      writeFileSync(V8_PATH, await encodeCiv(V8_SAVE));
+      expect(existsSync(V8_PATH)).toBe(true);
     });
   }
 
   it(`v${SAVE_FORMAT_VERSION} fixture decodes to its archived world, bit-faithfully`, async () => {
-    if (!existsSync(V7_PATH)) {
+    if (!existsSync(V8_PATH)) {
       throw new Error(
-        `fixture missing: ${V7_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
+        `fixture missing: ${V8_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
       );
     }
-    const decoded = await decodeCiv(new Uint8Array(readFileSync(V7_PATH)));
-    expect(decoded).toEqual(V7_SAVE);
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V8_PATH)));
+    expect(decoded).toEqual(V8_SAVE);
   });
 });
 
