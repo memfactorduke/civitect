@@ -1,8 +1,18 @@
-import { type Command, CommandType, RejectionReason } from "@civitect/protocol";
+import { type Command, CommandType, flatTerrain, RejectionReason } from "@civitect/protocol";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { replay } from "./replay";
-import { createWorld, runTick, stateHash, TICKS_PER_GAME_YEAR } from "./world";
+import { segmentRelation } from "./roads/geometry";
+import { canonicalGraph, nodeAt } from "./roads/graph";
+import {
+  controlAt,
+  createWorld,
+  IntersectionControl,
+  runTick,
+  stateHash,
+  TICKS_PER_GAME_YEAR,
+  type World,
+} from "./world";
 
 const MAP = 64; // default Phase 0 map
 
@@ -277,5 +287,149 @@ describe("road commands in the tick pipeline (phase-1 task 8)", () => {
     expect(runTick(world, [redo(3, 3)])).toEqual([
       { seq: 3, tick: 3, reason: RejectionReason.nothingToRedo },
     ]);
+  });
+});
+
+describe("intersections, bridges, paths (phase-1 12d/12e)", () => {
+  const build = (
+    seq: number,
+    tick: number,
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    roadClass = 1,
+  ) => ({ seq, tick, type: CommandType.buildRoad, ax, ay, bx, by, roadClass }) as Command;
+
+  it("a proper crossing splits both roads through a shared intersection node", () => {
+    const world = createWorld(21);
+    expect(runTick(world, [build(0, 0, 1, 3, 7, 3)])).toEqual([]);
+    expect(runTick(world, [build(1, 1, 4, 1, 4, 6, 2)])).toEqual([]);
+    const canon = canonicalGraph(world.roads);
+    expect(canon.edges).toHaveLength(4); // two halves each
+    expect(nodeAt(world.roads, 4, 3)).not.toBe(-1);
+    expect(controlAt(world, nodeAt(world.roads, 4, 3))).toBe(IntersectionControl.signal);
+  });
+
+  it("a T-junction splits the touched road and gets a stop (all streets)", () => {
+    const world = createWorld(22);
+    runTick(world, [build(0, 0, 0, 0, 6, 0)]);
+    expect(runTick(world, [build(1, 1, 3, 0, 3, 4)])).toEqual([]);
+    const canon = canonicalGraph(world.roads);
+    expect(canon.edges).toHaveLength(3);
+    expect(controlAt(world, nodeAt(world.roads, 3, 0))).toBe(IntersectionControl.stop);
+  });
+
+  it("non-integer crossings and collinear overlaps reject", () => {
+    const world = createWorld(23);
+    runTick(world, [build(0, 0, 0, 0, 3, 3)]);
+    expect(runTick(world, [build(1, 1, 0, 3, 3, 0)])).toEqual([
+      { seq: 1, tick: 1, reason: RejectionReason.invalidSegment }, // crosses at 1.5,1.5
+    ]);
+    expect(runTick(world, [build(2, 2, 1, 1, 5, 5)])).toEqual([
+      { seq: 2, tick: 2, reason: RejectionReason.invalidSegment }, // collinear overlap
+    ]);
+  });
+
+  it("crossing builds undo cleanly (split restoration)", () => {
+    const world = createWorld(24);
+    runTick(world, [build(0, 0, 1, 3, 7, 3)]);
+    const before = stateHash(world);
+    runTick(world, [build(1, 1, 4, 1, 4, 6)]);
+    expect(runTick(world, [{ seq: 2, tick: 2, type: CommandType.undo } as Command])).toEqual([]);
+    const reference = createWorld(24);
+    runTick(reference, [build(0, 0, 1, 3, 7, 3)]);
+    while (reference.tick < world.tick) {
+      runTick(reference, []);
+    }
+    expect(stateHash(world)).toBe(stateHash(reference));
+    expect(before).not.toBe(stateHash(createWorld(24)));
+  });
+
+  function riverWorld(): World {
+    const terrain = flatTerrain(64, 64);
+    for (let y = 0; y < 64; y++) {
+      for (let x = 30; x <= 33; x++) {
+        terrain.layers.water[y * 64 + x] = 1;
+      }
+    }
+    return createWorld(77, 64, 64, terrain);
+  }
+
+  it("water rejects roads, accepts bridges; dry bridges reject", () => {
+    const world = riverWorld();
+    expect(runTick(world, [build(0, 0, 28, 10, 35, 10)])).toEqual([
+      { seq: 0, tick: 0, reason: RejectionReason.invalidSegment }, // street into the river
+    ]);
+    expect(runTick(world, [build(1, 1, 28, 10, 35, 10, 11)])).toEqual([]); // bridgeStreet
+    expect(runTick(world, [build(2, 2, 5, 5, 9, 5, 11)])).toEqual([
+      { seq: 2, tick: 2, reason: RejectionReason.invalidSegment }, // dry bridge
+    ]);
+  });
+
+  it("bridges are grade-separated: crossing under one makes no junction", () => {
+    const world = riverWorld();
+    runTick(world, [build(0, 0, 28, 10, 35, 10, 11)]); // bridge over river
+    // A shore road passing under the bridge approach at (29, ...) — crosses
+    // the bridge segment's line on land at integer point (29,10)? The road
+    // runs vertically through x=29 land column.
+    expect(runTick(world, [build(1, 1, 29, 5, 29, 15)])).toEqual([]);
+    const canon = canonicalGraph(world.roads);
+    expect(canon.edges).toHaveLength(2); // NO split on either — over/under-pass
+  });
+
+  it("cliffs reject roads (tunnels are a later slice)", () => {
+    const terrain = flatTerrain(64, 64);
+    for (let y = 0; y < 64; y++) {
+      for (let x = 20; x < 64; x++) {
+        terrain.layers.elevation[y * 64 + x] = 4; // plateau wall at x=20
+      }
+    }
+    const world = createWorld(88, 64, 64, terrain);
+    expect(runTick(world, [build(0, 0, 18, 5, 22, 5)])).toEqual([
+      { seq: 0, tick: 0, reason: RejectionReason.invalidSegment },
+    ]);
+  });
+
+  it("planarity invariant: accepted non-bridge edges never properly cross (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.maxSafeNat(),
+        fc.array(
+          fc.record({
+            ax: fc.nat({ max: 15 }),
+            ay: fc.nat({ max: 15 }),
+            bx: fc.nat({ max: 15 }),
+            by: fc.nat({ max: 15 }),
+            roadClass: fc.constantFrom(1, 2, 4),
+          }),
+          { minLength: 2, maxLength: 16 },
+        ),
+        (seed, segs) => {
+          const world = createWorld(seed);
+          runTick(
+            world,
+            segs.map((s2, i) => build(i, 0, s2.ax, s2.ay, s2.bx, s2.by, s2.roadClass)),
+          );
+          const edges = canonicalGraph(world.roads).edges;
+          for (let i = 0; i < edges.length; i++) {
+            for (let j = i + 1; j < edges.length; j++) {
+              const a = edges[i] as (typeof edges)[number];
+              const b = edges[j] as (typeof edges)[number];
+              const rel = segmentRelation(a.ax, a.ay, a.bx, a.by, b.ax, b.ay, b.bx, b.by);
+              // Anything beyond endpoint-kissing would be a planarity hole.
+              if (rel.kind === "point") {
+                const sharesEndpoint =
+                  (rel.x === a.ax && rel.y === a.ay) || (rel.x === a.bx && rel.y === a.by);
+                expect(sharesEndpoint).toBe(true);
+              } else {
+                expect(rel.kind).toBe("none");
+              }
+            }
+          }
+        },
+      ),
+      { numRuns: 50 },
+    );
   });
 });

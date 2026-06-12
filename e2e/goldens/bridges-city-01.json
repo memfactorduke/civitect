@@ -1,0 +1,105 @@
+{
+  "name": "bridges-city-01",
+  "seed": 9090,
+  "mapWidth": 64,
+  "mapHeight": 64,
+  "untilTick": 43800,
+  "terrainRects": [
+    {
+      "layer": "water",
+      "x0": 30,
+      "y0": 0,
+      "x1": 33,
+      "y1": 63,
+      "value": 1
+    },
+    {
+      "layer": "elevation",
+      "x0": 0,
+      "y0": 0,
+      "x1": 29,
+      "y1": 63,
+      "value": 1
+    },
+    {
+      "layer": "elevation",
+      "x0": 34,
+      "y0": 0,
+      "x1": 63,
+      "y1": 63,
+      "value": 1
+    }
+  ],
+  "commands": [
+    {
+      "seq": 0,
+      "tick": 10,
+      "type": "buildRoad",
+      "ax": 20,
+      "ay": 20,
+      "bx": 28,
+      "by": 20,
+      "roadClass": 1
+    },
+    {
+      "seq": 1,
+      "tick": 20,
+      "type": "buildRoad",
+      "ax": 28,
+      "ay": 20,
+      "bx": 36,
+      "by": 20,
+      "roadClass": 11
+    },
+    {
+      "seq": 2,
+      "tick": 30,
+      "type": "buildRoad",
+      "ax": 36,
+      "ay": 20,
+      "bx": 44,
+      "by": 20,
+      "roadClass": 1
+    },
+    {
+      "seq": 3,
+      "tick": 40,
+      "type": "buildRoad",
+      "ax": 24,
+      "ay": 16,
+      "bx": 24,
+      "by": 24,
+      "roadClass": 2
+    },
+    {
+      "seq": 4,
+      "tick": 50,
+      "type": "buildRoad",
+      "ax": 29,
+      "ay": 14,
+      "bx": 29,
+      "by": 26,
+      "roadClass": 1
+    },
+    {
+      "seq": 5,
+      "tick": 60,
+      "type": "buildRoad",
+      "ax": 20,
+      "ay": 24,
+      "bx": 28,
+      "by": 24,
+      "roadClass": 4
+    },
+    {
+      "seq": 6,
+      "tick": 70,
+      "type": "buildRoad",
+      "ax": 40,
+      "ay": 18,
+      "bx": 40,
+      "by": 18,
+      "roadClass": 1
+    }
+  ]
+}

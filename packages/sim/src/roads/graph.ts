@@ -18,8 +18,24 @@ export const RoadClass = {
   street: 1,
   avenue: 2,
   highway: 3,
+  path: 4,
+  bridgeStreet: 11,
+  bridgeAvenue: 12,
+  bridgeHighway: 13,
+  bridgePath: 14,
 } as const;
 export type RoadClass = (typeof RoadClass)[keyof typeof RoadClass];
+
+export const BRIDGE_CLASS_OFFSET = 10;
+
+export function isBridgeClass(roadClass: number): boolean {
+  return roadClass > BRIDGE_CLASS_OFFSET;
+}
+
+/** Bridge classes share their base class's traffic character. */
+export function baseClass(roadClass: RoadClass): RoadClass {
+  return (isBridgeClass(roadClass) ? roadClass - BRIDGE_CLASS_OFFSET : roadClass) as RoadClass;
+}
 
 /** Per-class baselines [TUNE — real values land with Phase 3 traffic]. */
 export const ROAD_CLASS_SPEC: Readonly<
@@ -28,6 +44,11 @@ export const ROAD_CLASS_SPEC: Readonly<
   [RoadClass.street]: { lanes: 2, speedMilliTilesPerTick: 500, capacityPerLane: 400 },
   [RoadClass.avenue]: { lanes: 4, speedMilliTilesPerTick: 750, capacityPerLane: 450 },
   [RoadClass.highway]: { lanes: 6, speedMilliTilesPerTick: 1500, capacityPerLane: 600 },
+  [RoadClass.path]: { lanes: 1, speedMilliTilesPerTick: 250, capacityPerLane: 150 },
+  [RoadClass.bridgeStreet]: { lanes: 2, speedMilliTilesPerTick: 500, capacityPerLane: 400 },
+  [RoadClass.bridgeAvenue]: { lanes: 4, speedMilliTilesPerTick: 750, capacityPerLane: 450 },
+  [RoadClass.bridgeHighway]: { lanes: 6, speedMilliTilesPerTick: 1500, capacityPerLane: 600 },
+  [RoadClass.bridgePath]: { lanes: 1, speedMilliTilesPerTick: 250, capacityPerLane: 150 },
 };
 
 const NO_INDEX = 0xffffffff;

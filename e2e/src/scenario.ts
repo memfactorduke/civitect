@@ -10,7 +10,16 @@
  * cross-check (board PR 12) can ship scenarios into Chromium/WebKit pages
  * unchanged.
  */
-import { type Command, CommandType } from "@civitect/protocol";
+import { type Command, CommandType, flatTerrain, type TerrainGrid } from "@civitect/protocol";
+
+export interface TerrainRect {
+  readonly layer: "elevation" | "water" | "resource";
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+  readonly value: number;
+}
 
 export interface GoldenScenario {
   readonly name: string;
@@ -19,6 +28,21 @@ export interface GoldenScenario {
   readonly mapHeight: number;
   readonly untilTick: number;
   readonly commands: readonly Command[];
+  /** Optional terrain, painted as rects over a flat world (12e goldens). */
+  readonly terrainRects: readonly TerrainRect[];
+}
+
+/** Materialize a scenario's terrain (flat + painted rects). */
+export function scenarioTerrain(scenario: GoldenScenario): TerrainGrid {
+  const terrain = flatTerrain(scenario.mapWidth, scenario.mapHeight);
+  for (const rect of scenario.terrainRects) {
+    for (let y = rect.y0; y <= rect.y1; y++) {
+      for (let x = rect.x0; x <= rect.x1; x++) {
+        terrain.layers[rect.layer][y * scenario.mapWidth + x] = rect.value;
+      }
+    }
+  }
+  return terrain;
 }
 
 /** JSON wire shape: commands carry their type by NAME for human review. */
@@ -122,6 +146,25 @@ export function parseScenario(doc: unknown, source: string): GoldenScenario {
   const commands = d.commands.map((c, i) =>
     parseCommand(c as ScenarioJsonCommand, `${source} commands[${i}]`),
   );
+  const terrainRects: TerrainRect[] = [];
+  if (d.terrainRects !== undefined) {
+    if (!Array.isArray(d.terrainRects)) {
+      throw new Error(`${source}: terrainRects must be an array`);
+    }
+    for (const raw of d.terrainRects as Record<string, unknown>[]) {
+      if (
+        (raw.layer !== "elevation" && raw.layer !== "water" && raw.layer !== "resource") ||
+        !isNonNegativeSafeInt(raw.x0) ||
+        !isNonNegativeSafeInt(raw.y0) ||
+        !isNonNegativeSafeInt(raw.x1) ||
+        !isNonNegativeSafeInt(raw.y1) ||
+        !isNonNegativeSafeInt(raw.value)
+      ) {
+        throw new Error(`${source}: malformed terrainRect`);
+      }
+      terrainRects.push(raw as unknown as TerrainRect);
+    }
+  }
   return {
     name: d.name,
     seed: d.seed,
@@ -129,5 +172,6 @@ export function parseScenario(doc: unknown, source: string): GoldenScenario {
     mapHeight: d.mapHeight,
     untilTick: d.untilTick,
     commands,
+    terrainRects,
   };
 }

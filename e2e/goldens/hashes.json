@@ -1,4 +1,12 @@
 {
+  "bridges-city-01": {
+    "hash": "21aa018611c93d3c",
+    "hud": {
+      "tick": 43800,
+      "population": 0,
+      "fundsCents": 0
+    }
+  },
   "empty-city-01": {
     "hash": "9a92215ff0f2770f",
     "hud": {
