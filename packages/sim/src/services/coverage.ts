@@ -36,9 +36,12 @@ export const ANCHOR_REACH = 4;
 const INF = 0xffffffff;
 
 /**
- * Anchor a tile to the nearest alive road node: ring scan radius 0..reach,
- * rows in order, first hit wins per radius with the LOWEST node index —
- * same tile, same graph ⇒ same anchor, bit for bit (ADR-005).
+ * Anchor a tile to the nearest alive road node: ring scan radius 0..reach;
+ * within a radius the FIRST node in (dy, dx) scan order wins — a tie-break
+ * on COORDINATES, never node index. Node indices are construction history
+ * (free-list reuse, splits): an index tie-break would let two canonically
+ * identical worlds (built vs loaded) anchor differently and desync every
+ * canonical decision downstream — the Phase 3 tranche-2 leak class.
  */
 export function anchorNode(
   g: RoadGraph,
@@ -50,7 +53,6 @@ export function anchorNode(
   const x = tileIdx % mapWidth;
   const y = Math.floor(tileIdx / mapWidth);
   for (let radius = 0; radius <= reach; radius++) {
-    let best = -1;
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) {
@@ -62,13 +64,10 @@ export function anchorNode(
           continue;
         }
         const n = nodeAt(g, nx, ny);
-        if (n !== -1 && (best === -1 || n < best)) {
-          best = n;
+        if (n !== -1) {
+          return n;
         }
       }
-    }
-    if (best !== -1) {
-      return best;
     }
   }
   return -1;
