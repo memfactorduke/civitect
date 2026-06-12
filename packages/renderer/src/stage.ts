@@ -7,9 +7,14 @@
  *
  * Without terrain (Phase 0 boot), chunks bake the placeholder diamond grid;
  * with terrain (map files), they bake flat tile tints (v0 "art" [TUNE]).
+ *
+ * Agent layer (Phase 3 tranche 3): primitives from the transform rider —
+ * cars as oriented rectangles, pedestrians as dots (sprite atlases are
+ * content-gated, ADR-012). Redrawn per rider; positions are float tiles.
  */
 
 import type { BuildingView, RoadSegment, TerrainGrid } from "@civitect/protocol";
+import { AGENT_FLOATS, AgentKind } from "@civitect/protocol";
 import { Container, Graphics } from "pixi.js";
 import { CHUNK_TILES, chunkLayout, chunkTiles, terrainTint } from "./chunks";
 import type { DisplayState } from "./display";
@@ -33,6 +38,8 @@ export interface WorldStage {
   setGhost(a: { x: number; y: number } | null, b?: { x: number; y: number }): void;
   /** Toggle the zone overlay (v1 of overlays; others ride their systems). */
   setZoneOverlay(visible: boolean): void;
+  /** Redraw the agent layer from a transform rider (null = clear). */
+  setAgents(buffer: Float32Array | null): void;
   /** Chunk count — observability for tests/devtools. */
   readonly chunkCount: number;
 }
@@ -219,6 +226,9 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   const ghost = new Graphics();
   root.addChild(ghost);
 
+  const agentLayer = new Graphics();
+  root.addChild(agentLayer);
+
   return {
     root,
     chunkCount: layout.count,
@@ -259,6 +269,21 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
       if (visible) {
         drawZones();
         drawnZoneVersion = -2; // force redraw pickup on next update
+      }
+    },
+    setAgents(buffer: Float32Array | null): void {
+      agentLayer.clear();
+      if (buffer === null) {
+        return;
+      }
+      for (let at = 0; at + AGENT_FLOATS <= buffer.length; at += AGENT_FLOATS) {
+        const kind = buffer[at + 1] as number;
+        const { wx, wy } = tileCenterToWorld(buffer[at + 2] as number, buffer[at + 3] as number);
+        if (kind === AgentKind.car) {
+          agentLayer.rect(wx - 3, wy - 2, 6, 4).fill({ color: 0xffd24a });
+        } else {
+          agentLayer.circle(wx, wy, 1.6).fill({ color: 0x9be4ff });
+        }
       }
     },
     setGhost(a, b): void {

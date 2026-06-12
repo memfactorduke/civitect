@@ -41,8 +41,8 @@ export interface RendererHandle {
   readonly camera: CameraState;
   /** Current display state — read-only outside; advanced via consume(). */
   readonly state: () => DisplayState;
-  /** Feed one protocol snapshot; stage updates immediately. */
-  consume(snapshot: Snapshot): void;
+  /** Feed one protocol snapshot (+ agent transform rider); stage updates immediately. */
+  consume(snapshot: Snapshot, agents?: Float32Array | null): void;
   /** Pan by a screen-px drag delta. */
   panBy(dxPx: number, dyPx: number): void;
   /** Zoom by `factor`, anchored at canvas-local (sx, sy). */
@@ -112,9 +112,10 @@ export async function bootRenderer(options: RendererBootOptions): Promise<Render
     stage,
     camera,
     state: () => state,
-    consume(snapshot: Snapshot): void {
+    consume(snapshot: Snapshot, agents: Float32Array | null = null): void {
       state = applySnapshot(state, snapshot);
       stage.update(state);
+      stage.setAgents(agents);
       if (snapshot.dirtyChunkIds.length > 0) {
         stage.rebakeChunks([...snapshot.dirtyChunkIds]);
       }

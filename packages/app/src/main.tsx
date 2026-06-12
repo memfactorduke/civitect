@@ -5,6 +5,7 @@
  * the worker (ADR-006); everything it learns arrives as protocol snapshots.
  */
 import {
+  AGENT_FLOATS,
   CommandType,
   decodeMessage,
   encodeMessage,
@@ -47,15 +48,32 @@ async function main(): Promise<void> {
     },
   });
 
+  let lastAgents: Float32Array | null = null;
   worker.onmessage = (event: MessageEvent<unknown>) => {
     const data = event.data;
-    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
+    // Snapshots arrive as { bytes, agents } so the transform rider can ride
+    // the same transfer (TDD §7); every other reply is raw envelope bytes.
+    const wrapped =
+      data !== null && typeof data === "object" && "bytes" in (data as object)
+        ? (data as { bytes: Uint8Array; agents: Float32Array | null })
+        : null;
+    const raw = wrapped === null ? data : wrapped.bytes;
+    const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBuffer);
     const message = decodeMessage(bytes); // hard version check at boot (TDD §7)
     switch (message.kind) {
-      case MessageKind.snapshot:
-        renderer.consume(message.body);
+      case MessageKind.snapshot: {
+        const agents = wrapped?.agents ?? null;
+        const expected = message.body.agentCount * AGENT_FLOATS;
+        if ((agents?.length ?? 0) !== expected) {
+          throw new Error(
+            `agent rider carries ${agents?.length ?? 0} floats, snapshot promises ${expected}`,
+          );
+        }
+        lastAgents = agents;
+        renderer.consume(message.body, agents);
         store.getState().applySnapshot(message.body);
         break;
+      }
       case MessageKind.commandRejection:
         // Optimistic ghosts arrive with build tools (Phase 1); for now a
         // rejection is just developer-visible.
@@ -166,6 +184,42 @@ async function main(): Promise<void> {
     panEnabled: () => tool === "select",
   });
 
+  // Camera → sampler viewport (ADR-002): visible tile bbox, sent through
+  // the protocol like everything else, throttled and only on change.
+  let lastViewportKey = "";
+  const sendViewport = (): void => {
+    const rect = renderer.app.canvas.getBoundingClientRect();
+    const corners = [
+      renderer.screenToWorld(0, 0),
+      renderer.screenToWorld(rect.width, 0),
+      renderer.screenToWorld(0, rect.height),
+      renderer.screenToWorld(rect.width, rect.height),
+    ];
+    let x0 = BOOT.mapWidth - 1;
+    let y0 = BOOT.mapHeight - 1;
+    let x1 = 0;
+    let y1 = 0;
+    for (const c of corners) {
+      const tile = pickTileAt(c.wx, c.wy, BOOT.mapWidth, BOOT.mapHeight);
+      // Off-map corners clamp to the map edge (zoomed way out = whole map).
+      const tx = tile?.x ?? (c.wx < 0 ? 0 : BOOT.mapWidth - 1);
+      const ty = tile?.y ?? (c.wy < 0 ? 0 : BOOT.mapHeight - 1);
+      x0 = Math.min(x0, tx);
+      y0 = Math.min(y0, ty);
+      x1 = Math.max(x1, tx);
+      y1 = Math.max(y1, ty);
+    }
+    const key = `${x0},${y0},${x1},${y1}`;
+    if (key === lastViewportKey) {
+      return;
+    }
+    lastViewportKey = key;
+    const bytes = encodeMessage({ kind: MessageKind.viewportHint, body: { x0, y0, x1, y1 } });
+    worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
+  };
+  sendViewport();
+  setInterval(sendViewport, 500);
+
   createRoot(overlayHost).render(<Overlay store={store} dispatch={dispatch} />);
 
   // Test/debug hook: lets the e2e smoke (and humans in devtools) observe the
@@ -181,6 +235,24 @@ async function main(): Promise<void> {
       dispatch(intent);
     },
     tool: () => tool,
+    // Agents observability for the follow e2e (GDD §17.5): the latest
+    // transform rider, decoded into plain objects.
+    agents: () => {
+      const buffer = lastAgents;
+      if (buffer === null) {
+        return [];
+      }
+      const out: { id: number; kind: number; x: number; y: number }[] = [];
+      for (let at = 0; at + AGENT_FLOATS <= buffer.length; at += AGENT_FLOATS) {
+        out.push({
+          id: buffer[at] as number,
+          kind: buffer[at + 1] as number,
+          x: buffer[at + 2] as number,
+          y: buffer[at + 3] as number,
+        });
+      }
+      return out;
+    },
   };
 }
 

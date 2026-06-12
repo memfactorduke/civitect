@@ -19,6 +19,7 @@
  * the few worker globals used here are typed structurally.
  */
 import {
+  AGENT_FLOATS,
   type Command,
   decodeCiv,
   decodeMessage,
@@ -56,6 +57,32 @@ let lastSentRoadVersion = -1;
 let lastSentBuildingVersion = -1;
 let lastSentZoneVersion = -1;
 
+/**
+ * The agent transform rider (TDD §7): [id, kind, x, y, headingMilli] per
+ * live agent, floats, transferred zero-copy ALONGSIDE the encoded snapshot
+ * — agentCount in the codec is the validated contract. atan2 lives HERE
+ * (the boundary), not in the sim (ADR-005 keeps transcendentals out).
+ */
+function agentRider(): Float32Array | null {
+  const pool = world.agents;
+  if (pool.liveCount === 0) {
+    return null;
+  }
+  const out = new Float32Array(pool.liveCount * AGENT_FLOATS);
+  let at = 0;
+  for (let s = 0; s < pool.count; s++) {
+    if (pool.alive[s] !== 1) {
+      continue;
+    }
+    out[at++] = pool.id[s] as number;
+    out[at++] = pool.kind[s] as number;
+    out[at++] = (pool.xMilli[s] as number) / 1000;
+    out[at++] = (pool.yMilli[s] as number) / 1000;
+    out[at++] = Math.round(Math.atan2(pool.dyMilli[s] as number, pool.dxMilli[s] as number) * 1000);
+  }
+  return out;
+}
+
 function postSnapshot(kind: Snapshot["kind"]): void {
   // Full lists ride keyframes and the first snapshot after a change;
   // otherwise deltas say "unchanged" (null) — TDD §7 delta semantics.
@@ -64,12 +91,16 @@ function postSnapshot(kind: Snapshot["kind"]): void {
   const includeBuildings =
     kind === SnapshotKind.keyframe || world.buildings.version !== lastSentBuildingVersion;
   const includeZones = kind === SnapshotKind.keyframe || world.zoneVersion !== lastSentZoneVersion;
-  post(
-    encodeMessage({
-      kind: MessageKind.snapshot,
-      body: toSnapshot(world, kind, includeRoads, includeBuildings, includeZones),
-    }),
-  );
+  const bytes = encodeMessage({
+    kind: MessageKind.snapshot,
+    body: toSnapshot(world, kind, includeRoads, includeBuildings, includeZones),
+  });
+  const agents = agentRider();
+  const transfer: ArrayBuffer[] = [bytes.buffer as ArrayBuffer];
+  if (agents !== null) {
+    transfer.push(agents.buffer as ArrayBuffer);
+  }
+  ctx.postMessage({ bytes, agents }, { transfer });
   lastSentRoadVersion = world.roads.version;
   lastSentBuildingVersion = world.buildings.version;
   lastSentZoneVersion = world.zoneVersion;
@@ -141,6 +172,11 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
       break;
     case MessageKind.loadRequest:
       void handleLoadRequest(message.body.civ);
+      break;
+    case MessageKind.viewportHint:
+      // Sampler input ONLY (ADR-002) — by construction it cannot move the
+      // hash: the projection-purity test in sim holds that line.
+      world.viewport = message.body;
       break;
     default:
       throw new Error(`sim worker received unexpected MessageKind ${message.kind}`);
