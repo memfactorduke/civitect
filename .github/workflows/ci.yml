@@ -1,0 +1,59 @@
+# ADR-013 gate ladder, in its binding order: lint → typecheck → unit → golden-masters → perf.
+# (ADR-007: GitHub Actions, trunk-based; AI-WORKFLOW: CI is the arbiter of done.)
+#
+# Gate status at scaffold time (each stub references the roadmap phase that makes it real):
+#   lint / wall / typecheck / unit ... LIVE
+#   golden-masters ................... STUB (ROADMAP Phase 0 — board PR 4)
+#   balance simulations .............. STUB (ROADMAP Phase 2)
+#   perf gate ........................ STUB (ROADMAP Phase 0 — board PR 4)
+#   asset gates ...................... STUB (ROADMAP Phase 0 — board PR 11)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    name: ADR-013 gate ladder
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # version comes from package.json "packageManager"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # TODO(ROADMAP Phase 0 — board PR 3): add the scoped ESLint determinism ban-rules
+      # for packages/sim (ADR-005: no Math.random/transcendentals/wall clock) alongside
+      # Biome (ADR-007 keeps ESLint only inside packages/sim).
+      - name: Lint (Biome)
+        run: pnpm lint
+
+      - name: Import wall (dependency-cruiser, ADR-006)
+        run: pnpm wall
+
+      - name: Typecheck (tsc -b, strict)
+        run: pnpm typecheck
+
+      - name: Unit (Vitest, Node-mode)
+        run: pnpm test
+
+      - name: Golden-master cities (STUB — ROADMAP Phase 0)
+        run: pnpm gate:golden
+
+      - name: Balance simulations (STUB — ROADMAP Phase 2)
+        run: pnpm gate:balance
+
+      - name: Perf gate (STUB — ROADMAP Phase 0)
+        run: pnpm gate:perf
+
+      - name: Asset gates (STUB — ROADMAP Phase 0)
+        run: pnpm gate:assets
