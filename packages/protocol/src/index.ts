@@ -39,6 +39,7 @@ export {
   decodeRejectionBody,
   encodeCommandBody,
   encodeRejectionBody,
+  type PinCimCommand,
   type PlaceBuildingCommand,
   type RedoCommand,
   RejectionReason,
@@ -46,6 +47,7 @@ export {
   type SelectTileCommand,
   type SetSpeedCommand,
   type UndoCommand,
+  type UnpinCimCommand,
   type UpgradeRoadCommand,
   ZoneKind,
   type ZoneRectCommand,
@@ -69,6 +71,7 @@ export {
 } from "./inspector";
 export {
   type BuildingRow,
+  type CimPinSave,
   type CivSave,
   decodeCiv,
   encodeCiv,
@@ -114,6 +117,8 @@ export {
 } from "./save/terrain";
 export { xxh64, xxh64Hex } from "./save/xxhash64";
 export {
+  AGENT_FLOATS,
+  AgentKind,
   type BuildingView,
   type DemandBlock,
   decodeSnapshotBody,

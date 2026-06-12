@@ -14,7 +14,8 @@ export const SAVE_MAGIC = "CIVT";
 // v2: TERRAIN (v1 migrates via flat-terrain injection). v3: ROADS (empty-
 // network injection). v4: BUILDINGS + COHORTS (empty-city injection).
 // v5: TRAFFIC (zeroed-volume injection — pre-v5 traffic was derived state).
-export const SAVE_FORMAT_VERSION = 5;
+// v6: AGENTPINS (empty-list injection — pinning ships with Phase 3 agents).
+export const SAVE_FORMAT_VERSION = 6;
 
 export interface ContainerHeader {
   readonly formatVersion: number;

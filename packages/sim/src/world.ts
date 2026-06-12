@@ -800,6 +800,12 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.redoStack.length = 0;
       return null;
     }
+    case CommandType.pinCim:
+    case CommandType.unpinCim:
+      // Pin state ships with the agents sim PR (Phase 3 tranche 3); until
+      // then this build doesn't know the command — same answer as a stale
+      // client sending a future type.
+      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
     case CommandType.placeBuilding: {
       if (!inBounds(world, cmd.x, cmd.y)) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.outOfBounds };

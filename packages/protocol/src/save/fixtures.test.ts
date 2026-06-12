@@ -22,6 +22,7 @@ const V2_PATH = join(FIXTURES_DIR, "v2", "empty-world-y1.civ");
 const V3_PATH = join(FIXTURES_DIR, "v3", "empty-world-y1.civ");
 const V4_PATH = join(FIXTURES_DIR, "v4", "empty-world-y1.civ");
 const V5_PATH = join(FIXTURES_DIR, "v5", "empty-world-y1.civ");
+const V6_PATH = join(FIXTURES_DIR, "v6", "empty-world-y1.civ");
 
 /**
  * Canonical v1 fixture content: an empty 64×64 world one game-year in,
@@ -29,7 +30,7 @@ const V5_PATH = join(FIXTURES_DIR, "v5", "empty-world-y1.civ");
  * is a format contract, not a sim artifact (sim-produced saves are PR 9's
  * e2e territory).
  */
-const V1_SAVE: Omit<CivSave, "terrain" | "roads" | "buildings" | "cohorts" | "traffic"> = {
+const V1_SAVE: Omit<CivSave, "terrain" | "roads" | "buildings" | "cohorts" | "traffic" | "pins"> = {
   header: {
     formatVersion: 1,
     simVersion: 1,
@@ -79,11 +80,12 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       buildings: [],
       cohorts: new Uint16Array(0),
       traffic: emptyTraffic(0),
+      pins: [],
     });
     expect(decoded.header.formatVersion).toBe(1);
   });
 
-  const V2_SAVE: Omit<CivSave, "roads" | "buildings" | "cohorts" | "traffic"> = {
+  const V2_SAVE: Omit<CivSave, "roads" | "buildings" | "cohorts" | "traffic" | "pins"> = {
     ...V1_SAVE,
     header: { ...V1_SAVE.header, formatVersion: 2 },
     terrain: flatTerrain(64, 64),
@@ -100,11 +102,12 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       buildings: [],
       cohorts: new Uint16Array(0),
       traffic: emptyTraffic(0),
+      pins: [],
     });
     expect(decoded.header.formatVersion).toBe(2);
   });
 
-  const V3_SAVE: Omit<CivSave, "buildings" | "cohorts" | "traffic"> = {
+  const V3_SAVE: Omit<CivSave, "buildings" | "cohorts" | "traffic" | "pins"> = {
     ...V2_SAVE,
     header: { ...V2_SAVE.header, formatVersion: 3 },
     roads: [{ ax: 3, ay: 3, bx: 7, by: 3, roadClass: 1 }],
@@ -120,11 +123,12 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       buildings: [],
       cohorts: new Uint16Array(0),
       traffic: emptyTraffic(1),
+      pins: [],
     });
     expect(decoded.header.formatVersion).toBe(3);
   });
 
-  const V4_SAVE: Omit<CivSave, "traffic"> = {
+  const V4_SAVE: Omit<CivSave, "traffic" | "pins"> = {
     ...V3_SAVE,
     header: { ...V3_SAVE.header, formatVersion: 4 },
     buildings: [{ tileIdx: 200, kind: 1, level: 2, status: 0, failDays: 0, thriveDays: 1 }],
@@ -138,13 +142,13 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
     const decoded = await decodeCiv(new Uint8Array(readFileSync(V4_PATH)));
     // One road edge -> migration injects one zeroed volume (a fresh
     // incremental solve at the next boundary, exactly v4-era behavior).
-    expect(decoded).toEqual({ ...V4_SAVE, traffic: emptyTraffic(1) });
+    expect(decoded).toEqual({ ...V4_SAVE, traffic: emptyTraffic(1), pins: [] });
     expect(decoded.header.formatVersion).toBe(4);
   });
 
   // The v5 fixture carries a NON-trivial traffic state including an
   // in-flight solver job — the archived contract covers the job codec.
-  const V5_SAVE: CivSave = {
+  const V5_SAVE: Omit<CivSave, "pins"> = {
     ...V4_SAVE,
     header: { ...V4_SAVE.header, formatVersion: 5 },
     traffic: {
@@ -167,22 +171,37 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
     },
   };
 
-  if (process.env.SEED_FIXTURES === "1" && !existsSync(V5_PATH)) {
-    it("seeds the v5 fixture (first time only)", async () => {
-      mkdirSync(dirname(V5_PATH), { recursive: true });
-      writeFileSync(V5_PATH, await encodeCiv(V5_SAVE));
-      expect(existsSync(V5_PATH)).toBe(true);
+  it("v5 fixture loads forever — migrated to empty pins, provenance preserved", async () => {
+    if (!existsSync(V5_PATH)) {
+      throw new Error(`fixture missing: ${V5_PATH}`);
+    }
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V5_PATH)));
+    expect(decoded).toEqual({ ...V5_SAVE, pins: [] });
+    expect(decoded.header.formatVersion).toBe(5);
+  });
+
+  const V6_SAVE: CivSave = {
+    ...V5_SAVE,
+    header: { ...V5_SAVE.header, formatVersion: 6 },
+    pins: [{ tileIdx: 200, slot: 8 }],
+  };
+
+  if (process.env.SEED_FIXTURES === "1" && !existsSync(V6_PATH)) {
+    it("seeds the v6 fixture (first time only)", async () => {
+      mkdirSync(dirname(V6_PATH), { recursive: true });
+      writeFileSync(V6_PATH, await encodeCiv(V6_SAVE));
+      expect(existsSync(V6_PATH)).toBe(true);
     });
   }
 
   it(`v${SAVE_FORMAT_VERSION} fixture decodes to its archived world, bit-faithfully`, async () => {
-    if (!existsSync(V5_PATH)) {
+    if (!existsSync(V6_PATH)) {
       throw new Error(
-        `fixture missing: ${V5_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
+        `fixture missing: ${V6_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
       );
     }
-    const decoded = await decodeCiv(new Uint8Array(readFileSync(V5_PATH)));
-    expect(decoded).toEqual(V5_SAVE);
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V6_PATH)));
+    expect(decoded).toEqual(V6_SAVE);
   });
 });
 

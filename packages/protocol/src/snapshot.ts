@@ -9,13 +9,27 @@
  *
  * NOT in these bytes: the agent transform ring. TDD §7 sends it as a separate
  * transferable Float32Array alongside the encoded snapshot (zero-copy
- * postMessage; SharedArrayBuffer fast path where isolation allows) — it joins
- * the message at the app worker boundary in Phase 3, not the codec.
+ * postMessage; SharedArrayBuffer fast path where isolation allows). The
+ * codec carries only the CONTRACT: agentCount, validated against the
+ * rider's length (AGENT_FLOATS floats per agent) at the worker boundary.
  */
 import type { ByteReader } from "./bytes/reader";
 import type { ByteWriter } from "./bytes/writer";
 import { type AdvisorEvent, decodeAdvisorEvent, encodeAdvisorEvent } from "./cause";
 import { DecodeError } from "./errors";
+
+/**
+ * Transform rider layout, per agent: [agentId, kind, x, y, headingMilli].
+ * Positions in float tiles; heading in milliradians (renderer-only floats —
+ * agents are a sampled projection, never canonical state, ADR-002/GDD §8).
+ */
+export const AGENT_FLOATS = 5;
+
+export const AgentKind = {
+  pedestrian: 1,
+  car: 2,
+} as const;
+export type AgentKind = (typeof AgentKind)[keyof typeof AgentKind];
 
 export const SnapshotKind = {
   keyframe: 1,
@@ -100,6 +114,8 @@ export interface Snapshot {
   /** Zone-paint version; full layer rides keyframes/changes (u16/tile). */
   readonly zoneVersion: number;
   readonly zones: Uint16Array | null;
+  /** Agents in the transferable rider (AGENT_FLOATS floats each); 0 = none. */
+  readonly agentCount: number;
 }
 
 export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
@@ -154,6 +170,7 @@ export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
       w.u16(z);
     }
   }
+  w.u16(snap.agentCount);
 }
 
 export function decodeSnapshotBody(r: ByteReader): Snapshot {
@@ -228,6 +245,7 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
       zones[i] = r.u16();
     }
   }
+  const agentCount = r.u16();
   return {
     kind,
     tick,
@@ -243,5 +261,6 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
     buildings,
     zoneVersion,
     zones,
+    agentCount,
   };
 }
