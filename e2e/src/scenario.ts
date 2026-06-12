@@ -52,6 +52,45 @@ function parseCommand(raw: ScenarioJsonCommand, at: string): Command {
       }
       return { seq: raw.seq, tick: raw.tick, type: CommandType.setSpeed, speed };
     }
+    case "buildRoad":
+    case "upgradeRoad": {
+      const { ax, ay, bx, by, roadClass } = raw;
+      if (
+        !isNonNegativeSafeInt(ax) ||
+        !isNonNegativeSafeInt(ay) ||
+        !isNonNegativeSafeInt(bx) ||
+        !isNonNegativeSafeInt(by) ||
+        !isNonNegativeSafeInt(roadClass)
+      ) {
+        throw new Error(`${at}: ${raw.type} needs integer ax/ay/bx/by/roadClass`);
+      }
+      return {
+        seq: raw.seq,
+        tick: raw.tick,
+        type: raw.type === "buildRoad" ? CommandType.buildRoad : CommandType.upgradeRoad,
+        ax,
+        ay,
+        bx,
+        by,
+        roadClass: roadClass as 1 | 2 | 3,
+      };
+    }
+    case "bulldozeRoad": {
+      const { ax, ay, bx, by } = raw;
+      if (
+        !isNonNegativeSafeInt(ax) ||
+        !isNonNegativeSafeInt(ay) ||
+        !isNonNegativeSafeInt(bx) ||
+        !isNonNegativeSafeInt(by)
+      ) {
+        throw new Error(`${at}: bulldozeRoad needs integer ax/ay/bx/by`);
+      }
+      return { seq: raw.seq, tick: raw.tick, type: CommandType.bulldozeRoad, ax, ay, bx, by };
+    }
+    case "undo":
+      return { seq: raw.seq, tick: raw.tick, type: CommandType.undo };
+    case "redo":
+      return { seq: raw.seq, tick: raw.tick, type: CommandType.redo };
     default:
       // Unknown names must be loud: a typo that silently dropped a command
       // would still replay "successfully" — to the wrong world.

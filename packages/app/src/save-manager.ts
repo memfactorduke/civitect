@@ -13,7 +13,7 @@ import type { LoadResponse, SaveResponse } from "@civitect/protocol";
 const QUICKSAVE_KEY = "civitect.quicksave";
 
 export interface SaveManager {
-  /** Snapshot the worker's world; resolves with the .civ bytes (also persisted). */
+  /** Snapshot the worker's world; resolves with the .civ bytes (also persisted). Rejects when the worker reports a failed save (empty civ). */
   saveQuick(): Promise<Uint8Array>;
   /** Load the persisted quicksave into the worker. Resolves with the worker's verdict. */
   loadQuick(): Promise<LoadResponse>;
@@ -46,7 +46,8 @@ function fromBase64(text: string): Uint8Array {
 }
 
 export function createSaveManager(ports: SaveManagerPorts): SaveManager {
-  let pendingSave: ((bytes: Uint8Array) => void) | null = null;
+  let pendingSave: { resolve: (bytes: Uint8Array) => void; reject: (e: Error) => void } | null =
+    null;
   let pendingLoad: ((verdict: LoadResponse) => void) | null = null;
 
   return {
@@ -54,8 +55,8 @@ export function createSaveManager(ports: SaveManagerPorts): SaveManager {
       if (pendingSave !== null) {
         return Promise.reject(new Error("a save is already in flight"));
       }
-      return new Promise((resolve) => {
-        pendingSave = resolve;
+      return new Promise((resolve, reject) => {
+        pendingSave = { resolve, reject };
         ports.postSaveRequest(0);
       });
     },
@@ -73,8 +74,13 @@ export function createSaveManager(ports: SaveManagerPorts): SaveManager {
       });
     },
     onSaveResponse(body: SaveResponse): void {
+      if (body.civ.length === 0) {
+        pendingSave?.reject(new Error("worker reported a failed save"));
+        pendingSave = null;
+        return;
+      }
       localStorage.setItem(QUICKSAVE_KEY, toBase64(body.civ));
-      pendingSave?.(body.civ);
+      pendingSave?.resolve(body.civ);
       pendingSave = null;
     },
     onLoadResponse(body: LoadResponse): void {

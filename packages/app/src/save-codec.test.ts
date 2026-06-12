@@ -74,6 +74,19 @@ describe("save → load → state-hash-equal (TDD §10)", () => {
   });
 });
 
+describe("roads block saving until format v3 (honest failure beats silent loss)", () => {
+  it("worldToCiv throws on a world with roads", () => {
+    const { world } = replay(BOOT.seed, [], 1, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+    });
+    runTick(world, [
+      { seq: 0, tick: 1, type: CommandType.buildRoad, ax: 1, ay: 1, bx: 2, by: 1, roadClass: 1 },
+    ]);
+    expect(() => worldToCiv(world, [])).toThrow(/save format v3/);
+  });
+});
+
 describe("terrain through the save pipeline (phase-1 task 7b)", () => {
   it("non-flat terrain round-trips bit-exactly, hash included", async () => {
     const terrain = flatTerrain(BOOT.mapWidth, BOOT.mapHeight);

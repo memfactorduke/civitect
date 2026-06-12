@@ -18,6 +18,20 @@ import {
 } from "@civitect/protocol";
 import { fnv1a64 } from "./hash";
 import { createRng, type Pcg32, RNG_STREAM_NAMES, type RngStreamName } from "./rng";
+import {
+  addEdge,
+  addNode,
+  canonicalGraph,
+  createRoadGraph,
+  edgeBetween,
+  edgesOf,
+  nodeAt,
+  type RoadClass,
+  type RoadGraph,
+  removeEdge,
+  removeNode,
+  upgradeEdge,
+} from "./roads/graph";
 
 /** GDD §13: pause / 1× / 3× / 9× [TUNE]. The value IS the multiplier, not an index. */
 export const SIM_SPEEDS: readonly number[] = [0, 1, 3, 9];
@@ -45,8 +59,48 @@ export interface World {
   population: number;
   /** Tile layers (TDD §5) — part of the canonical state (and the hash). */
   readonly terrain: TerrainGrid;
+  /** Road network (TDD §5) — canonical state, hashed in canonical form. */
+  readonly roads: RoadGraph;
+  /**
+   * Undo/redo stacks (LIFO inverse ops). SESSION-LOCAL by design: not
+   * hashed, not saved — the exit criterion build∘undo ≡ identity on the
+   * state hash requires exactly that (a redo stack would differ from
+   * never-having-built).
+   */
+  readonly undoStack: RoadOp[];
+  readonly redoStack: RoadOp[];
   readonly rng: Readonly<Record<RngStreamName, Pcg32>>;
 }
+
+/** Inverse-operation records for undo/redo (sim-side per protocol v3). */
+export type RoadOp =
+  | {
+      readonly kind: "build";
+      readonly ax: number;
+      readonly ay: number;
+      readonly bx: number;
+      readonly by: number;
+      readonly roadClass: RoadClass;
+      readonly createdA: boolean;
+      readonly createdB: boolean;
+    }
+  | {
+      readonly kind: "bulldoze";
+      readonly ax: number;
+      readonly ay: number;
+      readonly bx: number;
+      readonly by: number;
+      readonly roadClass: RoadClass;
+    }
+  | {
+      readonly kind: "upgrade";
+      readonly ax: number;
+      readonly ay: number;
+      readonly bx: number;
+      readonly by: number;
+      readonly fromClass: RoadClass;
+      readonly toClass: RoadClass;
+    };
 
 export function createWorld(
   seed: number,
@@ -79,8 +133,143 @@ export function createWorld(
     fundsCents: 0,
     population: 0,
     terrain: terrain ?? flatTerrain(mapWidth, mapHeight),
+    roads: createRoadGraph(),
+    undoStack: [],
+    redoStack: [],
     rng,
   };
+}
+
+function inBounds(world: World, x: number, y: number): boolean {
+  return x < world.mapWidth && y < world.mapHeight;
+}
+
+/** Apply a build (forward or via redo). Returns the op for the undo stack, or a rejection. */
+function applyBuild(
+  world: World,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  roadClass: RoadClass,
+  seq: number,
+): RoadOp | CommandRejection {
+  if (!inBounds(world, ax, ay) || !inBounds(world, bx, by)) {
+    return { seq, tick: world.tick, reason: RejectionReason.outOfBounds };
+  }
+  if (ax === bx && ay === by) {
+    return { seq, tick: world.tick, reason: RejectionReason.invalidSegment };
+  }
+  const existingA = nodeAt(world.roads, ax, ay);
+  const existingB = nodeAt(world.roads, bx, by);
+  if (
+    existingA !== -1 &&
+    existingB !== -1 &&
+    edgeBetween(world.roads, existingA, existingB) !== -1
+  ) {
+    return { seq, tick: world.tick, reason: RejectionReason.invalidSegment };
+  }
+  const a = addNode(world.roads, ax, ay);
+  const b = addNode(world.roads, bx, by);
+  addEdge(world.roads, a, b, roadClass);
+  return {
+    kind: "build",
+    ax,
+    ay,
+    bx,
+    by,
+    roadClass,
+    createdA: existingA === -1,
+    createdB: existingB === -1,
+  };
+}
+
+/** Apply a bulldoze. Returns the op (with the removed class) or a rejection. */
+function applyBulldoze(
+  world: World,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  seq: number,
+): RoadOp | CommandRejection {
+  const a = nodeAt(world.roads, ax, ay);
+  const b = nodeAt(world.roads, bx, by);
+  const edge = a !== -1 && b !== -1 ? edgeBetween(world.roads, a, b) : -1;
+  if (edge === -1) {
+    return { seq, tick: world.tick, reason: RejectionReason.noSuchRoad };
+  }
+  const roadClass = world.roads.edgeClass[edge] as RoadClass;
+  removeEdge(world.roads, edge);
+  if (edgesOf(world.roads, a).length === 0) {
+    removeNode(world.roads, a);
+  }
+  if (edgesOf(world.roads, b).length === 0) {
+    removeNode(world.roads, b);
+  }
+  return { kind: "bulldoze", ax, ay, bx, by, roadClass };
+}
+
+/** Invert one op (undo). Never records onto stacks itself. */
+function applyInverse(world: World, op: RoadOp): void {
+  switch (op.kind) {
+    case "build": {
+      // Inverse of build = bulldoze. LIFO discipline guarantees the edge
+      // exists and created nodes are isolated again by the time we get here.
+      const a = nodeAt(world.roads, op.ax, op.ay);
+      const b = nodeAt(world.roads, op.bx, op.by);
+      removeEdge(world.roads, edgeBetween(world.roads, a, b));
+      if (op.createdA && edgesOf(world.roads, a).length === 0) {
+        removeNode(world.roads, a);
+      }
+      if (op.createdB && edgesOf(world.roads, b).length === 0) {
+        removeNode(world.roads, b);
+      }
+      return;
+    }
+    case "bulldoze": {
+      const a = addNode(world.roads, op.ax, op.ay);
+      const b = addNode(world.roads, op.bx, op.by);
+      addEdge(world.roads, a, b, op.roadClass);
+      return;
+    }
+    case "upgrade": {
+      const a = nodeAt(world.roads, op.ax, op.ay);
+      const b = nodeAt(world.roads, op.bx, op.by);
+      upgradeEdge(world.roads, edgeBetween(world.roads, a, b), op.fromClass);
+      return;
+    }
+  }
+}
+
+/** Re-apply one op (redo). */
+function applyForward(world: World, op: RoadOp): void {
+  switch (op.kind) {
+    case "build": {
+      const a = addNode(world.roads, op.ax, op.ay);
+      const b = addNode(world.roads, op.bx, op.by);
+      addEdge(world.roads, a, b, op.roadClass);
+      return;
+    }
+    case "bulldoze": {
+      const a = nodeAt(world.roads, op.ax, op.ay);
+      const b = nodeAt(world.roads, op.bx, op.by);
+      removeEdge(world.roads, edgeBetween(world.roads, a, b));
+      if (edgesOf(world.roads, a).length === 0) {
+        removeNode(world.roads, a);
+      }
+      if (edgesOf(world.roads, b).length === 0) {
+        removeNode(world.roads, b);
+      }
+      return;
+    }
+    case "upgrade": {
+      const a = nodeAt(world.roads, op.ax, op.ay);
+      const b = nodeAt(world.roads, op.bx, op.by);
+      upgradeEdge(world.roads, edgeBetween(world.roads, a, b), op.toClass);
+      return;
+    }
+  }
 }
 
 function isU16Dim(v: number): boolean {
@@ -103,12 +292,72 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.speed = cmd.speed;
       return null;
     }
-    default:
-      // Protocol v3 road commands exist on the wire before the sim grows
-      // road state (phase-1 board task 8, behind the task-7 bless). Until
-      // then they are loudly rejected — never silently dropped, which
-      // would fork replay logs from reality (ADR-005 §6).
-      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
+    case CommandType.buildRoad: {
+      const result = applyBuild(
+        world,
+        cmd.ax,
+        cmd.ay,
+        cmd.bx,
+        cmd.by,
+        cmd.roadClass as RoadClass,
+        cmd.seq,
+      );
+      if ("reason" in result) {
+        return result;
+      }
+      world.undoStack.push(result);
+      world.redoStack.length = 0;
+      return null;
+    }
+    case CommandType.bulldozeRoad: {
+      const result = applyBulldoze(world, cmd.ax, cmd.ay, cmd.bx, cmd.by, cmd.seq);
+      if ("reason" in result) {
+        return result;
+      }
+      world.undoStack.push(result);
+      world.redoStack.length = 0;
+      return null;
+    }
+    case CommandType.upgradeRoad: {
+      const a = nodeAt(world.roads, cmd.ax, cmd.ay);
+      const b = nodeAt(world.roads, cmd.bx, cmd.by);
+      const edge = a !== -1 && b !== -1 ? edgeBetween(world.roads, a, b) : -1;
+      if (edge === -1) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.noSuchRoad };
+      }
+      const fromClass = world.roads.edgeClass[edge] as RoadClass;
+      const toClass = cmd.roadClass as RoadClass;
+      upgradeEdge(world.roads, edge, toClass);
+      world.undoStack.push({
+        kind: "upgrade",
+        ax: cmd.ax,
+        ay: cmd.ay,
+        bx: cmd.bx,
+        by: cmd.by,
+        fromClass,
+        toClass,
+      });
+      world.redoStack.length = 0;
+      return null;
+    }
+    case CommandType.undo: {
+      const op = world.undoStack.pop();
+      if (op === undefined) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.nothingToUndo };
+      }
+      applyInverse(world, op);
+      world.redoStack.push(op);
+      return null;
+    }
+    case CommandType.redo: {
+      const op = world.redoStack.pop();
+      if (op === undefined) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.nothingToRedo };
+      }
+      applyForward(world, op);
+      world.undoStack.push(op);
+      return null;
+    }
   }
 }
 
@@ -179,6 +428,17 @@ export function stateHash(world: World): string {
     for (let i = 0; i < layer.length; i++) {
       w.u16(layer[i] as number);
     }
+  }
+  // Roads joined with phase-1 task 8 — canonical (id/history-free) form, so
+  // identical networks hash identically however they were built.
+  const roads = canonicalGraph(world.roads);
+  w.u32(roads.nodes.length);
+  for (const node of roads.nodes) {
+    w.u16(node.x).u16(node.y);
+  }
+  w.u32(roads.edges.length);
+  for (const edge of roads.edges) {
+    w.u16(edge.ax).u16(edge.ay).u16(edge.bx).u16(edge.by).u8(edge.roadClass).u8(edge.lanes);
   }
   return fnv1a64(w.finish());
 }
