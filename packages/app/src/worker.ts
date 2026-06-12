@@ -57,7 +57,7 @@ function post(bytes: Uint8Array): void {
 let lastSentRoadVersion = -1;
 let lastSentBuildingVersion = -1;
 let lastSentZoneVersion = -1;
-let lastSentCongestionVersion = -1;
+let lastSentCostHash = "";
 
 /**
  * The agent transform rider (TDD §7): [id, kind, x, y, headingMilli] per
@@ -94,7 +94,7 @@ function postSnapshot(kind: Snapshot["kind"]): void {
     kind === SnapshotKind.keyframe || world.buildings.version !== lastSentBuildingVersion;
   const includeZones = kind === SnapshotKind.keyframe || world.zoneVersion !== lastSentZoneVersion;
   const includeCongestion =
-    kind === SnapshotKind.keyframe || world.traffic.version !== lastSentCongestionVersion;
+    kind === SnapshotKind.keyframe || world.traffic.costHash !== lastSentCostHash;
   const bytes = encodeMessage({
     kind: MessageKind.snapshot,
     body: toSnapshot(world, kind, includeRoads, includeBuildings, includeZones, includeCongestion),
@@ -108,7 +108,7 @@ function postSnapshot(kind: Snapshot["kind"]): void {
   lastSentRoadVersion = world.roads.version;
   lastSentBuildingVersion = world.buildings.version;
   lastSentZoneVersion = world.zoneVersion;
-  lastSentCongestionVersion = world.traffic.version;
+  lastSentCostHash = world.traffic.costHash;
 }
 
 function applyBatch(batch: readonly Command[]): void {

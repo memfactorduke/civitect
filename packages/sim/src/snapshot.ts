@@ -73,7 +73,11 @@ export function toSnapshot(
     // The transform rider attaches at the worker boundary (app builds the
     // Float32Array from the pool's SoA mirrors).
     agentCount: world.agents.liveCount,
-    congestionVersion: world.traffic.version,
+    // A CONTENT digest, not a session counter: a loaded world must present
+    // the same version as the live world it was saved from (the saveload
+    // e2e compares display states across a rewind). The cost-field hash
+    // re-derives from canonical volumes on both sides.
+    congestionVersion: Number.parseInt(world.traffic.costHash.slice(0, 8), 16),
     congestion: includeCongestion ? congestionPermille(world) : null,
   };
 }

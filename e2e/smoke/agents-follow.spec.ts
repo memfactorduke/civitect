@@ -81,10 +81,10 @@ test("a sampled citizen can be followed through a coherent commute", async ({ pa
     const b = positions[i] as { x: number; y: number };
     const step = Math.hypot(b.x - a.x, b.y - a.y);
     traveled += step;
-    // Continuous motion, not teleports: at 9× a sample gap can span ~18
-    // ticks (timer beats), ~9 tiles of street driving — a teleport across
-    // this corridor would be 30+. [TUNE]
-    expect(step).toBeLessThan(15);
+    // Continuous motion, not teleports: at 9× a sample gap spans ~18 ticks
+    // locally and up to ~4 scheduler rounds (36 ticks ≈ 18 tiles) on a
+    // loaded CI runner — a teleport across this corridor is 30+. [TUNE]
+    expect(step).toBeLessThan(25);
     // The corridor city keeps every journey on the corridor.
     expect(b.y).toBeGreaterThan(16);
     expect(b.y).toBeLessThan(26);

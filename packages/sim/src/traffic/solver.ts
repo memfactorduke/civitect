@@ -98,8 +98,6 @@ export interface TrafficCore {
   unroutable: number;
   job: SolveJob | null;
   // ── derived (rebuilt on edit/finalize/load — never hashed or saved) ──
-  /** Bumps when volumes re-blend / re-derive — snapshot change key. */
-  version: number;
   /** Graph revision the derived fields describe (fence, like utilities'). */
   graphVersion: number;
   /**
@@ -139,7 +137,6 @@ function edgeKey(g: RoadGraph, e: number): string {
 
 /** Re-derive cost fields + mirrors from canonical volumes (twin reused). */
 function retimeTraffic(core: TrafficCore, g: RoadGraph): void {
-  core.version++;
   const twin = core.twin;
   core.twinCosts = new Uint32Array(twin.edgeCount);
   for (let e = 0; e < twin.edgeCount; e++) {
@@ -214,7 +211,6 @@ export function createTraffic(g: RoadGraph): TrafficCore {
     walked: 0,
     unroutable: 0,
     job: null,
-    version: 0,
     graphVersion: g.version,
     twin: createRoadGraph(),
     twinSlotKeys: [],
@@ -386,7 +382,6 @@ export function trafficFromSave(saved: TrafficSave, g: RoadGraph): TrafficCore {
     walked: saved.walked,
     unroutable: saved.unroutable,
     job: null,
-    version: 0,
     graphVersion: g.version,
     twin: createRoadGraph(),
     twinSlotKeys: [],

@@ -30,7 +30,7 @@ describe("toSnapshot", () => {
       zoneVersion: 0,
       zones: new Uint16Array(64 * 64),
       agentCount: 0,
-      congestionVersion: 1, // createWorld's initial derive
+      congestionVersion: 3_421_674_724, // empty cost field's content digest
       congestion: new Uint16Array(0),
     });
   });
