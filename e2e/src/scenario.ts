@@ -27,6 +27,8 @@ export interface GoldenScenario {
   readonly mapWidth: number;
   readonly mapHeight: number;
   readonly untilTick: number;
+  /** Treasury at tick 0 (compressed-script harness money); default 50k$. */
+  readonly startingFundsCents?: number;
   readonly commands: readonly Command[];
   /** Optional terrain, painted as rects over a flat world (12e goldens). */
   readonly terrainRects: readonly TerrainRect[];
@@ -192,6 +194,9 @@ export function parseScenario(doc: unknown, source: string): GoldenScenario {
   if (!isNonNegativeSafeInt(d.untilTick)) {
     throw new Error(`${source}: untilTick must be a non-negative safe integer`);
   }
+  if (d.startingFundsCents !== undefined && !isNonNegativeSafeInt(d.startingFundsCents)) {
+    throw new Error(`${source}: startingFundsCents must be a non-negative safe integer`);
+  }
   if (!Array.isArray(d.commands)) {
     throw new Error(`${source}: commands must be an array`);
   }
@@ -223,6 +228,7 @@ export function parseScenario(doc: unknown, source: string): GoldenScenario {
     mapWidth: d.mapWidth,
     mapHeight: d.mapHeight,
     untilTick: d.untilTick,
+    startingFundsCents: d.startingFundsCents as number | undefined,
     commands,
     terrainRects,
   };

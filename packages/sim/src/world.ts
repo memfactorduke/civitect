@@ -16,7 +16,9 @@ import {
   type DemandBlock,
   EntityKind,
   flatTerrain,
+  type MonthlyReport,
   RejectionReason,
+  ReportLineKind,
   SERVICE_BUDGET_MAX_PERMILLE,
   SERVICE_BUDGET_MIN_PERMILLE,
   SERVICE_COUNT,
@@ -33,6 +35,22 @@ import {
   updateAgents,
   type Viewport,
 } from "./agents/pool";
+import {
+  accumulate,
+  accumulateClose,
+  BAILOUT_TERMS,
+  createEconomy,
+  type EconomyState,
+  finalizeReport,
+  LOAN_TERMS,
+  monthlyPaymentCents,
+  PLOPPABLE_COST_CENTS,
+  REPORT_KINDS,
+  roadCostPerTileCents,
+  STARTING_FUNDS_CENTS,
+  TICKS_PER_MONTH,
+  zoneIndex,
+} from "./economy/budget";
 import {
   BuildingStatus,
   type Buildings,
@@ -184,6 +202,10 @@ export interface World {
   readonly fireFlows: FireFlows;
   /** Land-value field cache (GDD §6) — derived, fenced, never hashed. */
   readonly landValueCache: LandValueCache;
+  /** The money cycle (GDD §8) — CANONICAL: hashed and saved (v8 ECONOMY). */
+  readonly economy: EconomyState;
+  /** Last close's report, drained by toSnapshot (transient, like advisors). */
+  pendingReport: MonthlyReport | null;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
   agents: AgentPool;
   /** Camera bounds from the viewportHint message — sampler input ONLY. */
@@ -226,6 +248,8 @@ export type RoadOp =
       readonly x: number;
       readonly y: number;
       readonly building: number;
+      /** Construction cost charged (undo refunds it exactly). */
+      readonly costCents: number;
     }
   | {
       /** Generalized build: may split crossed edges and create a chain. */
@@ -233,6 +257,8 @@ export type RoadOp =
       readonly removedEdges: readonly SegRecord[];
       readonly createdEdges: readonly SegRecord[];
       readonly createdNodes: readonly { readonly x: number; readonly y: number }[];
+      /** Construction cost charged (undo refunds it exactly). */
+      readonly costCents: number;
     }
   | {
       readonly kind: "bulldoze";
@@ -281,7 +307,8 @@ export function createWorld(
     selectedTileIdx: -1,
     mapWidth,
     mapHeight,
-    fundsCents: 0,
+    // Starting funds by difficulty (GDD §13); Mayor for fresh worlds.
+    fundsCents: STARTING_FUNDS_CENTS[1] as number,
     population: 0,
     terrain: terrain ?? flatTerrain(mapWidth, mapHeight),
     roads,
@@ -309,6 +336,8 @@ export function createWorld(
     pollutionCache: createPollutionCache(),
     fireFlows: emptyFireFlows(),
     landValueCache: createLandValueCache(),
+    economy: createEconomy(),
+    pendingReport: null,
     agents: createAgentPool(seed),
     viewport: null,
     rng,
@@ -698,7 +727,7 @@ function applyBuild(
     createdEdges.push({ ax: pa.x, ay: pa.y, bx: pb.x, by: pb.y, roadClass });
   }
 
-  return { kind: "build", removedEdges, createdEdges, createdNodes };
+  return { kind: "build", removedEdges, createdEdges, createdNodes, costCents: 0 };
 }
 
 /** Apply a bulldoze. Returns the op (with the removed class) or a rejection. */
@@ -763,6 +792,8 @@ function applyInverse(world: World, op: RoadOp): void {
         world.buildings.freeHead = idx;
         world.buildings.version++;
       }
+      world.fundsCents += op.costCents; // undo refunds in full
+      accumulate(world.economy, ReportLineKind.construction, op.costCents);
       return;
     }
     case "build": {
@@ -780,6 +811,8 @@ function applyInverse(world: World, op: RoadOp): void {
       for (const seg of op.removedEdges) {
         addSeg(world.roads, seg);
       }
+      world.fundsCents += op.costCents; // undo refunds in full
+      accumulate(world.economy, ReportLineKind.construction, op.costCents);
       return;
     }
     case "bulldoze": {
@@ -819,6 +852,8 @@ function applyForward(world: World, op: RoadOp): void {
       if (!world.buildings.byTile.has(tileIdx)) {
         spawnBuilding(world.buildings, tileIdx, PLOPPABLE_KIND_OFFSET + op.building);
       }
+      world.fundsCents -= op.costCents; // redo pays again
+      accumulate(world.economy, ReportLineKind.construction, -op.costCents);
       return;
     }
     case "build": {
@@ -828,6 +863,8 @@ function applyForward(world: World, op: RoadOp): void {
       for (const seg of op.createdEdges) {
         addSeg(world.roads, seg);
       }
+      world.fundsCents -= op.costCents; // redo pays again
+      accumulate(world.economy, ReportLineKind.construction, -op.costCents);
       return;
     }
     case "bulldoze": {
@@ -872,6 +909,12 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       return null;
     }
     case CommandType.buildRoad: {
+      // Cost gate BEFORE mutation (GDD §8): supercover tiles × class rate.
+      const tiles = supercoverTiles(cmd.ax, cmd.ay, cmd.bx, cmd.by).length;
+      const cost = tiles * roadCostPerTileCents(cmd.roadClass as RoadClass);
+      if (world.fundsCents < cost) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.insufficientFunds };
+      }
       const result = applyBuild(
         world,
         cmd.ax,
@@ -884,7 +927,11 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       if ("reason" in result) {
         return result;
       }
-      world.undoStack.push(result);
+      world.fundsCents -= cost;
+      accumulate(world.economy, ReportLineKind.construction, -cost);
+      // applyBuild only ever returns the build variant on success.
+      const op = result as Extract<RoadOp, { kind: "build" }>;
+      world.undoStack.push({ ...op, costCents: cost });
       world.redoStack.length = 0;
       return null;
     }
@@ -1023,13 +1070,49 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.services.version++;
       return null;
     }
-    case CommandType.setTaxRate:
-    case CommandType.takeLoan:
+    case CommandType.setTaxRate: {
+      // Decode enforced the domain; the sim re-checks (it is the authority).
+      if (cmd.zone < 1 || cmd.zone > 6 || cmd.permille < 10 || cmd.permille > 290) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      world.economy.taxRatesPermille[zoneIndex(cmd.zone)] = cmd.permille;
+      return null;
+    }
+    case CommandType.takeLoan: {
+      const terms = LOAN_TERMS[cmd.tier - 1];
+      if (
+        terms === undefined ||
+        world.economy.loans.length >= 3 ||
+        world.economy.receivership === 1
+      ) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      world.economy.loans.push({
+        principalCents: terms.principalCents,
+        monthlyPaymentCents: monthlyPaymentCents(terms),
+        monthsLeft: terms.months,
+      });
+      world.fundsCents += terms.principalCents;
+      // Proceeds are cash the report must explain (GDD §12): every
+      // principal flow — take, monthly share, early repay — shares the
+      // loanPrincipal line, so Σ lines ≡ funds delta holds with loans
+      // moving mid-month (the conservation property exercises this).
+      accumulate(world.economy, ReportLineKind.loanPrincipal, terms.principalCents);
+      return null;
+    }
     case CommandType.repayLoan: {
-      // Protocol v12 is ahead of the sim by design (interface-first, board
-      // phase-5 task 1): the money cycle lands with task 2. Until then the
-      // sim honestly says "not implemented".
-      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
+      // Tier addresses the Nth active loan (1-based, canonical order).
+      const loan = world.economy.loans[cmd.tier - 1];
+      if (loan === undefined) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      if (world.fundsCents < loan.principalCents) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.insufficientFunds };
+      }
+      world.fundsCents -= loan.principalCents;
+      accumulate(world.economy, ReportLineKind.loanPrincipal, -loan.principalCents);
+      world.economy.loans.splice(cmd.tier - 1, 1);
+      return null;
     }
     case CommandType.placeBuilding: {
       if (!inBounds(world, cmd.x, cmd.y)) {
@@ -1044,8 +1127,20 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       ) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
       }
+      const cost = PLOPPABLE_COST_CENTS.get(cmd.building) ?? 0;
+      if (world.fundsCents < cost) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.insufficientFunds };
+      }
       spawnBuilding(world.buildings, tileIdx, PLOPPABLE_KIND_OFFSET + cmd.building);
-      world.undoStack.push({ kind: "place", x: cmd.x, y: cmd.y, building: cmd.building });
+      world.fundsCents -= cost;
+      accumulate(world.economy, ReportLineKind.construction, -cost);
+      world.undoStack.push({
+        kind: "place",
+        x: cmd.x,
+        y: cmd.y,
+        building: cmd.building,
+        costCents: cost,
+      });
       world.redoStack.length = 0;
       return null;
     }
@@ -1091,6 +1186,7 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     mapTiles: world.mapWidth * world.mapHeight,
     rng: world.rng.growth,
     flows: world.flows,
+    taxRatesPermille: world.economy.taxRatesPermille,
   };
   // buildings(growth/decay, staggered 1/60th per tick) — rng.growth.
   // ONE aggregate scan per tick (the balance gate's year-long replay made
@@ -1119,7 +1215,51 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
       ]);
     }
   }
-  // economy(accrual, monthly close)   — TODO(ROADMAP Phase 5)
+  // economy(accrual; monthly close on tick boundary) — GDD §8/§12.
+  if (world.tick > 0 && world.tick % TICKS_PER_MONTH === 0) {
+    const net = accumulateClose(world.economy, {
+      buildings: world.buildings,
+      roads: world.roads,
+      serviceBudgetsPermille: world.services.budgetsPermille,
+      landValueAt: (tileIdx) => landValueAtTile(world, tileIdx),
+    });
+    world.fundsCents += net;
+    // Failure pressure (GDD §2): one bailout per city, then receivership.
+    // The check runs BEFORE the report freezes, so a granted bailout shows
+    // up in the month that needed it (pillar 2: the report explains).
+    if (world.fundsCents < 0 && world.economy.receivership === 0) {
+      if (world.economy.bailoutUsed === 0) {
+        world.economy.bailoutUsed = 1;
+        world.economy.loans.push({
+          principalCents: BAILOUT_TERMS.principalCents,
+          monthlyPaymentCents: monthlyPaymentCents(BAILOUT_TERMS),
+          monthsLeft: BAILOUT_TERMS.months,
+        });
+        world.fundsCents += BAILOUT_TERMS.principalCents;
+        accumulate(world.economy, ReportLineKind.bailout, BAILOUT_TERMS.principalCents);
+        emitAdvisor(world, AdvisorSeverity.alert, "advisor.bailout", "cause.bankruptcy", [
+          {
+            subject: { kind: EntityKind.system, id: 0 },
+            labelKey: "cause.cityInsolvent",
+            weightPermille: 1000,
+          },
+        ]);
+      } else {
+        world.economy.receivership = 1;
+        emitAdvisor(world, AdvisorSeverity.alert, "advisor.receivership", "cause.bankruptcyFinal", [
+          {
+            subject: { kind: EntityKind.system, id: 0 },
+            labelKey: "cause.bailoutExhausted",
+            weightPermille: 1000,
+          },
+        ]);
+      }
+    }
+    world.pendingReport = {
+      month: Math.floor(world.tick / TICKS_PER_MONTH),
+      lines: finalizeReport(world.economy),
+    };
+  }
   // trafficIncremental (TDD §6.3, tranche 2): persistent MSA volumes
   // (canonical-edge-keyed — hashed and saved, in-flight job included)
   // evolved by a SLICED solver job: full equilibrium daily at 04:00,
@@ -1317,7 +1457,7 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // pollution/landValue(dirty regions)— land value v1 derives on demand
   // HUD/demand reuse the same scan (one tick of staleness on spawn counts
   // is deterministic and invisible at city scale).
-  world.lastDemand = computeDemand(agg);
+  world.lastDemand = computeDemand(agg, world.economy.taxRatesPermille);
   // Population must be EXACT (the conservation exit criterion holds at
   // every tick): the aggregate scan ran before growth, so add this tick's
   // flow deltas — flows are the only paths residents enter or leave by.
@@ -1500,5 +1640,27 @@ export function stateHash(world: World): string {
   for (let i = 0; i < world.groundPollution.length; i++) {
     w.u8(world.groundPollution[i] as number);
   }
+  // Economy joined with Phase 5 task 2 (the funds bless).
+  for (let z = 0; z < 6; z++) {
+    w.u16(world.economy.taxRatesPermille[z] as number);
+  }
+  w.u8(world.economy.loans.length);
+  for (const loan of world.economy.loans) {
+    w.i64(loan.principalCents).i64(loan.monthlyPaymentCents).u16(loan.monthsLeft);
+  }
+  for (let k = 0; k < REPORT_KINDS; k++) {
+    w.i64(world.economy.monthAccumCents[k] as number);
+  }
+  for (let k = 0; k < REPORT_KINDS; k++) {
+    w.i64(world.economy.lastMonthCents[k] as number);
+  }
+  w.u8(world.economy.milestoneIndex);
+  for (let b = 0; b < 8; b++) {
+    w.u8(world.economy.achievements[b] as number);
+  }
+  w.u32(world.economy.uniquesMask)
+    .u8(world.economy.difficulty)
+    .u8(world.economy.receivership)
+    .u8(world.economy.bailoutUsed);
   return fnv1a64(w.finish());
 }

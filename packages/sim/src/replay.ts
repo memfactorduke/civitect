@@ -19,6 +19,13 @@ export interface ReplayOptions {
   readonly mapWidth?: number;
   readonly mapHeight?: number;
   readonly terrain?: TerrainGrid;
+  /**
+   * Treasury override applied before the first tick (scenario harness
+   * money — pre-economy scenarios compress years of play into tick-0
+   * scripts, which no Mayor-level treasury survives). Canonical setup,
+   * recorded in the scenario file.
+   */
+  readonly startingFundsCents?: number;
 }
 
 export function replay(
@@ -45,6 +52,9 @@ export function replay(
     options.mapHeight ?? undefined,
     options.terrain,
   );
+  if (options.startingFundsCents !== undefined) {
+    world.fundsCents = options.startingFundsCents;
+  }
   const rejections: CommandRejection[] = [];
   let cursor = 0;
   const batch: Command[] = [];

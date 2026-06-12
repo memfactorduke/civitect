@@ -4,6 +4,7 @@
   "mapWidth": 64,
   "mapHeight": 64,
   "untilTick": 43800,
+  "startingFundsCents": 20000000,
   "terrainRects": [
     {
       "layer": "water",

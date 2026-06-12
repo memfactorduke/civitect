@@ -22,6 +22,24 @@ export {
   type Viewport,
 } from "./agents/pool";
 export {
+  accumulate,
+  BAILOUT_TERMS,
+  createEconomy,
+  type EconomyState,
+  LOAN_TERMS,
+  type Loan,
+  monthlyClose,
+  monthlyPaymentCents,
+  PLOPPABLE_COST_CENTS,
+  PLOPPABLE_UPKEEP_CENTS,
+  REPORT_KINDS,
+  roadCostPerTileCents,
+  roadUpkeepPerTileCents,
+  STARTING_FUNDS_CENTS,
+  TICKS_PER_MONTH,
+  taxBaseCents,
+} from "./economy/budget";
+export {
   adultsOf,
   BuildingStatus,
   type Buildings,

@@ -1,50 +1,50 @@
 {
   "bridges-city-01": {
-    "hash": "9982c9b00fb6fecc",
+    "hash": "50aa88289bb41857",
     "hud": {
       "tick": 43800,
       "population": 0,
-      "fundsCents": 0
+      "fundsCents": 19156400
     }
   },
   "empty-city-01": {
-    "hash": "f74fea32b61cfbf2",
+    "hash": "47ab39253333eb36",
     "hud": {
       "tick": 525600,
       "population": 0,
-      "fundsCents": 0
+      "fundsCents": 5000000
     }
   },
   "growth-city-01": {
-    "hash": "5189d302a111a737",
+    "hash": "ef08de85187e0276",
     "hud": {
       "tick": 131400,
       "population": 5063,
-      "fundsCents": 0
+      "fundsCents": 36686364
     }
   },
   "road-grid-500-01": {
-    "hash": "bfce9235e7098090",
+    "hash": "cb0a51502dd4300a",
     "hud": {
       "tick": 43800,
       "population": 0,
-      "fundsCents": 0
+      "fundsCents": 89250000
     }
   },
   "roads-city-01": {
-    "hash": "0de0739ec84bed6e",
+    "hash": "a31e766415b4bb2b",
     "hud": {
       "tick": 131400,
       "population": 0,
-      "fundsCents": 0
+      "fundsCents": 19619500
     }
   },
   "services-city-01": {
-    "hash": "8c00562732a8c2c6",
+    "hash": "fbe2a9d961675a19",
     "hud": {
       "tick": 131400,
       "population": 38778,
-      "fundsCents": 0
+      "fundsCents": 577468696
     }
   }
 }

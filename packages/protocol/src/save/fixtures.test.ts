@@ -38,6 +38,7 @@ function defaultEconomy(): CivSave["economy"] {
     uniquesMask: 0,
     difficulty: 1,
     receivership: 0,
+    bailoutUsed: 0,
   };
 }
 
@@ -312,6 +313,7 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       uniquesMask: 0b1010,
       difficulty: 2,
       receivership: 0,
+      bailoutUsed: 1,
     },
   };
 

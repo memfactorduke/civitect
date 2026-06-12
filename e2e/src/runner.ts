@@ -69,6 +69,12 @@ async function driveScenario(
     scenario.mapHeight,
     scenarioTerrain(scenario),
   );
+  if (scenario.startingFundsCents !== undefined) {
+    // Compressed-script harness money (Phase 5): pre-economy scenarios pack
+    // years of construction into tick-0 commands, which no difficulty's
+    // starting treasury survives — the scenario states its own funds.
+    world.fundsCents = scenario.startingFundsCents;
+  }
   const durations = now === null ? null : new Float64Array(scenario.untilTick);
   let rejectionCount = 0;
   let cursor = 0;

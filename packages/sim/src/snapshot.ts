@@ -90,11 +90,18 @@ export function toSnapshot(
     coverageService: activeOverlay,
     coverageVersion: overlay === null ? 0 : overlay.digestU32,
     coverage: overlay !== null && includeCoverage ? overlay.coverage : null,
-    // Monthly report + milestone blocks fill with the Phase 5 economy
-    // (board tasks 2/4); the wire shapes shipped with v12.
-    report: null,
+    // Drained like advisor events: the close's report rides exactly one
+    // snapshot (the UI keeps it until the next close replaces it).
+    report: drainReport(world),
+    // Milestone block fills with progression (board phase-5 task 4).
     milestone: null,
   };
+}
+
+function drainReport(world: World): Snapshot["report"] {
+  const report = world.pendingReport;
+  world.pendingReport = null;
+  return report;
 }
 
 /** v/c permille per canonical road segment — aligns with snapshot.roads. */

@@ -20,7 +20,7 @@ describe("toSnapshot", () => {
       speed: 1,
       selectedTile: null,
       dirtyChunkIds: new Uint32Array(0),
-      hud: { population: 0, fundsCents: 0 },
+      hud: { population: 0, fundsCents: 50_000_00 }, // Mayor starting funds (P5)
       advisorEvents: [],
       roadVersion: 0,
       roads: [], // keyframes state the no-roads truth explicitly
