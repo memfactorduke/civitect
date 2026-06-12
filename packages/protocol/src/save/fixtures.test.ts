@@ -14,9 +14,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { CommandType } from "../commands";
 import { type CivSave, decodeCiv, encodeCiv, SAVE_FORMAT_VERSION } from "./civ";
+import { flatTerrain } from "./terrain";
 
 const FIXTURES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "saves");
 const V1_PATH = join(FIXTURES_DIR, "v1", "empty-world-y1.civ");
+const V2_PATH = join(FIXTURES_DIR, "v2", "empty-world-y1.civ");
 
 /**
  * Canonical v1 fixture content: an empty 64×64 world one game-year in,
@@ -24,7 +26,7 @@ const V1_PATH = join(FIXTURES_DIR, "v1", "empty-world-y1.civ");
  * is a format contract, not a sim artifact (sim-produced saves are PR 9's
  * e2e territory).
  */
-const V1_SAVE: CivSave = {
+const V1_SAVE: Omit<CivSave, "terrain"> = {
   header: {
     formatVersion: 1,
     simVersion: 1,
@@ -55,21 +57,43 @@ const V1_SAVE: CivSave = {
 };
 
 describe("fixture-save archive (ADR-010: old saves load forever)", () => {
-  if (process.env.SEED_FIXTURES === "1" && !existsSync(V1_PATH)) {
-    it("seeds the v1 fixture (first time only — committed bytes become the contract)", async () => {
-      mkdirSync(dirname(V1_PATH), { recursive: true });
-      writeFileSync(V1_PATH, await encodeCiv(V1_SAVE));
-      expect(existsSync(V1_PATH)).toBe(true);
-    });
-  }
+  // The v1 fixture can never be re-seeded: this build only WRITES v2.
+  // Its committed bytes are the archived contract — that's the point.
 
-  it(`v${SAVE_FORMAT_VERSION} fixture decodes to its archived world, bit-faithfully`, async () => {
+  it("v1 fixture loads forever — migrated to flat terrain, provenance preserved", async () => {
     if (!existsSync(V1_PATH)) {
       throw new Error(
         `fixture missing: ${V1_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
       );
     }
     const decoded = await decodeCiv(new Uint8Array(readFileSync(V1_PATH)));
-    expect(decoded).toEqual(V1_SAVE);
+    // Migration injects flat terrain at the world's dims; header keeps the
+    // original formatVersion so tooling can see provenance (ADR-010).
+    expect(decoded).toEqual({ ...V1_SAVE, terrain: flatTerrain(64, 64) });
+    expect(decoded.header.formatVersion).toBe(1);
+  });
+
+  const V2_SAVE: CivSave = {
+    ...V1_SAVE,
+    header: { ...V1_SAVE.header, formatVersion: 2 },
+    terrain: flatTerrain(64, 64),
+  };
+
+  if (process.env.SEED_FIXTURES === "1" && !existsSync(V2_PATH)) {
+    it("seeds the v2 fixture (first time only)", async () => {
+      mkdirSync(dirname(V2_PATH), { recursive: true });
+      writeFileSync(V2_PATH, await encodeCiv(V2_SAVE));
+      expect(existsSync(V2_PATH)).toBe(true);
+    });
+  }
+
+  it(`v${SAVE_FORMAT_VERSION} fixture decodes to its archived world, bit-faithfully`, async () => {
+    if (!existsSync(V2_PATH)) {
+      throw new Error(
+        `fixture missing: ${V2_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
+      );
+    }
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V2_PATH)));
+    expect(decoded).toEqual(V2_SAVE);
   });
 });

@@ -15,7 +15,7 @@
 import { ByteReader } from "../bytes/reader";
 import { ByteWriter } from "../bytes/writer";
 import { type Command, decodeCommandBody, encodeCommandBody } from "../commands";
-import { DecodeError } from "../errors";
+import { DecodeError, EncodeError } from "../errors";
 import {
   type ContainerHeader,
   decodeContainer,
@@ -23,6 +23,8 @@ import {
   SAVE_FORMAT_VERSION,
   SAVE_MAGIC,
 } from "./container";
+import { migrateSectionsV1toV2 } from "./migrations/v1_v2";
+import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
 
@@ -63,7 +65,13 @@ export interface WorldCore {
 }
 
 export interface CivSave {
+  /**
+   * formatVersion records PROVENANCE: a migrated v1 save keeps 1 here so
+   * tooling can tell; the in-memory shape is always current-version
+   * (terrain present). encodeCiv writes SAVE_FORMAT_VERSION regardless.
+   */
   readonly header: SaveHeader;
+  readonly terrain: TerrainGrid;
   readonly worldCore: WorldCore;
   /** Commands since the snapshot, in applied (tick, seq) order. */
   readonly commandTail: readonly Command[];
@@ -128,22 +136,57 @@ function decodeCommandTail(bytes: Uint8Array): Command[] {
 }
 
 export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
-  return encodeContainer(save.header, [
+  if (
+    save.terrain.width !== save.worldCore.mapWidth ||
+    save.terrain.height !== save.worldCore.mapHeight
+  ) {
+    throw new EncodeError(
+      `terrain is ${save.terrain.width}×${save.terrain.height}, world is ` +
+        `${save.worldCore.mapWidth}×${save.worldCore.mapHeight}`,
+    );
+  }
+  const terrainWriter = new ByteWriter();
+  encodeTerrainSection(save.terrain, terrainWriter);
+  // This build always writes the current format, whatever the save's provenance.
+  return encodeContainer({ ...save.header, formatVersion: SAVE_FORMAT_VERSION }, [
+    { id: SectionId.terrain, raw: terrainWriter.finish() },
     { id: SectionId.worldCore, raw: encodeWorldCore(save.worldCore) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
 }
 
 export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
-  const { header, sections } = await decodeContainer(bytes);
+  const { header, sections: rawSections } = await decodeContainer(bytes);
+  // Migration ladder (ADR-010): each step lifts one version; old fixtures
+  // walk the whole ladder forever.
+  const sections =
+    header.formatVersion === 1
+      ? migrateSectionsV1toV2(rawSections, {
+          terrain: SectionId.terrain,
+          worldCore: SectionId.worldCore,
+        })
+      : rawSections;
+
+  const terrainRaw = sections.get(SectionId.terrain);
   const worldCoreRaw = sections.get(SectionId.worldCore);
   const commandTailRaw = sections.get(SectionId.commandTail);
-  if (worldCoreRaw === undefined || commandTailRaw === undefined) {
-    throw new DecodeError("v1 save must carry WORLDCORE and COMMANDTAIL sections");
+  if (terrainRaw === undefined || worldCoreRaw === undefined || commandTailRaw === undefined) {
+    throw new DecodeError("save must carry TERRAIN, WORLDCORE, and COMMANDTAIL sections");
+  }
+  const terrainReader = new ByteReader(terrainRaw);
+  const terrain = decodeTerrainSection(terrainReader);
+  terrainReader.expectEnd();
+  const worldCore = decodeWorldCore(worldCoreRaw);
+  if (terrain.width !== worldCore.mapWidth || terrain.height !== worldCore.mapHeight) {
+    throw new DecodeError(
+      `terrain is ${terrain.width}×${terrain.height}, world is ` +
+        `${worldCore.mapWidth}×${worldCore.mapHeight} — corrupt save`,
+    );
   }
   return {
     header,
-    worldCore: decodeWorldCore(worldCoreRaw),
+    terrain,
+    worldCore,
     commandTail: decodeCommandTail(commandTailRaw),
   };
 }
