@@ -68,6 +68,13 @@ export {
 } from "./save/civ";
 export { compressDeflateRaw, decompressDeflateRaw } from "./save/compression";
 export {
+  type ContainerHeader,
+  decodeContainer,
+  encodeContainer,
+  type RawSection,
+} from "./save/container";
+export { decodeMap, encodeMap, type MapFile } from "./save/map";
+export {
   decodeLoadRequestBody,
   decodeLoadResponseBody,
   decodeSaveRequestBody,
@@ -81,6 +88,15 @@ export {
   type SaveRequest,
   type SaveResponse,
 } from "./save/messages";
+export {
+  decodeTerrainSection,
+  encodeTerrainSection,
+  flatTerrain,
+  TERRAIN_LAYER_NAMES,
+  type TerrainGrid,
+  TerrainLayerId,
+  type TerrainLayerName,
+} from "./save/terrain";
 export { xxh64, xxh64Hex } from "./save/xxhash64";
 export {
   decodeSnapshotBody,
