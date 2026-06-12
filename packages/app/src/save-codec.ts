@@ -8,11 +8,12 @@
  * is constructed structurally, RNG streams restore via Pcg32.fromState
  * (provided by sim for exactly this).
  */
-import type { CivSave, RngStreamState } from "@civitect/protocol";
+import type { BuildingRow, CivSave, RngStreamState } from "@civitect/protocol";
 import { SAVE_FORMAT_VERSION } from "@civitect/protocol";
 import {
   addEdge,
   addNode,
+  COHORT_BLOCK,
   canonicalGraph,
   createBuildings,
   createRoadGraph,
@@ -20,8 +21,8 @@ import {
   type Pcg32State,
   RNG_STREAM_NAMES,
   type RoadClass,
+  spawnBuilding,
   type World,
-  worldHasBuildings,
 } from "@civitect/sim";
 import { BOOT } from "./boot-config";
 
@@ -32,10 +33,32 @@ import { BOOT } from "./boot-config";
  */
 export const SIM_VERSION = 1;
 
-export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): CivSave {
-  if (worldHasBuildings(world)) {
-    throw new Error("this build cannot save worlds with buildings yet (save format v4 pending)");
+function buildingRows(world: World): { rows: BuildingRow[]; cohorts: Uint16Array } {
+  const b = world.buildings;
+  const order: number[] = [];
+  for (let i = 0; i < b.count; i++) {
+    if (b.alive[i] === 1) {
+      order.push(i);
+    }
   }
+  order.sort((p, q) => (b.tileIdx[p] as number) - (b.tileIdx[q] as number));
+  const cohorts = new Uint16Array(order.length * COHORT_BLOCK);
+  const rows = order.map((i, at) => {
+    cohorts.set(b.cohorts.subarray(i * COHORT_BLOCK, (i + 1) * COHORT_BLOCK), at * COHORT_BLOCK);
+    return {
+      tileIdx: b.tileIdx[i] as number,
+      kind: b.kind[i] as number,
+      level: b.level[i] as number,
+      status: b.status[i] as number,
+      failDays: b.failDays[i] as number,
+      thriveDays: b.thriveDays[i] as number,
+    };
+  });
+  return { rows, cohorts };
+}
+
+export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): CivSave {
+  const persisted = buildingRows(world);
   const rngStreams: RngStreamState[] = RNG_STREAM_NAMES.map((name) => ({
     name,
     ...world.rng[name].state(),
@@ -50,6 +73,8 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
       flags: 0,
     },
     terrain: world.terrain,
+    buildings: persisted.rows,
+    cohorts: persisted.cohorts,
     roads: canonicalGraph(world.roads).edges.map((e) => ({
       ax: e.ax,
       ay: e.ay,
@@ -68,6 +93,22 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
     },
     commandTail,
   };
+}
+
+function rebuildBuildings(save: CivSave): World["buildings"] {
+  const b = createBuildings();
+  save.buildings.forEach((row, at) => {
+    const i = spawnBuilding(b, row.tileIdx, row.kind);
+    b.level[i] = row.level;
+    b.status[i] = row.status;
+    b.failDays[i] = row.failDays;
+    b.thriveDays[i] = row.thriveDays;
+    b.cohorts.set(
+      save.cohorts.subarray(at * COHORT_BLOCK, (at + 1) * COHORT_BLOCK),
+      i * COHORT_BLOCK,
+    );
+  });
+  return b;
 }
 
 function rebuildRoads(segments: CivSave["roads"]): World["roads"] {
@@ -126,9 +167,7 @@ export function civToWorld(save: CivSave): World {
     roads: rebuildRoads(save.roads),
     undoStack: [],
     redoStack: [],
-    // Phase 2 state: buildings persist with save format v4 (follow-up PR,
-    // 12f recipe); until then worldToCiv refuses worlds with buildings.
-    buildings: createBuildings(),
+    buildings: rebuildBuildings(save),
     lastDemand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
     flows: { births: 0, deaths: 0, immigrants: 0, emigrants: 0 },
     advisorQueue: [],

@@ -68,6 +68,7 @@ export {
   type TileInfo,
 } from "./inspector";
 export {
+  type BuildingRow,
   type CivSave,
   decodeCiv,
   encodeCiv,

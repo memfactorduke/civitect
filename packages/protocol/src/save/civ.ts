@@ -26,6 +26,7 @@ import {
 } from "./container";
 import { migrateSectionsV1toV2 } from "./migrations/v1_v2";
 import { migrateSectionsV2toV3 } from "./migrations/v2_v3";
+import { migrateSectionsV3toV4 } from "./migrations/v3_v4";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -66,6 +67,16 @@ export interface WorldCore {
   readonly rngStreams: readonly RngStreamState[];
 }
 
+/** One persisted building row; cohorts ride a parallel section. */
+export interface BuildingRow {
+  readonly tileIdx: number;
+  readonly kind: number;
+  readonly level: number;
+  readonly status: number;
+  readonly failDays: number;
+  readonly thriveDays: number;
+}
+
 export interface CivSave {
   /**
    * formatVersion records PROVENANCE: a migrated v1 save keeps 1 here so
@@ -76,6 +87,9 @@ export interface CivSave {
   readonly terrain: TerrainGrid;
   /** Canonical road segments (endpoint-normalized, sorted — sim's form). */
   readonly roads: readonly RoadSegment[];
+  /** Buildings sorted by tileIdx; cohorts[i] is row i's 20-u16 block. */
+  readonly buildings: readonly BuildingRow[];
+  readonly cohorts: Uint16Array;
   readonly worldCore: WorldCore;
   /** Commands since the snapshot, in applied (tick, seq) order. */
   readonly commandTail: readonly Command[];
@@ -139,6 +153,60 @@ function decodeRoads(bytes: Uint8Array): RoadSegment[] {
   return roads;
 }
 
+const COHORT_BLOCK = 20;
+
+function encodeBuildings(rows: readonly BuildingRow[]): Uint8Array {
+  const w = new ByteWriter();
+  w.u32(rows.length);
+  for (const row of rows) {
+    w.u32(row.tileIdx)
+      .u16(row.kind)
+      .u8(row.level)
+      .u8(row.status)
+      .u8(row.failDays)
+      .u8(row.thriveDays);
+  }
+  return w.finish();
+}
+
+function decodeBuildings(bytes: Uint8Array): BuildingRow[] {
+  const r = new ByteReader(bytes);
+  const count = r.u32();
+  const rows: BuildingRow[] = [];
+  for (let i = 0; i < count; i++) {
+    rows.push({
+      tileIdx: r.u32(),
+      kind: r.u16(),
+      level: r.u8(),
+      status: r.u8(),
+      failDays: r.u8(),
+      thriveDays: r.u8(),
+    });
+  }
+  r.expectEnd();
+  return rows;
+}
+
+function encodeCohorts(cohorts: Uint16Array): Uint8Array {
+  const w = new ByteWriter();
+  w.u32(cohorts.length);
+  for (const v of cohorts) {
+    w.u16(v);
+  }
+  return w.finish();
+}
+
+function decodeCohorts(bytes: Uint8Array): Uint16Array {
+  const r = new ByteReader(bytes);
+  const count = r.u32();
+  const out = new Uint16Array(count);
+  for (let i = 0; i < count; i++) {
+    out[i] = r.u16();
+  }
+  r.expectEnd();
+  return out;
+}
+
 function encodeCommandTail(commands: readonly Command[]): Uint8Array {
   const w = new ByteWriter();
   w.u32(commands.length);
@@ -172,9 +240,16 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
   const terrainWriter = new ByteWriter();
   encodeTerrainSection(save.terrain, terrainWriter);
   // This build always writes the current format, whatever the save's provenance.
+  if (save.cohorts.length !== save.buildings.length * COHORT_BLOCK) {
+    throw new EncodeError(
+      `cohorts length ${save.cohorts.length} ≠ buildings ${save.buildings.length} × ${COHORT_BLOCK}`,
+    );
+  }
   return encodeContainer({ ...save.header, formatVersion: SAVE_FORMAT_VERSION }, [
     { id: SectionId.terrain, raw: terrainWriter.finish() },
     { id: SectionId.roads, raw: encodeRoads(save.roads) },
+    { id: SectionId.buildings, raw: encodeBuildings(save.buildings) },
+    { id: SectionId.cohorts, raw: encodeCohorts(save.cohorts) },
     { id: SectionId.worldCore, raw: encodeWorldCore(save.worldCore) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
@@ -194,18 +269,35 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   if (header.formatVersion <= 2) {
     sections = migrateSectionsV2toV3(sections, { roads: SectionId.roads });
   }
+  if (header.formatVersion <= 3) {
+    sections = migrateSectionsV3toV4(sections, {
+      buildings: SectionId.buildings,
+      cohorts: SectionId.cohorts,
+    });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
   const roadsRaw = sections.get(SectionId.roads);
+  const buildingsRaw = sections.get(SectionId.buildings);
+  const cohortsRaw = sections.get(SectionId.cohorts);
   const worldCoreRaw = sections.get(SectionId.worldCore);
   const commandTailRaw = sections.get(SectionId.commandTail);
   if (
     terrainRaw === undefined ||
     roadsRaw === undefined ||
+    buildingsRaw === undefined ||
+    cohortsRaw === undefined ||
     worldCoreRaw === undefined ||
     commandTailRaw === undefined
   ) {
-    throw new DecodeError("save must carry TERRAIN, ROADS, WORLDCORE, and COMMANDTAIL sections");
+    throw new DecodeError(
+      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, COMMANDTAIL",
+    );
+  }
+  const buildings = decodeBuildings(buildingsRaw);
+  const cohorts = decodeCohorts(cohortsRaw);
+  if (cohorts.length !== buildings.length * COHORT_BLOCK) {
+    throw new DecodeError("cohort block count disagrees with building count — corrupt save");
   }
   const terrainReader = new ByteReader(terrainRaw);
   const terrain = decodeTerrainSection(terrainReader);
@@ -221,6 +313,8 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     header,
     terrain,
     roads: decodeRoads(roadsRaw),
+    buildings,
+    cohorts,
     worldCore,
     commandTail: decodeCommandTail(commandTailRaw),
   };

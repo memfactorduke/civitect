@@ -125,3 +125,33 @@ describe("terrain through the save pipeline (phase-1 task 7b)", () => {
     expect(stateHash(hilly)).not.toBe(stateHash(flat));
   });
 });
+
+describe("grown cities through the save pipeline (save format v4)", () => {
+  it("a grown city (buildings, cohorts, zones) round-trips to an identical hash and keeps living", async () => {
+    const { world } = replay(BOOT.seed, [], 1, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+    });
+    let seq = 0;
+    const cmd = (c: object) => runTick(world, [{ ...c, seq: seq++, tick: world.tick } as never]);
+    cmd({ type: CommandType.buildRoad, ax: 10, ay: 20, bx: 40, by: 20, roadClass: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 12, y: 21, building: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 14, y: 21, building: 2 });
+    cmd({ type: CommandType.zoneRect, x0: 15, y0: 18, x1: 38, y1: 19, zone: 1 });
+    for (let t = 0; t < 1440 * 5; t++) {
+      runTick(world, []);
+    }
+    expect(world.population).toBeGreaterThan(0);
+    const before = stateHash(world);
+
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(before);
+
+    // And the loaded city KEEPS SIMULATING identically.
+    for (let t = 0; t < 1440; t++) {
+      runTick(world, []);
+      runTick(restored, []);
+    }
+    expect(stateHash(restored)).toBe(stateHash(world));
+  });
+});
