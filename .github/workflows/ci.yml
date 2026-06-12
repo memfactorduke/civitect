@@ -58,3 +58,12 @@ jobs:
 
       - name: Asset gates (STUB — ROADMAP Phase 0)
         run: pnpm gate:assets
+
+      # TDD §12.5 boot smoke: tap→command→sim→snapshot→highlight in a real
+      # browser, asserting the TDD §2 input→visual HARD gate (100 ms).
+      # The 50 ms target is verified on real hardware (SMOKE_BUDGET_MS=50).
+      - name: Install Playwright Chromium
+        run: pnpm --filter @civitect/e2e exec playwright install --with-deps chromium
+
+      - name: E2E smoke (Playwright)
+        run: pnpm e2e:smoke
