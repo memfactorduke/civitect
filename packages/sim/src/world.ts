@@ -58,7 +58,16 @@ import {
   removeNode,
   upgradeEdge,
 } from "./roads/graph";
-import { assignTraffic, emptyTraffic, type TrafficState } from "./traffic/assignment";
+import {
+  createTraffic,
+  FULL_SOLVE_HOUR,
+  refreshTrafficDerived,
+  SolveKind,
+  startSolveJob,
+  stepSolveJob,
+  type TrafficCore,
+  trafficToSave,
+} from "./traffic/solver";
 
 /** GDD §13: pause / 1× / 3× / 9× [TUNE]. The value IS the multiplier, not an index. */
 export const SIM_SPEEDS: readonly number[] = [0, 1, 3, 9];
@@ -103,8 +112,11 @@ export interface World {
   advisorIdCounter: number;
   /** Bumps on every zone paint (incl. undo/redo) — snapshot change key. */
   zoneVersion: number;
-  /** Hourly stateless assignment output (DERIVED — never hashed/saved). */
-  traffic: TrafficState;
+  /**
+   * Persistent MSA traffic state (TDD §6.3) — canonical: hashed and saved,
+   * including any in-flight sliced solver job. congestedCost is derived.
+   */
+  traffic: TrafficCore;
   /**
    * Undo/redo stacks (LIFO inverse ops). SESSION-LOCAL by design: not
    * hashed, not saved — the exit criterion build∘undo ≡ identity on the
@@ -190,6 +202,7 @@ export function createWorld(
   for (const name of RNG_STREAM_NAMES) {
     rng[name] = createRng(seed, name);
   }
+  const roads = createRoadGraph();
   return {
     seed,
     tick: 0,
@@ -200,7 +213,7 @@ export function createWorld(
     fundsCents: 0,
     population: 0,
     terrain: terrain ?? flatTerrain(mapWidth, mapHeight),
-    roads: createRoadGraph(),
+    roads,
     undoStack: [],
     redoStack: [],
     buildings: createBuildings(),
@@ -216,7 +229,7 @@ export function createWorld(
     utilitiesBuildingVersion: -1,
     advisorIdCounter: 0,
     zoneVersion: 0,
-    traffic: emptyTraffic(),
+    traffic: createTraffic(roads),
     rng,
   };
 }
@@ -852,6 +865,7 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // ONE aggregate scan per tick (the balance gate's year-long replay made
   // the 3-scan version a 5-minute CI rung).
   const agg = aggregates(world.buildings);
+  const flowsAtScan = { ...world.flows };
   growthSlice(growthCtx, world.tick, agg);
   // Utilities must see THIS tick's spawns before lifecycle judges them —
   // a stale served-array abandons newborn buildings (found by the growth
@@ -875,11 +889,24 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     }
   }
   // economy(accrual, monthly close)   — TODO(ROADMAP Phase 5)
-  // trafficIncremental (Phase 3 v1): stateless hourly solve at the hour
-  // boundary — derived from world state, so replay AND save/load agree
-  // without traffic joining the hash (tranche-2 MSA changes that).
-  if (world.tick % TICKS_PER_HOUR === 0) {
-    world.traffic = assignTraffic(world.buildings, world.roads, world.mapWidth, world.mapHeight);
+  // trafficIncremental (TDD §6.3, tranche 2): persistent MSA volumes
+  // (canonical-edge-keyed — hashed and saved, in-flight job included)
+  // evolved by a SLICED solver job: full equilibrium daily at 04:00,
+  // incremental step hourly; a fixed count of origin cells per tick
+  // (work-based slicing, no clocks — ADR-005). Network edits re-derive
+  // costs NOW and join demand at the next hourly step — no mid-hour
+  // restart (it would break build∘undo ≡ identity; note in TDD §6.3).
+  if (world.traffic.graphVersion !== world.roads.version) {
+    refreshTrafficDerived(world.traffic, world.roads);
+  }
+  if (world.tick % TICKS_PER_HOUR === 0 && world.traffic.job === null) {
+    const hourOfDay = Math.floor(world.tick / TICKS_PER_HOUR) % 24;
+    startSolveJob(
+      world.traffic,
+      hourOfDay === FULL_SOLVE_HOUR ? SolveKind.full : SolveKind.incremental,
+    );
+  }
+  if (stepSolveJob(world.traffic, world.buildings, world.roads, world.mapWidth, world.mapHeight)) {
     // Congestion consequences are never just red lines (GDD §9 [LOCKED]):
     // the worst saturated edge gets a diagnosable advisor whose cause
     // chain names the EDGE and its midpoint TILE [TUNE threshold 150%].
@@ -927,7 +954,15 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // HUD/demand reuse the same scan (one tick of staleness on spawn counts
   // is deterministic and invisible at city scale).
   world.lastDemand = computeDemand(agg);
-  world.population = agg.residents;
+  // Population must be EXACT (the conservation exit criterion holds at
+  // every tick): the aggregate scan ran before growth, so add this tick's
+  // flow deltas — flows are the only paths residents enter or leave by.
+  world.population =
+    agg.residents +
+    (world.flows.births - flowsAtScan.births) +
+    (world.flows.immigrants - flowsAtScan.immigrants) -
+    (world.flows.deaths - flowsAtScan.deaths) -
+    (world.flows.emigrants - flowsAtScan.emigrants);
 
   world.tick += 1;
   return rejections;
@@ -1028,6 +1063,34 @@ export function stateHash(world: World): string {
     const base = i * COHORT_BLOCK;
     for (let c = 0; c < COHORT_BLOCK; c++) {
       w.u16(world.buildings.cohorts[base + c] as number);
+    }
+  }
+  // Traffic joined with Phase 3 tranche 2 — hashed through the SAME
+  // canonical form the save codec writes (trafficToSave), so hash and save
+  // can never disagree about what traffic state is.
+  const traffic = trafficToSave(world.traffic, world.roads);
+  w.u8(traffic.msaK)
+    .u32(traffic.generated)
+    .u32(traffic.assigned)
+    .u32(traffic.walked)
+    .u32(traffic.unroutable)
+    .u32(traffic.volumes.length);
+  for (const v of traffic.volumes) {
+    w.u32(v);
+  }
+  if (traffic.job === null) {
+    w.u8(0);
+  } else {
+    const job = traffic.job;
+    w.u8(job.kind)
+      .u8(job.passIndex)
+      .u32(job.cursor)
+      .u32(job.generated)
+      .u32(job.assigned)
+      .u32(job.walked)
+      .u32(job.unroutable);
+    for (const v of job.aon) {
+      w.u32(v);
     }
   }
   return fnv1a64(w.finish());

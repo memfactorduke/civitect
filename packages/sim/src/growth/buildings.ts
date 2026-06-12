@@ -131,6 +131,31 @@ export function demolishBuilding(b: Buildings, index: number): void {
   b.version++;
 }
 
+/**
+ * Alive slots in CANONICAL (tileIdx) order, cached on version. Every
+ * RNG-consuming scan over buildings must walk THIS order, never raw slots:
+ * slot order is spawn history, and a loaded save rebuilds sorted by tile —
+ * slot-order draws desynchronize the growth stream after load (found by
+ * the mid-solve save test; latent since Phase 2 for interleaved zones).
+ */
+const tileOrders = new WeakMap<Buildings, { version: number; order: number[] }>();
+
+export function aliveByTile(b: Buildings): readonly number[] {
+  let cached = tileOrders.get(b);
+  if (cached === undefined || cached.version !== b.version) {
+    const order: number[] = [];
+    for (let i = 0; i < b.count; i++) {
+      if (b.alive[i] === 1) {
+        order.push(i);
+      }
+    }
+    order.sort((p, q) => (b.tileIdx[p] as number) - (b.tileIdx[q] as number));
+    cached = { version: b.version, order };
+    tileOrders.set(b, cached);
+  }
+  return cached.order;
+}
+
 export function residentsOf(b: Buildings, index: number): number {
   let total = 0;
   const base = index * COHORT_BLOCK;

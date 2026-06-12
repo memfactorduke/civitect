@@ -77,6 +77,8 @@ export {
   SAVE_MAGIC,
   type SaveHeader,
   SectionId,
+  type TrafficJobSave,
+  type TrafficSave,
   type WorldCore,
 } from "./save/civ";
 export { compressDeflateRaw, decompressDeflateRaw } from "./save/compression";

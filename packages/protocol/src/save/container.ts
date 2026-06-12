@@ -13,7 +13,8 @@ import { xxh64 } from "./xxhash64";
 export const SAVE_MAGIC = "CIVT";
 // v2: TERRAIN (v1 migrates via flat-terrain injection). v3: ROADS (empty-
 // network injection). v4: BUILDINGS + COHORTS (empty-city injection).
-export const SAVE_FORMAT_VERSION = 4;
+// v5: TRAFFIC (zeroed-volume injection — pre-v5 traffic was derived state).
+export const SAVE_FORMAT_VERSION = 5;
 
 export interface ContainerHeader {
   readonly formatVersion: number;

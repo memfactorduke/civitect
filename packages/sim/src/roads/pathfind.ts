@@ -213,12 +213,18 @@ export interface PathResult {
 /**
  * Shortest path by travel time, or null when unreachable. Refreshes the
  * landmark cache iff the graph version moved since the last query.
+ *
+ * `costOf` overrides per-edge costs (congested routing, TDD §6.3). It MUST
+ * dominate free-flow (costOf(e) ≥ edgeCost(g, e)) — the ALT/Euclidean
+ * lower bounds are computed on free-flow costs and stay admissible only
+ * under that domination (BPR's multiplier ≥ 1 guarantees it).
  */
 export function findPath(
   g: RoadGraph,
   pf: Pathfinder,
   from: number,
   to: number,
+  costOf?: (edge: number) => number,
 ): PathResult | null {
   if (g.nodeAlive[from] !== 1 || g.nodeAlive[to] !== 1) {
     throw new Error("findPath: endpoints must be alive nodes");
@@ -267,7 +273,8 @@ export function findPath(
       if (settled[next] === 1) {
         continue;
       }
-      const candidate = (dist[node] as number) + edgeCost(g, e);
+      const candidate =
+        (dist[node] as number) + (costOf === undefined ? edgeCost(g, e) : costOf(e));
       if (candidate < (dist[next] as number)) {
         dist[next] = candidate;
         cameFrom[next] = node;

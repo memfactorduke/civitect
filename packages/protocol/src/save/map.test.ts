@@ -140,6 +140,15 @@ describe("map files (.civmap)", () => {
       roads: [],
       buildings: [],
       cohorts: new Uint16Array(0),
+      traffic: {
+        msaK: 0,
+        generated: 0,
+        assigned: 0,
+        walked: 0,
+        unroutable: 0,
+        volumes: new Uint32Array(0),
+        job: null,
+      },
       worldCore: {
         speed: 1,
         selectedTileIdx: -1,
