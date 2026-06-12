@@ -108,6 +108,10 @@ async function main(): Promise<void> {
     saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
     loadQuick: () => saveManager.loadQuick(),
     hasQuicksave: () => saveManager.hasQuicksave(),
+    // Tool UIs land per-phase; until then e2e drives intents directly.
+    dispatchIntent: (intent: CommandIntent) => {
+      dispatch(intent);
+    },
   };
 }
 

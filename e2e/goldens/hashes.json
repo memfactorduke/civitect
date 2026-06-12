@@ -7,6 +7,14 @@
       "fundsCents": 0
     }
   },
+  "road-grid-500-01": {
+    "hash": "a010ce1d200aaa08",
+    "hud": {
+      "tick": 43800,
+      "population": 0,
+      "fundsCents": 0
+    }
+  },
   "roads-city-01": {
     "hash": "45a5415b2bd2fe43",
     "hud": {

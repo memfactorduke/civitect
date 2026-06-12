@@ -26,11 +26,26 @@ behind it; tasks 1–6 are deliberately bless-free and land first.
 | 9 | Chunked terrain rendering: 32×32-tile chunks baked to render textures, dirty-chunk re-bake from snapshot dirtyChunkIds, terrain/zone/road tints v0 | renderer | TDD §8, ADR-008 | L | bake/invalidate units (pure chunk math); dev harness on a generated map | 1, 2 | done (incl. #27 hotfix: no texture cache on the no-terrain grid — CI software-GL latency) |
 | 10 | Road tools end-to-end: drag→buildRoad command→sim→snapshot→chunk redraw; bulldoze; undo/redo binding; Playwright e2e | app + e2e | TDD §1/§7 | M | e2e: build 10 segments, undo all → state hash equals start | 8, 9 | approved |
 | 11 | 500-segment network perf scenario on an L map: golden + render frame budget (exit criterion 1) joins the perf gate | e2e | TDD §2/§12 | M | perf gate green at 500 segments on L map | 8, 9 | approved |
-| 12 | Follow-on batch (decompose when 1–11 land): intersections (auto signals/stops, roundabouts), bridges/tunnels, ped/bike paths, 120 Hz pan polish | — | ROADMAP P1 | XL | — | 10, 11 | pending-approval |
+| 12a | Road rendering: protocol v4 snapshots (roadVersion + segment list) + renderer road layer + device frame-budget harness — pulled forward (bless-free, completes exit criterion 1's render half) | protocol+renderer+e2e | TDD §7/§8 | M | device-measured: p95 10.1 ms < 16 ms, zero frames >33 ms over a rendered 500-segment L-map pan | 2, 9 | done (#30+#31) |
+| 12b | Real road data in snapshots: sim toSnapshot canonical segments keyed on graph version; worker sends on mutation | sim+app | TDD §7 | S | units: keyframe carries segments, idle deltas null | 8, 12a | parked — stacked on 8 (PR #32, green) |
+| 12c | Drag-to-build road tool UX (ghost preview, optimistic rejection rollback) + chunk-level road tinting | renderer+app+ui | TDD §7/§8/§9 | M | e2e: drag builds a polyline; ghost clears on rejection | stack landed | pending-approval |
+| 12d | Intersections: auto signals/stops by class meeting, roundabout pieces; segment splitting at crossings | sim (+protocol if new commands) | ROADMAP P1, TDD §5 | L | golden `intersections-01`; crossing-split property tests | stack landed | pending-approval |
+| 12e | Bridges/tunnels: water/elevation crossing validation + cost class; ped/bike path class | sim+protocol | ROADMAP P1 | L | validation rejections property-tested; golden extension | 12d | pending-approval |
+| 12f | Save format v3: ROADS section (canonical graph serial) + v2→v3 migration; lifts the saves-with-roads refusal | protocol+app | TDD §10, ADR-010 | M | migration fixtures; save→load→hash-equal with roads | stack landed | pending-approval |
+| 12g | 120 Hz pan polish: ProMotion frame-rate-aware blend into the camera's render() hook | renderer | ADR-008 | S | device check; blend math units | 12c | pending-approval |
 
-**Exit criteria → task mapping:** 500-segment network, zero dropped frames
-← 11 · pathfinding correctness suite ← 4 · undo/redo property (build∘undo
-≡ identity on state hash) ← 8.
+**Exit criteria → task mapping & status (2026-06-12):**
+1. 500-segment network, zero dropped frames — **sim half PASS** (#25 parked:
+   tick p95 0.0001 ms); **render half PASS, device-measured** (12a harness:
+   p95 10.1 ms < 16 ms, zero frames >33 ms, camera panning a rendered
+   500-segment L map). Both automated; the spec asserts the 16 ms budget on
+   hardware (CI software-GL is excluded per TDD §12.4 device cadence).
+2. Pathfinding correctness suite — **PASS, merged** (#18).
+3. build∘undo ≡ identity on state hash — **PASS** (#24 parked, property).
+
+Phase 1 completion = Mem lands the parked stack (#23 ← #24 ← {#25, #32})
+and approves the 12c–12g batch + task 11b's image library. All code that
+could move without those judgments has moved.
 
 **Codex parallelization candidates:** 6 preview-render styling; 9 tint
 palettes — after 1/2 land interfaces.

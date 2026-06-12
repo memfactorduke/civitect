@@ -1,0 +1,5009 @@
+{
+  "name": "road-grid-500-01",
+  "seed": 31337,
+  "mapWidth": 512,
+  "mapHeight": 512,
+  "untilTick": 43800,
+  "commands": [
+    {
+      "seq": 0,
+      "tick": 0,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 100,
+      "bx": 110,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 1,
+      "tick": 1,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 100,
+      "bx": 120,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 2,
+      "tick": 2,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 100,
+      "bx": 130,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 3,
+      "tick": 3,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 100,
+      "bx": 140,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 4,
+      "tick": 4,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 100,
+      "bx": 150,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 5,
+      "tick": 5,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 100,
+      "bx": 160,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 6,
+      "tick": 6,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 100,
+      "bx": 170,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 7,
+      "tick": 7,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 100,
+      "bx": 180,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 8,
+      "tick": 8,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 100,
+      "bx": 190,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 9,
+      "tick": 9,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 100,
+      "bx": 200,
+      "by": 100,
+      "roadClass": 1
+    },
+    {
+      "seq": 10,
+      "tick": 10,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 112,
+      "bx": 110,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 11,
+      "tick": 11,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 112,
+      "bx": 120,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 12,
+      "tick": 12,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 112,
+      "bx": 130,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 13,
+      "tick": 13,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 112,
+      "bx": 140,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 14,
+      "tick": 14,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 112,
+      "bx": 150,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 15,
+      "tick": 15,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 112,
+      "bx": 160,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 16,
+      "tick": 16,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 112,
+      "bx": 170,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 17,
+      "tick": 17,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 112,
+      "bx": 180,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 18,
+      "tick": 18,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 112,
+      "bx": 190,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 19,
+      "tick": 19,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 112,
+      "bx": 200,
+      "by": 112,
+      "roadClass": 1
+    },
+    {
+      "seq": 20,
+      "tick": 20,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 124,
+      "bx": 110,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 21,
+      "tick": 21,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 124,
+      "bx": 120,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 22,
+      "tick": 22,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 124,
+      "bx": 130,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 23,
+      "tick": 23,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 124,
+      "bx": 140,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 24,
+      "tick": 24,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 124,
+      "bx": 150,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 25,
+      "tick": 25,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 124,
+      "bx": 160,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 26,
+      "tick": 26,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 124,
+      "bx": 170,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 27,
+      "tick": 27,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 124,
+      "bx": 180,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 28,
+      "tick": 28,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 124,
+      "bx": 190,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 29,
+      "tick": 29,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 124,
+      "bx": 200,
+      "by": 124,
+      "roadClass": 1
+    },
+    {
+      "seq": 30,
+      "tick": 30,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 136,
+      "bx": 110,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 31,
+      "tick": 31,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 136,
+      "bx": 120,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 32,
+      "tick": 32,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 136,
+      "bx": 130,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 33,
+      "tick": 33,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 136,
+      "bx": 140,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 34,
+      "tick": 34,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 136,
+      "bx": 150,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 35,
+      "tick": 35,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 136,
+      "bx": 160,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 36,
+      "tick": 36,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 136,
+      "bx": 170,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 37,
+      "tick": 37,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 136,
+      "bx": 180,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 38,
+      "tick": 38,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 136,
+      "bx": 190,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 39,
+      "tick": 39,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 136,
+      "bx": 200,
+      "by": 136,
+      "roadClass": 1
+    },
+    {
+      "seq": 40,
+      "tick": 40,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 148,
+      "bx": 110,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 41,
+      "tick": 41,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 148,
+      "bx": 120,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 42,
+      "tick": 42,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 148,
+      "bx": 130,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 43,
+      "tick": 43,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 148,
+      "bx": 140,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 44,
+      "tick": 44,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 148,
+      "bx": 150,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 45,
+      "tick": 45,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 148,
+      "bx": 160,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 46,
+      "tick": 46,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 148,
+      "bx": 170,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 47,
+      "tick": 47,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 148,
+      "bx": 180,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 48,
+      "tick": 48,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 148,
+      "bx": 190,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 49,
+      "tick": 49,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 148,
+      "bx": 200,
+      "by": 148,
+      "roadClass": 1
+    },
+    {
+      "seq": 50,
+      "tick": 50,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 160,
+      "bx": 110,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 51,
+      "tick": 51,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 160,
+      "bx": 120,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 52,
+      "tick": 52,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 160,
+      "bx": 130,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 53,
+      "tick": 53,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 160,
+      "bx": 140,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 54,
+      "tick": 54,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 160,
+      "bx": 150,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 55,
+      "tick": 55,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 160,
+      "bx": 160,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 56,
+      "tick": 56,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 160,
+      "bx": 170,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 57,
+      "tick": 57,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 160,
+      "bx": 180,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 58,
+      "tick": 58,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 160,
+      "bx": 190,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 59,
+      "tick": 59,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 160,
+      "bx": 200,
+      "by": 160,
+      "roadClass": 1
+    },
+    {
+      "seq": 60,
+      "tick": 60,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 172,
+      "bx": 110,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 61,
+      "tick": 61,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 172,
+      "bx": 120,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 62,
+      "tick": 62,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 172,
+      "bx": 130,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 63,
+      "tick": 63,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 172,
+      "bx": 140,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 64,
+      "tick": 64,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 172,
+      "bx": 150,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 65,
+      "tick": 65,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 172,
+      "bx": 160,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 66,
+      "tick": 66,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 172,
+      "bx": 170,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 67,
+      "tick": 67,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 172,
+      "bx": 180,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 68,
+      "tick": 68,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 172,
+      "bx": 190,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 69,
+      "tick": 69,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 172,
+      "bx": 200,
+      "by": 172,
+      "roadClass": 1
+    },
+    {
+      "seq": 70,
+      "tick": 70,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 184,
+      "bx": 110,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 71,
+      "tick": 71,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 184,
+      "bx": 120,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 72,
+      "tick": 72,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 184,
+      "bx": 130,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 73,
+      "tick": 73,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 184,
+      "bx": 140,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 74,
+      "tick": 74,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 184,
+      "bx": 150,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 75,
+      "tick": 75,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 184,
+      "bx": 160,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 76,
+      "tick": 76,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 184,
+      "bx": 170,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 77,
+      "tick": 77,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 184,
+      "bx": 180,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 78,
+      "tick": 78,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 184,
+      "bx": 190,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 79,
+      "tick": 79,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 184,
+      "bx": 200,
+      "by": 184,
+      "roadClass": 1
+    },
+    {
+      "seq": 80,
+      "tick": 80,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 196,
+      "bx": 110,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 81,
+      "tick": 81,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 196,
+      "bx": 120,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 82,
+      "tick": 82,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 196,
+      "bx": 130,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 83,
+      "tick": 83,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 196,
+      "bx": 140,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 84,
+      "tick": 84,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 196,
+      "bx": 150,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 85,
+      "tick": 85,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 196,
+      "bx": 160,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 86,
+      "tick": 86,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 196,
+      "bx": 170,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 87,
+      "tick": 87,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 196,
+      "bx": 180,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 88,
+      "tick": 88,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 196,
+      "bx": 190,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 89,
+      "tick": 89,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 196,
+      "bx": 200,
+      "by": 196,
+      "roadClass": 1
+    },
+    {
+      "seq": 90,
+      "tick": 90,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 208,
+      "bx": 110,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 91,
+      "tick": 91,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 208,
+      "bx": 120,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 92,
+      "tick": 92,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 208,
+      "bx": 130,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 93,
+      "tick": 93,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 208,
+      "bx": 140,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 94,
+      "tick": 94,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 208,
+      "bx": 150,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 95,
+      "tick": 95,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 208,
+      "bx": 160,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 96,
+      "tick": 96,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 208,
+      "bx": 170,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 97,
+      "tick": 97,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 208,
+      "bx": 180,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 98,
+      "tick": 98,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 208,
+      "bx": 190,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 99,
+      "tick": 99,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 208,
+      "bx": 200,
+      "by": 208,
+      "roadClass": 1
+    },
+    {
+      "seq": 100,
+      "tick": 100,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 220,
+      "bx": 110,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 101,
+      "tick": 101,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 220,
+      "bx": 120,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 102,
+      "tick": 102,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 220,
+      "bx": 130,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 103,
+      "tick": 103,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 220,
+      "bx": 140,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 104,
+      "tick": 104,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 220,
+      "bx": 150,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 105,
+      "tick": 105,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 220,
+      "bx": 160,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 106,
+      "tick": 106,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 220,
+      "bx": 170,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 107,
+      "tick": 107,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 220,
+      "bx": 180,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 108,
+      "tick": 108,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 220,
+      "bx": 190,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 109,
+      "tick": 109,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 220,
+      "bx": 200,
+      "by": 220,
+      "roadClass": 1
+    },
+    {
+      "seq": 110,
+      "tick": 110,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 232,
+      "bx": 110,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 111,
+      "tick": 111,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 232,
+      "bx": 120,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 112,
+      "tick": 112,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 232,
+      "bx": 130,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 113,
+      "tick": 113,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 232,
+      "bx": 140,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 114,
+      "tick": 114,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 232,
+      "bx": 150,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 115,
+      "tick": 115,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 232,
+      "bx": 160,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 116,
+      "tick": 116,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 232,
+      "bx": 170,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 117,
+      "tick": 117,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 232,
+      "bx": 180,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 118,
+      "tick": 118,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 232,
+      "bx": 190,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 119,
+      "tick": 119,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 232,
+      "bx": 200,
+      "by": 232,
+      "roadClass": 1
+    },
+    {
+      "seq": 120,
+      "tick": 120,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 244,
+      "bx": 110,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 121,
+      "tick": 121,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 244,
+      "bx": 120,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 122,
+      "tick": 122,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 244,
+      "bx": 130,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 123,
+      "tick": 123,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 244,
+      "bx": 140,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 124,
+      "tick": 124,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 244,
+      "bx": 150,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 125,
+      "tick": 125,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 244,
+      "bx": 160,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 126,
+      "tick": 126,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 244,
+      "bx": 170,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 127,
+      "tick": 127,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 244,
+      "bx": 180,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 128,
+      "tick": 128,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 244,
+      "bx": 190,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 129,
+      "tick": 129,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 244,
+      "bx": 200,
+      "by": 244,
+      "roadClass": 1
+    },
+    {
+      "seq": 130,
+      "tick": 130,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 256,
+      "bx": 110,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 131,
+      "tick": 131,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 256,
+      "bx": 120,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 132,
+      "tick": 132,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 256,
+      "bx": 130,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 133,
+      "tick": 133,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 256,
+      "bx": 140,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 134,
+      "tick": 134,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 256,
+      "bx": 150,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 135,
+      "tick": 135,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 256,
+      "bx": 160,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 136,
+      "tick": 136,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 256,
+      "bx": 170,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 137,
+      "tick": 137,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 256,
+      "bx": 180,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 138,
+      "tick": 138,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 256,
+      "bx": 190,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 139,
+      "tick": 139,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 256,
+      "bx": 200,
+      "by": 256,
+      "roadClass": 1
+    },
+    {
+      "seq": 140,
+      "tick": 140,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 268,
+      "bx": 110,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 141,
+      "tick": 141,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 268,
+      "bx": 120,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 142,
+      "tick": 142,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 268,
+      "bx": 130,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 143,
+      "tick": 143,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 268,
+      "bx": 140,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 144,
+      "tick": 144,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 268,
+      "bx": 150,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 145,
+      "tick": 145,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 268,
+      "bx": 160,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 146,
+      "tick": 146,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 268,
+      "bx": 170,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 147,
+      "tick": 147,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 268,
+      "bx": 180,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 148,
+      "tick": 148,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 268,
+      "bx": 190,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 149,
+      "tick": 149,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 268,
+      "bx": 200,
+      "by": 268,
+      "roadClass": 1
+    },
+    {
+      "seq": 150,
+      "tick": 150,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 280,
+      "bx": 110,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 151,
+      "tick": 151,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 280,
+      "bx": 120,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 152,
+      "tick": 152,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 280,
+      "bx": 130,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 153,
+      "tick": 153,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 280,
+      "bx": 140,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 154,
+      "tick": 154,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 280,
+      "bx": 150,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 155,
+      "tick": 155,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 280,
+      "bx": 160,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 156,
+      "tick": 156,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 280,
+      "bx": 170,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 157,
+      "tick": 157,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 280,
+      "bx": 180,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 158,
+      "tick": 158,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 280,
+      "bx": 190,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 159,
+      "tick": 159,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 280,
+      "bx": 200,
+      "by": 280,
+      "roadClass": 1
+    },
+    {
+      "seq": 160,
+      "tick": 160,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 292,
+      "bx": 110,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 161,
+      "tick": 161,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 292,
+      "bx": 120,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 162,
+      "tick": 162,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 292,
+      "bx": 130,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 163,
+      "tick": 163,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 292,
+      "bx": 140,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 164,
+      "tick": 164,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 292,
+      "bx": 150,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 165,
+      "tick": 165,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 292,
+      "bx": 160,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 166,
+      "tick": 166,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 292,
+      "bx": 170,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 167,
+      "tick": 167,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 292,
+      "bx": 180,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 168,
+      "tick": 168,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 292,
+      "bx": 190,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 169,
+      "tick": 169,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 292,
+      "bx": 200,
+      "by": 292,
+      "roadClass": 1
+    },
+    {
+      "seq": 170,
+      "tick": 170,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 304,
+      "bx": 110,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 171,
+      "tick": 171,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 304,
+      "bx": 120,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 172,
+      "tick": 172,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 304,
+      "bx": 130,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 173,
+      "tick": 173,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 304,
+      "bx": 140,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 174,
+      "tick": 174,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 304,
+      "bx": 150,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 175,
+      "tick": 175,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 304,
+      "bx": 160,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 176,
+      "tick": 176,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 304,
+      "bx": 170,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 177,
+      "tick": 177,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 304,
+      "bx": 180,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 178,
+      "tick": 178,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 304,
+      "bx": 190,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 179,
+      "tick": 179,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 304,
+      "bx": 200,
+      "by": 304,
+      "roadClass": 1
+    },
+    {
+      "seq": 180,
+      "tick": 180,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 316,
+      "bx": 110,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 181,
+      "tick": 181,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 316,
+      "bx": 120,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 182,
+      "tick": 182,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 316,
+      "bx": 130,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 183,
+      "tick": 183,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 316,
+      "bx": 140,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 184,
+      "tick": 184,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 316,
+      "bx": 150,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 185,
+      "tick": 185,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 316,
+      "bx": 160,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 186,
+      "tick": 186,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 316,
+      "bx": 170,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 187,
+      "tick": 187,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 316,
+      "bx": 180,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 188,
+      "tick": 188,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 316,
+      "bx": 190,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 189,
+      "tick": 189,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 316,
+      "bx": 200,
+      "by": 316,
+      "roadClass": 1
+    },
+    {
+      "seq": 190,
+      "tick": 190,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 328,
+      "bx": 110,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 191,
+      "tick": 191,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 328,
+      "bx": 120,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 192,
+      "tick": 192,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 328,
+      "bx": 130,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 193,
+      "tick": 193,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 328,
+      "bx": 140,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 194,
+      "tick": 194,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 328,
+      "bx": 150,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 195,
+      "tick": 195,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 328,
+      "bx": 160,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 196,
+      "tick": 196,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 328,
+      "bx": 170,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 197,
+      "tick": 197,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 328,
+      "bx": 180,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 198,
+      "tick": 198,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 328,
+      "bx": 190,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 199,
+      "tick": 199,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 328,
+      "bx": 200,
+      "by": 328,
+      "roadClass": 1
+    },
+    {
+      "seq": 200,
+      "tick": 200,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 340,
+      "bx": 110,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 201,
+      "tick": 201,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 340,
+      "bx": 120,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 202,
+      "tick": 202,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 340,
+      "bx": 130,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 203,
+      "tick": 203,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 340,
+      "bx": 140,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 204,
+      "tick": 204,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 340,
+      "bx": 150,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 205,
+      "tick": 205,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 340,
+      "bx": 160,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 206,
+      "tick": 206,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 340,
+      "bx": 170,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 207,
+      "tick": 207,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 340,
+      "bx": 180,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 208,
+      "tick": 208,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 340,
+      "bx": 190,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 209,
+      "tick": 209,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 340,
+      "bx": 200,
+      "by": 340,
+      "roadClass": 1
+    },
+    {
+      "seq": 210,
+      "tick": 210,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 352,
+      "bx": 110,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 211,
+      "tick": 211,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 352,
+      "bx": 120,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 212,
+      "tick": 212,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 352,
+      "bx": 130,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 213,
+      "tick": 213,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 352,
+      "bx": 140,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 214,
+      "tick": 214,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 352,
+      "bx": 150,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 215,
+      "tick": 215,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 352,
+      "bx": 160,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 216,
+      "tick": 216,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 352,
+      "bx": 170,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 217,
+      "tick": 217,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 352,
+      "bx": 180,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 218,
+      "tick": 218,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 352,
+      "bx": 190,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 219,
+      "tick": 219,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 352,
+      "bx": 200,
+      "by": 352,
+      "roadClass": 1
+    },
+    {
+      "seq": 220,
+      "tick": 220,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 364,
+      "bx": 110,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 221,
+      "tick": 221,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 364,
+      "bx": 120,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 222,
+      "tick": 222,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 364,
+      "bx": 130,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 223,
+      "tick": 223,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 364,
+      "bx": 140,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 224,
+      "tick": 224,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 364,
+      "bx": 150,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 225,
+      "tick": 225,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 364,
+      "bx": 160,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 226,
+      "tick": 226,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 364,
+      "bx": 170,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 227,
+      "tick": 227,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 364,
+      "bx": 180,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 228,
+      "tick": 228,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 364,
+      "bx": 190,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 229,
+      "tick": 229,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 364,
+      "bx": 200,
+      "by": 364,
+      "roadClass": 1
+    },
+    {
+      "seq": 230,
+      "tick": 230,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 376,
+      "bx": 110,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 231,
+      "tick": 231,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 376,
+      "bx": 120,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 232,
+      "tick": 232,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 376,
+      "bx": 130,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 233,
+      "tick": 233,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 376,
+      "bx": 140,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 234,
+      "tick": 234,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 376,
+      "bx": 150,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 235,
+      "tick": 235,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 376,
+      "bx": 160,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 236,
+      "tick": 236,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 376,
+      "bx": 170,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 237,
+      "tick": 237,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 376,
+      "bx": 180,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 238,
+      "tick": 238,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 376,
+      "bx": 190,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 239,
+      "tick": 239,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 376,
+      "bx": 200,
+      "by": 376,
+      "roadClass": 1
+    },
+    {
+      "seq": 240,
+      "tick": 240,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 388,
+      "bx": 110,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 241,
+      "tick": 241,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 388,
+      "bx": 120,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 242,
+      "tick": 242,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 388,
+      "bx": 130,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 243,
+      "tick": 243,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 388,
+      "bx": 140,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 244,
+      "tick": 244,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 388,
+      "bx": 150,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 245,
+      "tick": 245,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 388,
+      "bx": 160,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 246,
+      "tick": 246,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 388,
+      "bx": 170,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 247,
+      "tick": 247,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 388,
+      "bx": 180,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 248,
+      "tick": 248,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 388,
+      "bx": 190,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 249,
+      "tick": 249,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 388,
+      "bx": 200,
+      "by": 388,
+      "roadClass": 1
+    },
+    {
+      "seq": 250,
+      "tick": 250,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 100,
+      "bx": 100,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 251,
+      "tick": 251,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 112,
+      "bx": 100,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 252,
+      "tick": 252,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 124,
+      "bx": 100,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 253,
+      "tick": 253,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 136,
+      "bx": 100,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 254,
+      "tick": 254,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 148,
+      "bx": 100,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 255,
+      "tick": 255,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 160,
+      "bx": 100,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 256,
+      "tick": 256,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 172,
+      "bx": 100,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 257,
+      "tick": 257,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 184,
+      "bx": 100,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 258,
+      "tick": 258,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 196,
+      "bx": 100,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 259,
+      "tick": 259,
+      "type": "buildRoad",
+      "ax": 100,
+      "ay": 208,
+      "bx": 100,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 260,
+      "tick": 260,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 100,
+      "bx": 110,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 261,
+      "tick": 261,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 112,
+      "bx": 110,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 262,
+      "tick": 262,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 124,
+      "bx": 110,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 263,
+      "tick": 263,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 136,
+      "bx": 110,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 264,
+      "tick": 264,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 148,
+      "bx": 110,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 265,
+      "tick": 265,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 160,
+      "bx": 110,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 266,
+      "tick": 266,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 172,
+      "bx": 110,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 267,
+      "tick": 267,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 184,
+      "bx": 110,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 268,
+      "tick": 268,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 196,
+      "bx": 110,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 269,
+      "tick": 269,
+      "type": "buildRoad",
+      "ax": 110,
+      "ay": 208,
+      "bx": 110,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 270,
+      "tick": 270,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 100,
+      "bx": 120,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 271,
+      "tick": 271,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 112,
+      "bx": 120,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 272,
+      "tick": 272,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 124,
+      "bx": 120,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 273,
+      "tick": 273,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 136,
+      "bx": 120,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 274,
+      "tick": 274,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 148,
+      "bx": 120,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 275,
+      "tick": 275,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 160,
+      "bx": 120,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 276,
+      "tick": 276,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 172,
+      "bx": 120,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 277,
+      "tick": 277,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 184,
+      "bx": 120,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 278,
+      "tick": 278,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 196,
+      "bx": 120,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 279,
+      "tick": 279,
+      "type": "buildRoad",
+      "ax": 120,
+      "ay": 208,
+      "bx": 120,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 280,
+      "tick": 280,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 100,
+      "bx": 130,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 281,
+      "tick": 281,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 112,
+      "bx": 130,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 282,
+      "tick": 282,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 124,
+      "bx": 130,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 283,
+      "tick": 283,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 136,
+      "bx": 130,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 284,
+      "tick": 284,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 148,
+      "bx": 130,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 285,
+      "tick": 285,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 160,
+      "bx": 130,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 286,
+      "tick": 286,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 172,
+      "bx": 130,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 287,
+      "tick": 287,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 184,
+      "bx": 130,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 288,
+      "tick": 288,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 196,
+      "bx": 130,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 289,
+      "tick": 289,
+      "type": "buildRoad",
+      "ax": 130,
+      "ay": 208,
+      "bx": 130,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 290,
+      "tick": 290,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 100,
+      "bx": 140,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 291,
+      "tick": 291,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 112,
+      "bx": 140,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 292,
+      "tick": 292,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 124,
+      "bx": 140,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 293,
+      "tick": 293,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 136,
+      "bx": 140,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 294,
+      "tick": 294,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 148,
+      "bx": 140,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 295,
+      "tick": 295,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 160,
+      "bx": 140,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 296,
+      "tick": 296,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 172,
+      "bx": 140,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 297,
+      "tick": 297,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 184,
+      "bx": 140,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 298,
+      "tick": 298,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 196,
+      "bx": 140,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 299,
+      "tick": 299,
+      "type": "buildRoad",
+      "ax": 140,
+      "ay": 208,
+      "bx": 140,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 300,
+      "tick": 300,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 100,
+      "bx": 150,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 301,
+      "tick": 301,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 112,
+      "bx": 150,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 302,
+      "tick": 302,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 124,
+      "bx": 150,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 303,
+      "tick": 303,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 136,
+      "bx": 150,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 304,
+      "tick": 304,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 148,
+      "bx": 150,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 305,
+      "tick": 305,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 160,
+      "bx": 150,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 306,
+      "tick": 306,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 172,
+      "bx": 150,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 307,
+      "tick": 307,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 184,
+      "bx": 150,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 308,
+      "tick": 308,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 196,
+      "bx": 150,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 309,
+      "tick": 309,
+      "type": "buildRoad",
+      "ax": 150,
+      "ay": 208,
+      "bx": 150,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 310,
+      "tick": 310,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 100,
+      "bx": 160,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 311,
+      "tick": 311,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 112,
+      "bx": 160,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 312,
+      "tick": 312,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 124,
+      "bx": 160,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 313,
+      "tick": 313,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 136,
+      "bx": 160,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 314,
+      "tick": 314,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 148,
+      "bx": 160,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 315,
+      "tick": 315,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 160,
+      "bx": 160,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 316,
+      "tick": 316,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 172,
+      "bx": 160,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 317,
+      "tick": 317,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 184,
+      "bx": 160,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 318,
+      "tick": 318,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 196,
+      "bx": 160,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 319,
+      "tick": 319,
+      "type": "buildRoad",
+      "ax": 160,
+      "ay": 208,
+      "bx": 160,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 320,
+      "tick": 320,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 100,
+      "bx": 170,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 321,
+      "tick": 321,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 112,
+      "bx": 170,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 322,
+      "tick": 322,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 124,
+      "bx": 170,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 323,
+      "tick": 323,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 136,
+      "bx": 170,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 324,
+      "tick": 324,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 148,
+      "bx": 170,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 325,
+      "tick": 325,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 160,
+      "bx": 170,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 326,
+      "tick": 326,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 172,
+      "bx": 170,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 327,
+      "tick": 327,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 184,
+      "bx": 170,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 328,
+      "tick": 328,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 196,
+      "bx": 170,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 329,
+      "tick": 329,
+      "type": "buildRoad",
+      "ax": 170,
+      "ay": 208,
+      "bx": 170,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 330,
+      "tick": 330,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 100,
+      "bx": 180,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 331,
+      "tick": 331,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 112,
+      "bx": 180,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 332,
+      "tick": 332,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 124,
+      "bx": 180,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 333,
+      "tick": 333,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 136,
+      "bx": 180,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 334,
+      "tick": 334,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 148,
+      "bx": 180,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 335,
+      "tick": 335,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 160,
+      "bx": 180,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 336,
+      "tick": 336,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 172,
+      "bx": 180,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 337,
+      "tick": 337,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 184,
+      "bx": 180,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 338,
+      "tick": 338,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 196,
+      "bx": 180,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 339,
+      "tick": 339,
+      "type": "buildRoad",
+      "ax": 180,
+      "ay": 208,
+      "bx": 180,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 340,
+      "tick": 340,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 100,
+      "bx": 190,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 341,
+      "tick": 341,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 112,
+      "bx": 190,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 342,
+      "tick": 342,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 124,
+      "bx": 190,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 343,
+      "tick": 343,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 136,
+      "bx": 190,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 344,
+      "tick": 344,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 148,
+      "bx": 190,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 345,
+      "tick": 345,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 160,
+      "bx": 190,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 346,
+      "tick": 346,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 172,
+      "bx": 190,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 347,
+      "tick": 347,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 184,
+      "bx": 190,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 348,
+      "tick": 348,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 196,
+      "bx": 190,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 349,
+      "tick": 349,
+      "type": "buildRoad",
+      "ax": 190,
+      "ay": 208,
+      "bx": 190,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 350,
+      "tick": 350,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 100,
+      "bx": 200,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 351,
+      "tick": 351,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 112,
+      "bx": 200,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 352,
+      "tick": 352,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 124,
+      "bx": 200,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 353,
+      "tick": 353,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 136,
+      "bx": 200,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 354,
+      "tick": 354,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 148,
+      "bx": 200,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 355,
+      "tick": 355,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 160,
+      "bx": 200,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 356,
+      "tick": 356,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 172,
+      "bx": 200,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 357,
+      "tick": 357,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 184,
+      "bx": 200,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 358,
+      "tick": 358,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 196,
+      "bx": 200,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 359,
+      "tick": 359,
+      "type": "buildRoad",
+      "ax": 200,
+      "ay": 208,
+      "bx": 200,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 360,
+      "tick": 360,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 100,
+      "bx": 210,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 361,
+      "tick": 361,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 112,
+      "bx": 210,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 362,
+      "tick": 362,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 124,
+      "bx": 210,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 363,
+      "tick": 363,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 136,
+      "bx": 210,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 364,
+      "tick": 364,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 148,
+      "bx": 210,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 365,
+      "tick": 365,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 160,
+      "bx": 210,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 366,
+      "tick": 366,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 172,
+      "bx": 210,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 367,
+      "tick": 367,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 184,
+      "bx": 210,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 368,
+      "tick": 368,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 196,
+      "bx": 210,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 369,
+      "tick": 369,
+      "type": "buildRoad",
+      "ax": 210,
+      "ay": 208,
+      "bx": 210,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 370,
+      "tick": 370,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 100,
+      "bx": 220,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 371,
+      "tick": 371,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 112,
+      "bx": 220,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 372,
+      "tick": 372,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 124,
+      "bx": 220,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 373,
+      "tick": 373,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 136,
+      "bx": 220,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 374,
+      "tick": 374,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 148,
+      "bx": 220,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 375,
+      "tick": 375,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 160,
+      "bx": 220,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 376,
+      "tick": 376,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 172,
+      "bx": 220,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 377,
+      "tick": 377,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 184,
+      "bx": 220,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 378,
+      "tick": 378,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 196,
+      "bx": 220,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 379,
+      "tick": 379,
+      "type": "buildRoad",
+      "ax": 220,
+      "ay": 208,
+      "bx": 220,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 380,
+      "tick": 380,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 100,
+      "bx": 230,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 381,
+      "tick": 381,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 112,
+      "bx": 230,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 382,
+      "tick": 382,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 124,
+      "bx": 230,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 383,
+      "tick": 383,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 136,
+      "bx": 230,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 384,
+      "tick": 384,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 148,
+      "bx": 230,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 385,
+      "tick": 385,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 160,
+      "bx": 230,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 386,
+      "tick": 386,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 172,
+      "bx": 230,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 387,
+      "tick": 387,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 184,
+      "bx": 230,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 388,
+      "tick": 388,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 196,
+      "bx": 230,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 389,
+      "tick": 389,
+      "type": "buildRoad",
+      "ax": 230,
+      "ay": 208,
+      "bx": 230,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 390,
+      "tick": 390,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 100,
+      "bx": 240,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 391,
+      "tick": 391,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 112,
+      "bx": 240,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 392,
+      "tick": 392,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 124,
+      "bx": 240,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 393,
+      "tick": 393,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 136,
+      "bx": 240,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 394,
+      "tick": 394,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 148,
+      "bx": 240,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 395,
+      "tick": 395,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 160,
+      "bx": 240,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 396,
+      "tick": 396,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 172,
+      "bx": 240,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 397,
+      "tick": 397,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 184,
+      "bx": 240,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 398,
+      "tick": 398,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 196,
+      "bx": 240,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 399,
+      "tick": 399,
+      "type": "buildRoad",
+      "ax": 240,
+      "ay": 208,
+      "bx": 240,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 400,
+      "tick": 400,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 100,
+      "bx": 250,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 401,
+      "tick": 401,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 112,
+      "bx": 250,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 402,
+      "tick": 402,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 124,
+      "bx": 250,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 403,
+      "tick": 403,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 136,
+      "bx": 250,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 404,
+      "tick": 404,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 148,
+      "bx": 250,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 405,
+      "tick": 405,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 160,
+      "bx": 250,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 406,
+      "tick": 406,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 172,
+      "bx": 250,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 407,
+      "tick": 407,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 184,
+      "bx": 250,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 408,
+      "tick": 408,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 196,
+      "bx": 250,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 409,
+      "tick": 409,
+      "type": "buildRoad",
+      "ax": 250,
+      "ay": 208,
+      "bx": 250,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 410,
+      "tick": 410,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 100,
+      "bx": 260,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 411,
+      "tick": 411,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 112,
+      "bx": 260,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 412,
+      "tick": 412,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 124,
+      "bx": 260,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 413,
+      "tick": 413,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 136,
+      "bx": 260,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 414,
+      "tick": 414,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 148,
+      "bx": 260,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 415,
+      "tick": 415,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 160,
+      "bx": 260,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 416,
+      "tick": 416,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 172,
+      "bx": 260,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 417,
+      "tick": 417,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 184,
+      "bx": 260,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 418,
+      "tick": 418,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 196,
+      "bx": 260,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 419,
+      "tick": 419,
+      "type": "buildRoad",
+      "ax": 260,
+      "ay": 208,
+      "bx": 260,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 420,
+      "tick": 420,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 100,
+      "bx": 270,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 421,
+      "tick": 421,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 112,
+      "bx": 270,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 422,
+      "tick": 422,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 124,
+      "bx": 270,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 423,
+      "tick": 423,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 136,
+      "bx": 270,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 424,
+      "tick": 424,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 148,
+      "bx": 270,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 425,
+      "tick": 425,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 160,
+      "bx": 270,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 426,
+      "tick": 426,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 172,
+      "bx": 270,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 427,
+      "tick": 427,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 184,
+      "bx": 270,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 428,
+      "tick": 428,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 196,
+      "bx": 270,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 429,
+      "tick": 429,
+      "type": "buildRoad",
+      "ax": 270,
+      "ay": 208,
+      "bx": 270,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 430,
+      "tick": 430,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 100,
+      "bx": 280,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 431,
+      "tick": 431,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 112,
+      "bx": 280,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 432,
+      "tick": 432,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 124,
+      "bx": 280,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 433,
+      "tick": 433,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 136,
+      "bx": 280,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 434,
+      "tick": 434,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 148,
+      "bx": 280,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 435,
+      "tick": 435,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 160,
+      "bx": 280,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 436,
+      "tick": 436,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 172,
+      "bx": 280,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 437,
+      "tick": 437,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 184,
+      "bx": 280,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 438,
+      "tick": 438,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 196,
+      "bx": 280,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 439,
+      "tick": 439,
+      "type": "buildRoad",
+      "ax": 280,
+      "ay": 208,
+      "bx": 280,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 440,
+      "tick": 440,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 100,
+      "bx": 290,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 441,
+      "tick": 441,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 112,
+      "bx": 290,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 442,
+      "tick": 442,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 124,
+      "bx": 290,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 443,
+      "tick": 443,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 136,
+      "bx": 290,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 444,
+      "tick": 444,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 148,
+      "bx": 290,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 445,
+      "tick": 445,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 160,
+      "bx": 290,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 446,
+      "tick": 446,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 172,
+      "bx": 290,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 447,
+      "tick": 447,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 184,
+      "bx": 290,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 448,
+      "tick": 448,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 196,
+      "bx": 290,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 449,
+      "tick": 449,
+      "type": "buildRoad",
+      "ax": 290,
+      "ay": 208,
+      "bx": 290,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 450,
+      "tick": 450,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 100,
+      "bx": 300,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 451,
+      "tick": 451,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 112,
+      "bx": 300,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 452,
+      "tick": 452,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 124,
+      "bx": 300,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 453,
+      "tick": 453,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 136,
+      "bx": 300,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 454,
+      "tick": 454,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 148,
+      "bx": 300,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 455,
+      "tick": 455,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 160,
+      "bx": 300,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 456,
+      "tick": 456,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 172,
+      "bx": 300,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 457,
+      "tick": 457,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 184,
+      "bx": 300,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 458,
+      "tick": 458,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 196,
+      "bx": 300,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 459,
+      "tick": 459,
+      "type": "buildRoad",
+      "ax": 300,
+      "ay": 208,
+      "bx": 300,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 460,
+      "tick": 460,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 100,
+      "bx": 310,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 461,
+      "tick": 461,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 112,
+      "bx": 310,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 462,
+      "tick": 462,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 124,
+      "bx": 310,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 463,
+      "tick": 463,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 136,
+      "bx": 310,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 464,
+      "tick": 464,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 148,
+      "bx": 310,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 465,
+      "tick": 465,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 160,
+      "bx": 310,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 466,
+      "tick": 466,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 172,
+      "bx": 310,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 467,
+      "tick": 467,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 184,
+      "bx": 310,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 468,
+      "tick": 468,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 196,
+      "bx": 310,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 469,
+      "tick": 469,
+      "type": "buildRoad",
+      "ax": 310,
+      "ay": 208,
+      "bx": 310,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 470,
+      "tick": 470,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 100,
+      "bx": 320,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 471,
+      "tick": 471,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 112,
+      "bx": 320,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 472,
+      "tick": 472,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 124,
+      "bx": 320,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 473,
+      "tick": 473,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 136,
+      "bx": 320,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 474,
+      "tick": 474,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 148,
+      "bx": 320,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 475,
+      "tick": 475,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 160,
+      "bx": 320,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 476,
+      "tick": 476,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 172,
+      "bx": 320,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 477,
+      "tick": 477,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 184,
+      "bx": 320,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 478,
+      "tick": 478,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 196,
+      "bx": 320,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 479,
+      "tick": 479,
+      "type": "buildRoad",
+      "ax": 320,
+      "ay": 208,
+      "bx": 320,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 480,
+      "tick": 480,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 100,
+      "bx": 330,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 481,
+      "tick": 481,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 112,
+      "bx": 330,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 482,
+      "tick": 482,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 124,
+      "bx": 330,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 483,
+      "tick": 483,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 136,
+      "bx": 330,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 484,
+      "tick": 484,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 148,
+      "bx": 330,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 485,
+      "tick": 485,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 160,
+      "bx": 330,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 486,
+      "tick": 486,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 172,
+      "bx": 330,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 487,
+      "tick": 487,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 184,
+      "bx": 330,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 488,
+      "tick": 488,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 196,
+      "bx": 330,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 489,
+      "tick": 489,
+      "type": "buildRoad",
+      "ax": 330,
+      "ay": 208,
+      "bx": 330,
+      "by": 220,
+      "roadClass": 2
+    },
+    {
+      "seq": 490,
+      "tick": 490,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 100,
+      "bx": 340,
+      "by": 112,
+      "roadClass": 2
+    },
+    {
+      "seq": 491,
+      "tick": 491,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 112,
+      "bx": 340,
+      "by": 124,
+      "roadClass": 2
+    },
+    {
+      "seq": 492,
+      "tick": 492,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 124,
+      "bx": 340,
+      "by": 136,
+      "roadClass": 2
+    },
+    {
+      "seq": 493,
+      "tick": 493,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 136,
+      "bx": 340,
+      "by": 148,
+      "roadClass": 2
+    },
+    {
+      "seq": 494,
+      "tick": 494,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 148,
+      "bx": 340,
+      "by": 160,
+      "roadClass": 2
+    },
+    {
+      "seq": 495,
+      "tick": 495,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 160,
+      "bx": 340,
+      "by": 172,
+      "roadClass": 2
+    },
+    {
+      "seq": 496,
+      "tick": 496,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 172,
+      "bx": 340,
+      "by": 184,
+      "roadClass": 2
+    },
+    {
+      "seq": 497,
+      "tick": 497,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 184,
+      "bx": 340,
+      "by": 196,
+      "roadClass": 2
+    },
+    {
+      "seq": 498,
+      "tick": 498,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 196,
+      "bx": 340,
+      "by": 208,
+      "roadClass": 2
+    },
+    {
+      "seq": 499,
+      "tick": 499,
+      "type": "buildRoad",
+      "ax": 340,
+      "ay": 208,
+      "bx": 340,
+      "by": 220,
+      "roadClass": 2
+    }
+  ]
+}
