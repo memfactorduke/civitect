@@ -3,10 +3,12 @@
  * Sim is authoritative — invalid commands come back as CommandRejection with a
  * reason code; the UI's optimistic ghosts are cosmetic until confirmed.
  *
- * v1 carries only what the Phase 0 empty-world round trip needs (selectTile
- * drives the tap→highlight exit criterion; setSpeed drives the tick loop).
- * Build/zone/budget commands arrive with their systems — each addition bumps
- * PROTOCOL_VERSION. Wire ids are append-only.
+ * v1: selectTile/setSpeed (Phase 0 round trip). v3: road tools —
+ * build/bulldoze/upgrade address segments by TILE PAIR (the UI speaks
+ * tiles; edge slot ids are sim-internal), and undo/redo are SIM commands
+ * so they live in the replay log like everything else (ROADMAP Phase 1
+ * exit: build∘undo ≡ identity on state hash — only sim-side undo can
+ * make that claim). Wire ids are append-only.
  */
 import type { ByteReader } from "./bytes/reader";
 import type { ByteWriter } from "./bytes/writer";
@@ -15,6 +17,11 @@ import { DecodeError } from "./errors";
 export const CommandType = {
   selectTile: 1,
   setSpeed: 2,
+  buildRoad: 3,
+  bulldozeRoad: 4,
+  upgradeRoad: 5,
+  undo: 6,
+  redo: 7,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -38,7 +45,59 @@ export interface SetSpeedCommand extends CommandBase {
   readonly speed: number;
 }
 
-export type Command = SelectTileCommand | SetSpeedCommand;
+/** Road classes on the wire (sim consumes these values — protocol is the contract). */
+export const RoadClassWire = {
+  street: 1,
+  avenue: 2,
+  highway: 3,
+} as const;
+export type RoadClassWire = (typeof RoadClassWire)[keyof typeof RoadClassWire];
+
+const ROAD_CLASSES: ReadonlySet<number> = new Set([1, 2, 3]);
+
+export interface BuildRoadCommand extends CommandBase {
+  readonly type: typeof CommandType.buildRoad;
+  /** Segment endpoints, tile coords (u16 each). */
+  readonly ax: number;
+  readonly ay: number;
+  readonly bx: number;
+  readonly by: number;
+  readonly roadClass: RoadClassWire;
+}
+
+export interface BulldozeRoadCommand extends CommandBase {
+  readonly type: typeof CommandType.bulldozeRoad;
+  readonly ax: number;
+  readonly ay: number;
+  readonly bx: number;
+  readonly by: number;
+}
+
+export interface UpgradeRoadCommand extends CommandBase {
+  readonly type: typeof CommandType.upgradeRoad;
+  readonly ax: number;
+  readonly ay: number;
+  readonly bx: number;
+  readonly by: number;
+  readonly roadClass: RoadClassWire;
+}
+
+export interface UndoCommand extends CommandBase {
+  readonly type: typeof CommandType.undo;
+}
+
+export interface RedoCommand extends CommandBase {
+  readonly type: typeof CommandType.redo;
+}
+
+export type Command =
+  | SelectTileCommand
+  | SetSpeedCommand
+  | BuildRoadCommand
+  | BulldozeRoadCommand
+  | UpgradeRoadCommand
+  | UndoCommand
+  | RedoCommand;
 
 export const RejectionReason = {
   outOfBounds: 1,
@@ -46,6 +105,12 @@ export const RejectionReason = {
   invalidTarget: 3,
   /** Reserved now, used from Phase 2 economy onward. */
   insufficientFunds: 4,
+  /** Bulldoze/upgrade addressed a tile pair with no road between them. */
+  noSuchRoad: 5,
+  /** Build rejected: degenerate (a==b) or otherwise unbuildable segment. */
+  invalidSegment: 6,
+  nothingToUndo: 7,
+  nothingToRedo: 8,
 } as const;
 export type RejectionReason = (typeof RejectionReason)[keyof typeof RejectionReason];
 
@@ -68,7 +133,27 @@ export function encodeCommandBody(w: ByteWriter, cmd: Command): void {
     case CommandType.setSpeed:
       w.u8(cmd.speed);
       break;
+    case CommandType.buildRoad:
+      w.u16(cmd.ax).u16(cmd.ay).u16(cmd.bx).u16(cmd.by).u8(cmd.roadClass);
+      break;
+    case CommandType.bulldozeRoad:
+      w.u16(cmd.ax).u16(cmd.ay).u16(cmd.bx).u16(cmd.by);
+      break;
+    case CommandType.upgradeRoad:
+      w.u16(cmd.ax).u16(cmd.ay).u16(cmd.bx).u16(cmd.by).u8(cmd.roadClass);
+      break;
+    case CommandType.undo:
+    case CommandType.redo:
+      break; // no body beyond the base
   }
+}
+
+function decodeRoadClass(r: ByteReader): RoadClassWire {
+  const value = r.u8();
+  if (!ROAD_CLASSES.has(value)) {
+    throw new DecodeError(`unknown RoadClassWire ${value}`);
+  }
+  return value as RoadClassWire;
 }
 
 export function decodeCommandBody(r: ByteReader): Command {
@@ -80,6 +165,42 @@ export function decodeCommandBody(r: ByteReader): Command {
       return { seq, tick, type: CommandType.selectTile, x: r.u16(), y: r.u16() };
     case CommandType.setSpeed:
       return { seq, tick, type: CommandType.setSpeed, speed: r.u8() };
+    case CommandType.buildRoad:
+      return {
+        seq,
+        tick,
+        type: CommandType.buildRoad,
+        ax: r.u16(),
+        ay: r.u16(),
+        bx: r.u16(),
+        by: r.u16(),
+        roadClass: decodeRoadClass(r),
+      };
+    case CommandType.bulldozeRoad:
+      return {
+        seq,
+        tick,
+        type: CommandType.bulldozeRoad,
+        ax: r.u16(),
+        ay: r.u16(),
+        bx: r.u16(),
+        by: r.u16(),
+      };
+    case CommandType.upgradeRoad:
+      return {
+        seq,
+        tick,
+        type: CommandType.upgradeRoad,
+        ax: r.u16(),
+        ay: r.u16(),
+        bx: r.u16(),
+        by: r.u16(),
+        roadClass: decodeRoadClass(r),
+      };
+    case CommandType.undo:
+      return { seq, tick, type: CommandType.undo };
+    case CommandType.redo:
+      return { seq, tick, type: CommandType.redo };
     default:
       throw new DecodeError(`unknown CommandType ${type}`);
   }

@@ -27,6 +27,8 @@ export {
   encodeEntityRef,
 } from "./cause";
 export {
+  type BuildRoadCommand,
+  type BulldozeRoadCommand,
   type Command,
   type CommandRejection,
   CommandType,
@@ -34,9 +36,13 @@ export {
   decodeRejectionBody,
   encodeCommandBody,
   encodeRejectionBody,
+  type RedoCommand,
   RejectionReason,
+  RoadClassWire,
   type SelectTileCommand,
   type SetSpeedCommand,
+  type UndoCommand,
+  type UpgradeRoadCommand,
 } from "./commands";
 export { decodeMessage, encodeMessage, type Message, MessageKind } from "./envelope";
 export {

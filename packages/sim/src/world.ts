@@ -91,6 +91,12 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.speed = cmd.speed;
       return null;
     }
+    default:
+      // Protocol v3 road commands exist on the wire before the sim grows
+      // road state (phase-1 board task 8, behind the task-7 bless). Until
+      // then they are loudly rejected — never silently dropped, which
+      // would fork replay logs from reality (ADR-005 §6).
+      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
   }
 }
 

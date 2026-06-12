@@ -14,12 +14,18 @@ import {
   type EntityRef,
 } from "../cause";
 import {
+  type BuildRoadCommand,
+  type BulldozeRoadCommand,
   type Command,
   type CommandRejection,
   CommandType,
+  type RedoCommand,
   RejectionReason,
+  RoadClassWire,
   type SelectTileCommand,
   type SetSpeedCommand,
+  type UndoCommand,
+  type UpgradeRoadCommand,
 } from "../commands";
 import { type Message, MessageKind } from "../envelope";
 import type { InspectorRequest, InspectorResponse, TileInfo } from "../inspector";
@@ -76,7 +82,61 @@ export const setSpeedCommandArb: fc.Arbitrary<SetSpeedCommand> = fc.record({
   speed: u8Arb,
 });
 
-export const commandArb: fc.Arbitrary<Command> = fc.oneof(selectTileCommandArb, setSpeedCommandArb);
+const roadClassArb = fc.constantFrom(...Object.values(RoadClassWire));
+
+export const buildRoadCommandArb: fc.Arbitrary<BuildRoadCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.buildRoad),
+  ax: u16Arb,
+  ay: u16Arb,
+  bx: u16Arb,
+  by: u16Arb,
+  roadClass: roadClassArb,
+});
+
+export const bulldozeRoadCommandArb: fc.Arbitrary<BulldozeRoadCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.bulldozeRoad),
+  ax: u16Arb,
+  ay: u16Arb,
+  bx: u16Arb,
+  by: u16Arb,
+});
+
+export const upgradeRoadCommandArb: fc.Arbitrary<UpgradeRoadCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.upgradeRoad),
+  ax: u16Arb,
+  ay: u16Arb,
+  bx: u16Arb,
+  by: u16Arb,
+  roadClass: roadClassArb,
+});
+
+export const undoCommandArb: fc.Arbitrary<UndoCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.undo),
+});
+
+export const redoCommandArb: fc.Arbitrary<RedoCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.redo),
+});
+
+export const commandArb: fc.Arbitrary<Command> = fc.oneof(
+  selectTileCommandArb,
+  setSpeedCommandArb,
+  buildRoadCommandArb,
+  bulldozeRoadCommandArb,
+  upgradeRoadCommandArb,
+  undoCommandArb,
+  redoCommandArb,
+);
 
 export const rejectionArb: fc.Arbitrary<CommandRejection> = fc.record({
   seq: u32Arb,
