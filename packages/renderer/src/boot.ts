@@ -8,7 +8,7 @@
  * its rendered position advances on the ticker (the 120 Hz hook).
  */
 
-import type { Snapshot } from "@civitect/protocol";
+import type { Snapshot, TerrainGrid } from "@civitect/protocol";
 import { Application } from "pixi.js";
 import {
   type CameraState,
@@ -30,6 +30,8 @@ export interface RendererBootOptions {
   readonly host: HTMLElement;
   readonly mapWidth: number;
   readonly mapHeight: number;
+  /** Tile layers from the map file; omitted = Phase 0 placeholder grid. */
+  readonly terrain?: TerrainGrid;
 }
 
 export interface RendererHandle {
@@ -63,7 +65,11 @@ export async function bootRenderer(options: RendererBootOptions): Promise<Render
   });
   options.host.appendChild(app.canvas);
 
-  const stage = createWorldStage({ mapWidth: options.mapWidth, mapHeight: options.mapHeight });
+  const stage = createWorldStage({
+    mapWidth: options.mapWidth,
+    mapHeight: options.mapHeight,
+    terrain: options.terrain,
+  });
   app.stage.addChild(stage.root);
 
   const view = (): ViewSize => ({
@@ -107,6 +113,9 @@ export async function bootRenderer(options: RendererBootOptions): Promise<Render
     consume(snapshot: Snapshot): void {
       state = applySnapshot(state, snapshot);
       stage.update(state);
+      if (snapshot.dirtyChunkIds.length > 0) {
+        stage.rebakeChunks([...snapshot.dirtyChunkIds]);
+      }
     },
     panBy(dxPx: number, dyPx: number): void {
       pan(camera, dxPx, dyPx);

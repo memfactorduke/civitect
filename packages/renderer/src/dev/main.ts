@@ -7,7 +7,7 @@
  * tooling: renderer may not import @civitect/sim). The genuine
  * worker round trip is board PR 7's job.
  */
-import { type Snapshot, SnapshotKind } from "@civitect/protocol";
+import { flatTerrain, type Snapshot, SnapshotKind } from "@civitect/protocol";
 import { attachCameraControls, bootRenderer } from "../boot";
 
 const MAP = 64;
@@ -30,7 +30,19 @@ async function main(): Promise<void> {
   if (host === null) {
     throw new Error("dev page is missing #world");
   }
-  const renderer = await bootRenderer({ host, mapWidth: MAP, mapHeight: MAP });
+  // Synthetic terraced island (same formula family as the map fixture) —
+  // the dev harness shows real chunk tints without touching the sim.
+  const terrain = flatTerrain(MAP, MAP);
+  for (let y = 0; y < MAP; y++) {
+    for (let x = 0; x < MAP; x++) {
+      const i = y * MAP + x;
+      const d = Math.max(Math.abs(x - MAP / 2), Math.abs(y - MAP / 2));
+      terrain.layers.elevation[i] = d < 28 ? Math.max(0, 6 - (d >> 2)) : 0;
+      terrain.layers.water[i] = d >= 28 ? 1 : 0;
+      terrain.layers.resource[i] = x > 40 && x < 48 && y > 10 && y < 14 ? 1 : 0;
+    }
+  }
+  const renderer = await bootRenderer({ host, mapWidth: MAP, mapHeight: MAP, terrain });
   attachCameraControls(renderer, host); // drag to pan, wheel to zoom
 
   let tick = 0;
