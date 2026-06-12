@@ -4,9 +4,11 @@
  * full run must clear the §2 hard gate. Budget values are TUNE; the gate
  * being real is LOCKED.
  *
- * The timed loop must produce the exact replay() hash — otherwise the gate
- * would be measuring a different program than the one the golden gate
- * verifies.
+ * The timed run must reproduce the untimed run's hash — two independent
+ * worlds in one process; a mismatch means the harness leaked state between
+ * runs or the engine lost determinism. (Both runs share the driver in
+ * runner.ts, so "the gate measures the program the golden gate verifies"
+ * is structural now.)
  */
 import { describe, expect, it } from "vitest";
 import { loadScenarios } from "./goldens";
@@ -18,9 +20,9 @@ const TICK_P95_HARD_GATE_MS = 20;
 const scenarios = loadScenarios();
 
 describe.each(scenarios.map((s) => [s.name, s] as const))("perf %s", (name, scenario) => {
-  it(`tick p95 ≤ ${TICK_P95_HARD_GATE_MS} ms and timed loop matches replay()`, async () => {
+  it(`tick p95 ≤ ${TICK_P95_HARD_GATE_MS} ms and timed run matches untimed`, async () => {
     const timed = await runScenarioTimed(scenario, () => performance.now());
-    const reference = runScenario(scenario);
+    const reference = await runScenario(scenario);
     expect(timed.hash).toBe(reference.hash);
 
     const p95 = percentile(timed.tickDurationsMs, 0.95);
