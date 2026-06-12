@@ -150,6 +150,19 @@ function parseCommand(raw: ScenarioJsonCommand, at: string): Command {
         building: building as 1 | 2,
       };
     }
+    case "setServiceBudget": {
+      const { service, permille } = raw;
+      if (!isNonNegativeSafeInt(service) || !isNonNegativeSafeInt(permille)) {
+        throw new Error(`${at}: setServiceBudget needs integer service/permille`);
+      }
+      return {
+        seq: raw.seq,
+        tick: raw.tick,
+        type: CommandType.setServiceBudget,
+        service: service as 1,
+        permille,
+      };
+    }
     case "undo":
       return { seq: raw.seq, tick: raw.tick, type: CommandType.undo };
     case "redo":

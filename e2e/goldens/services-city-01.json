@@ -1,10 +1,9 @@
 {
-  "name": "balance-city-01",
-  "seed": 555,
+  "name": "services-city-01",
+  "seed": 777,
   "mapWidth": 80,
   "mapHeight": 80,
-  "untilTick": 525600,
-  "terrainRects": [],
+  "untilTick": 131400,
   "commands": [
     {
       "seq": 0,

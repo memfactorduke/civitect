@@ -14,9 +14,9 @@ tick/population/fundsCents; richer scalars join this table as systems land
 | empty-city-01 | tick | 525600 | 525600 |
 | empty-city-01 | population | 0 | 0 |
 | empty-city-01 | fundsCents | 0 | 0 |
-| growth-city-01 | hash | c9f362a8aadc7d03 | 5189d302a111a737 |
+| growth-city-01 | hash | 5189d302a111a737 | 5189d302a111a737 |
 | growth-city-01 | tick | 131400 | 131400 |
-| growth-city-01 | population | 4364 | 5063 |
+| growth-city-01 | population | 5063 | 5063 |
 | growth-city-01 | fundsCents | 0 | 0 |
 | road-grid-500-01 | hash | bfce9235e7098090 | bfce9235e7098090 |
 | road-grid-500-01 | tick | 43800 | 43800 |
@@ -26,3 +26,7 @@ tick/population/fundsCents; richer scalars join this table as systems land
 | roads-city-01 | tick | 131400 | 131400 |
 | roads-city-01 | population | 0 | 0 |
 | roads-city-01 | fundsCents | 0 | 0 |
+| services-city-01 | hash | (new) | 44e02bc86f74c90a |
+| services-city-01 | tick | (new) | 131400 |
+| services-city-01 | population | (new) | 38336 |
+| services-city-01 | fundsCents | (new) | 0 |
