@@ -8,12 +8,15 @@
  */
 
 export { AdvisorFeed } from "./AdvisorFeed";
+export { BudgetPanel } from "./BudgetPanel";
+export { BuildingInspector } from "./BuildingInspector";
 export { DemandPanel } from "./DemandPanel";
 export { type CommandIntent, type DispatchFn, DispatchProvider, useDispatch } from "./dispatch";
 export { formatCount, formatFundsCents } from "./format";
 export { Hud } from "./Hud";
 export { type I18nKey, t } from "./i18n";
 export { Overlay } from "./Overlay";
+export { OverlayPicker } from "./OverlayPicker";
 export { RoadInspector } from "./RoadInspector";
 export { SpeedControls } from "./SpeedControls";
 export { createUiStore, type UiState, type UiStore, useUiStore } from "./store";

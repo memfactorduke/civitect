@@ -42,6 +42,8 @@ export interface WorldStage {
   setAgents(buffer: Float32Array | null): void;
   /** Toggle the traffic overlay (v/c tints over road segments, GDD §9.5). */
   setTrafficOverlay(visible: boolean): void;
+  /** Toggle the service-coverage overlay (field rides snapshots, GDD §7). */
+  setCoverageOverlay(visible: boolean): void;
   /** Chunk count — observability for tests/devtools. */
   readonly chunkCount: number;
 }
@@ -61,6 +63,27 @@ const ZONE_COLOR: Readonly<Record<number, number>> = {
 const PLOPPABLE_COLOR: Readonly<Record<number, number>> = {
   101: 0x8a3030, // power plant
   102: 0x30708a, // water pump
+  // Phase 4 service set [TUNE until sprites]: one hue family per service.
+  103: 0xb5413a, // fire station
+  104: 0xc94f47, // fire station (large)
+  105: 0x3a5db5, // police station
+  106: 0x4769c9, // police HQ
+  107: 0x3aa394, // clinic
+  108: 0x47b8a8, // hospital
+  109: 0x6b6478, // cemetery
+  110: 0x7d7591, // crematorium
+  111: 0xb58f3a, // elementary school
+  112: 0xc99f47, // high school
+  113: 0xd9b15a, // university
+  114: 0xa3823a, // library
+  115: 0x55a04a, // small park
+  116: 0x64b558, // plaza
+  117: 0x8a8a9e, // telecom tower
+  118: 0x77603c, // landfill
+  119: 0x8a6e45, // incinerator
+  120: 0x6e8a45, // recycling center
+  121: 0x5c4a36, // sewage outlet
+  122: 0x6b5740, // sewage treatment
 };
 
 /** Road class → stroke {width, color} at 1× [TUNE until road sprites]. */
@@ -219,6 +242,10 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
         v.kind >= 100 ? (PLOPPABLE_COLOR[v.kind] ?? 0x666666) : (ZONE_COLOR[v.kind] ?? 0x888888);
       if (v.status === 3) {
         color = 0x4a4a4a; // abandoned: ash
+      } else if (v.status === 4) {
+        color = 0xe0512f; // ON FIRE [TUNE: particle fx with the fx layer]
+      } else if (v.status === 5) {
+        color = 0x2a2422; // ruin: char
       } else if (v.status === 1 || v.status === 2) {
         color = (color >> 1) & 0x7f7f7f; // unserved: darkened
       }
@@ -266,6 +293,34 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     }
   };
 
+  // Service-coverage overlay (GDD §7/§15): green field, alpha ∝ coverage.
+  const coverageOverlay = new Graphics();
+  coverageOverlay.visible = false;
+  root.addChild(coverageOverlay);
+  let coverageOverlayOn = false;
+  let drawnCoverageVersion = -1;
+  let lastCoverage: Uint8Array | null = null;
+
+  const drawCoverage = (): void => {
+    coverageOverlay.clear();
+    if (lastCoverage === null) {
+      return;
+    }
+    for (let i = 0; i < lastCoverage.length; i++) {
+      const v = lastCoverage[i] as number;
+      if (v === 0) {
+        continue;
+      }
+      const x = i % options.mapWidth;
+      const y = Math.floor(i / options.mapWidth);
+      const { wx, wy } = tileToWorld(x, y);
+      diamondPath(coverageOverlay, wx, wy).fill({
+        color: 0x2fae5a,
+        alpha: 0.12 + (v / 255) * 0.45,
+      });
+    }
+  };
+
   const highlight = new Graphics();
   diamondPath(highlight, 0, 0).fill({ color: HIGHLIGHT_COLOR, alpha: 0.55 });
   highlight.visible = false;
@@ -300,6 +355,15 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
       }
       if (state.zones !== null) {
         lastZones = state.zones;
+      }
+      if (state.coverage !== null) {
+        lastCoverage = state.coverage;
+      } else if (state.coverageService === 0) {
+        lastCoverage = null;
+      }
+      if (coverageOverlayOn && state.coverageVersion !== drawnCoverageVersion) {
+        drawCoverage();
+        drawnCoverageVersion = state.coverageVersion;
       }
       if (zoneOverlayOn && state.zoneVersion !== drawnZoneVersion) {
         drawZones();
@@ -349,6 +413,16 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
       if (visible) {
         drawTrafficOverlay();
         drawnCongestionVersion = -2; // redraw pickup on next update
+      }
+    },
+    setCoverageOverlay(visible: boolean): void {
+      coverageOverlayOn = visible;
+      coverageOverlay.visible = visible;
+      if (visible) {
+        drawCoverage();
+        drawnCoverageVersion = -2; // redraw pickup on next update
+      } else {
+        coverageOverlay.clear();
       }
     },
     setGhost(a, b): void {

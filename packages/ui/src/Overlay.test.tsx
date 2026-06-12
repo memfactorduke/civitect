@@ -5,7 +5,7 @@
  * way the app shell will feed it — via applySnapshot with protocol objects.
  */
 import { type Snapshot, SnapshotKind } from "@civitect/protocol";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import * as fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import type { CommandIntent } from "./dispatch";
@@ -217,5 +217,75 @@ describe("AdvisorFeed (cause chains rendered with resolvable refs)", () => {
       store.getState().applySnapshot(snapshot({ tick: 2, advisorEvents: [event(2)] }));
     });
     expect(store.getState().advisorEvents.map((e) => e.id)).toEqual([2, 1]);
+  });
+});
+
+describe("budget panel (GDD §7 sliders)", () => {
+  it("a slider move dispatches setServiceBudget with the service + permille", () => {
+    const store = createUiStore();
+    const intents: object[] = [];
+    render(<Overlay store={store} dispatch={(i) => intents.push(i)} />);
+    fireEvent.click(screen.getByText("Service budgets"));
+    const slider = screen.getByTestId("budget-slider-8"); // garbage
+    fireEvent.change(slider, { target: { value: "1300" } });
+    expect(intents).toContainEqual({ type: 13, service: 8, permille: 1300 });
+    expect(screen.getByTestId("budget-value-8").textContent).toBe("130%");
+  });
+});
+
+describe("advisor feed groups by cause (GDD §15 [LOCKED])", () => {
+  it("three same-cause events render one row with a ×3 badge", () => {
+    const store = createUiStore();
+    render(<Overlay store={store} dispatch={() => {}} />);
+    const event = (id: number): Snapshot["advisorEvents"][number] => ({
+      id,
+      tick: id,
+      severity: 2 as Snapshot["advisorEvents"][number]["severity"],
+      messageKey: "advisor.garbage",
+      cause: {
+        summaryKey: "cause.noGarbageService",
+        links: [{ subject: { kind: 2, id: 100 + id }, labelKey: "cause.x", weightPermille: 1000 }],
+      },
+    });
+    act(() => {
+      store.getState().applySnapshot(
+        snapshot({
+          tick: 5,
+          advisorEvents: [event(1), event(2), event(3)],
+        }),
+      );
+    });
+    const rows = screen.getAllByTestId("advisor-event");
+    expect(rows.length).toBe(1);
+    expect(screen.getByTestId("advisor-count").textContent).toBe("×3");
+  });
+});
+
+describe("building inspector (pillar 1)", () => {
+  it("renders service capacity/effectiveness and the environment block", () => {
+    const store = createUiStore();
+    render(<Overlay store={store} dispatch={() => {}} />);
+    act(() => {
+      store.getState().applyInspectorResponse({
+        requestId: 1,
+        tick: 10,
+        tile: null,
+        road: null,
+        building: {
+          kind: 103,
+          level: 1,
+          status: 0,
+          serviceId: 1,
+          capacityTotal: 4,
+          capacityUsed: 0,
+          queueLength: 0,
+          effectivenessPermille: 730,
+        },
+        environ: { airPollution: 12, groundPollution: 3, noise: 40, waterPollution: 0 },
+      });
+    });
+    expect(screen.getByTestId("building-capacity").textContent).toBe("4");
+    expect(screen.getByTestId("building-effectiveness").textContent).toBe("73%");
+    expect(screen.getByTestId("environ-air").textContent).toBe("12");
   });
 });
