@@ -41,7 +41,14 @@ import {
   type SaveRequest,
   type SaveResponse,
 } from "./save/messages";
-import { decodeSnapshotBody, encodeSnapshotBody, type Snapshot } from "./snapshot";
+import {
+  decodeSnapshotBody,
+  decodeViewportHintBody,
+  encodeSnapshotBody,
+  encodeViewportHintBody,
+  type Snapshot,
+  type ViewportHint,
+} from "./snapshot";
 import { PROTOCOL_VERSION } from "./version";
 
 export const MessageKind = {
@@ -54,6 +61,8 @@ export const MessageKind = {
   saveResponse: 7,
   loadRequest: 8,
   loadResponse: 9,
+  /** UI → sim camera bounds for the agent sampler (ADR-002 chokepoint). */
+  viewportHint: 10,
 } as const;
 export type MessageKind = (typeof MessageKind)[keyof typeof MessageKind];
 
@@ -66,7 +75,8 @@ export type Message =
   | { readonly kind: typeof MessageKind.saveRequest; readonly body: SaveRequest }
   | { readonly kind: typeof MessageKind.saveResponse; readonly body: SaveResponse }
   | { readonly kind: typeof MessageKind.loadRequest; readonly body: LoadRequest }
-  | { readonly kind: typeof MessageKind.loadResponse; readonly body: LoadResponse };
+  | { readonly kind: typeof MessageKind.loadResponse; readonly body: LoadResponse }
+  | { readonly kind: typeof MessageKind.viewportHint; readonly body: ViewportHint };
 
 export function encodeMessage(message: Message): Uint8Array {
   const w = new ByteWriter();
@@ -101,6 +111,9 @@ export function encodeMessage(message: Message): Uint8Array {
       break;
     case MessageKind.loadResponse:
       encodeLoadResponseBody(w, message.body);
+      break;
+    case MessageKind.viewportHint:
+      encodeViewportHintBody(w, message.body);
       break;
   }
   w.patchU32(lengthAt, w.length - bodyStart);
@@ -146,6 +159,9 @@ export function decodeMessage(bytes: Uint8Array): Message {
       break;
     case MessageKind.loadResponse:
       message = { kind, body: decodeLoadResponseBody(r) };
+      break;
+    case MessageKind.viewportHint:
+      message = { kind, body: decodeViewportHintBody(r) };
       break;
     default:
       throw new DecodeError(`unknown MessageKind ${kind}`);

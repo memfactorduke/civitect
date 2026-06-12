@@ -15,6 +15,7 @@ import {
   addNode,
   COHORT_BLOCK,
   canonicalGraph,
+  createAgentPool,
   createBuildings,
   createRoadGraph,
   Pcg32,
@@ -86,8 +87,7 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
     })),
     // Same canonical edge order as roads — trafficToSave sorts identically.
     traffic: trafficToSave(world.traffic, world.roads),
-    // Pinned cims join with the agents sim PR (Phase 3 tranche 3).
-    pins: [],
+    pins: world.pins.map((p) => ({ tileIdx: p.tileIdx, slot: p.slot })),
     worldCore: {
       speed: world.speed,
       selectedTileIdx: world.selectedTileIdx,
@@ -191,6 +191,9 @@ export function civToWorld(save: CivSave): World {
     // exactly — per-edge values remap onto the rebuilt graph by canonical
     // edge identity; the continued-identity test enforces it.
     traffic: trafficFromSave(save.traffic, roads),
+    pins: save.pins.map((p) => ({ tileIdx: p.tileIdx, slot: p.slot })),
+    agents: createAgentPool(save.header.seed),
+    viewport: null,
     rng,
   };
 }
