@@ -10,4 +10,4 @@
 // v2: save/load kinds. v3: road commands. v4: road snapshots.
 // v5: path + bridge classes. v6: zoning/building commands + demand &
 // building snapshot blocks (Phase 2).
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7; // v7: zone layer rides snapshots

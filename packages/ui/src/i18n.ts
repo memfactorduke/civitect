@@ -18,6 +18,21 @@ const en = {
   "speed.fastest": "9×",
   "tile.selected": "Selected tile",
   "tile.none": "No tile selected",
+  "demand.title": "Demand",
+  "demand.residential": "Residential",
+  "demand.commercial": "Commercial",
+  "demand.industrial": "Industrial",
+  "demand.office": "Office",
+  "demand.factor.jobs": "Job openings",
+  "demand.factor.attractiveness": "Attractiveness",
+  "demand.factor.vacancy": "Vacancy",
+  "demand.factor.purchasing": "Purchasing power",
+  "demand.factor.goods": "Goods supply",
+  "demand.factor.orders": "Goods orders",
+  "demand.factor.workforce": "Workforce",
+  "demand.factor.educated": "Educated workforce",
+  "demand.factor.admin": "Administrative need",
+  "advisor.title": "Advisors",
 } as const;
 
 export type I18nKey = keyof typeof en;

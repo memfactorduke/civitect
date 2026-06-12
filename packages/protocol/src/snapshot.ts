@@ -97,6 +97,9 @@ export interface Snapshot {
   /** Building-set version; list rides keyframes/changes (road pattern). */
   readonly buildingVersion: number;
   readonly buildings: readonly BuildingView[] | null;
+  /** Zone-paint version; full layer rides keyframes/changes (u16/tile). */
+  readonly zoneVersion: number;
+  readonly zones: Uint16Array | null;
 }
 
 export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
@@ -140,6 +143,15 @@ export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
     w.u8(1).u32(snap.buildings.length);
     for (const b of snap.buildings) {
       w.u16(b.x).u16(b.y).u16(b.kind).u8(b.level).u8(b.status);
+    }
+  }
+  w.u32(snap.zoneVersion);
+  if (snap.zones === null) {
+    w.u8(0);
+  } else {
+    w.u8(1).u32(snap.zones.length);
+    for (const z of snap.zones) {
+      w.u16(z);
     }
   }
 }
@@ -203,6 +215,19 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
       buildings.push({ x: r.u16(), y: r.u16(), kind: r.u16(), level: r.u8(), status: r.u8() });
     }
   }
+  const zoneVersion = r.u32();
+  const hasZones = r.u8();
+  if (hasZones > 1) {
+    throw new DecodeError(`zones presence flag must be 0|1, got ${hasZones}`);
+  }
+  let zones: Uint16Array | null = null;
+  if (hasZones === 1) {
+    const count = r.u32();
+    zones = new Uint16Array(count);
+    for (let i = 0; i < count; i++) {
+      zones[i] = r.u16();
+    }
+  }
   return {
     kind,
     tick,
@@ -216,5 +241,7 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
     demand,
     buildingVersion,
     buildings,
+    zoneVersion,
+    zones,
   };
 }

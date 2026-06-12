@@ -9,7 +9,7 @@
  * with terrain (map files), they bake flat tile tints (v0 "art" [TUNE]).
  */
 
-import type { RoadSegment, TerrainGrid } from "@civitect/protocol";
+import type { BuildingView, RoadSegment, TerrainGrid } from "@civitect/protocol";
 import { Container, Graphics } from "pixi.js";
 import { CHUNK_TILES, chunkLayout, chunkTiles, terrainTint } from "./chunks";
 import type { DisplayState } from "./display";
@@ -31,12 +31,28 @@ export interface WorldStage {
   rebakeChunks(chunkIds: readonly number[]): void;
   /** Tool ghost: translucent segment preview while dragging; null clears. */
   setGhost(a: { x: number; y: number } | null, b?: { x: number; y: number }): void;
+  /** Toggle the zone overlay (v1 of overlays; others ride their systems). */
+  setZoneOverlay(visible: boolean): void;
   /** Chunk count — observability for tests/devtools. */
   readonly chunkCount: number;
 }
 
 const GRID_COLOR = 0x3a4a3f; // placeholder slate-green until terrain art
 const HIGHLIGHT_COLOR = 0xffd166;
+
+/** Zone kind → overlay/building tint [TUNE until sprites + style bible]. */
+const ZONE_COLOR: Readonly<Record<number, number>> = {
+  1: 0x3f9b53, // R low
+  2: 0x2e7a40, // R high
+  3: 0x3f6f9b, // C low
+  4: 0x2e567a, // C high
+  5: 0x9b8a3f, // industrial
+  6: 0x7a3f9b, // office
+};
+const PLOPPABLE_COLOR: Readonly<Record<number, number>> = {
+  101: 0x8a3030, // power plant
+  102: 0x30708a, // water pump
+};
 
 /** Road class → stroke {width, color} at 1× [TUNE until road sprites]. */
 const ROAD_STYLE: Readonly<Record<number, { width: number; color: number }>> = {
@@ -133,6 +149,68 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     }
   };
 
+  // Building layer: placeholder iso blocks until sprites exist (style
+  // bible pending — Phase 0 criterion 3). Rebuilt on buildingVersion moves.
+  const buildingLayer = new Graphics();
+  root.addChild(buildingLayer);
+  let drawnBuildingVersion = -1;
+
+  const drawBuildings = (views: readonly BuildingView[]): void => {
+    buildingLayer.clear();
+    for (const v of views) {
+      const { wx, wy } = tileToWorld(v.x, v.y);
+      const lift = v.level * 6; // px of extrusion per level [TUNE]
+      let color =
+        v.kind >= 100 ? (PLOPPABLE_COLOR[v.kind] ?? 0x666666) : (ZONE_COLOR[v.kind] ?? 0x888888);
+      if (v.status === 3) {
+        color = 0x4a4a4a; // abandoned: ash
+      } else if (v.status === 1 || v.status === 2) {
+        color = (color >> 1) & 0x7f7f7f; // unserved: darkened
+      }
+      // Extruded diamond: left/right faces + lifted top.
+      buildingLayer
+        .moveTo(wx - TILE_W / 2, wy + TILE_H / 2)
+        .lineTo(wx - TILE_W / 2, wy + TILE_H / 2 - lift)
+        .lineTo(wx, wy + TILE_H - lift)
+        .lineTo(wx, wy + TILE_H)
+        .closePath()
+        .fill({ color: (color >> 1) & 0x7f7f7f });
+      buildingLayer
+        .moveTo(wx + TILE_W / 2, wy + TILE_H / 2)
+        .lineTo(wx + TILE_W / 2, wy + TILE_H / 2 - lift)
+        .lineTo(wx, wy + TILE_H - lift)
+        .lineTo(wx, wy + TILE_H)
+        .closePath()
+        .fill({ color: ((color >> 2) & 0x3f3f3f) + 0x202020 });
+      diamondPath(buildingLayer, wx, wy - lift).fill({ color });
+    }
+  };
+
+  // Zone overlay (toggleable): translucent zone tints from the zone layer.
+  const zoneOverlay = new Graphics();
+  zoneOverlay.visible = false;
+  root.addChild(zoneOverlay);
+  let drawnZoneVersion = -1;
+  let zoneOverlayOn = false;
+  let lastZones: Uint16Array | null = null;
+
+  const drawZones = (): void => {
+    zoneOverlay.clear();
+    if (lastZones === null) {
+      return;
+    }
+    for (let i = 0; i < lastZones.length; i++) {
+      const zone = lastZones[i] as number;
+      if (zone === 0) {
+        continue;
+      }
+      const x = i % options.mapWidth;
+      const y = Math.floor(i / options.mapWidth);
+      const { wx, wy } = tileToWorld(x, y);
+      diamondPath(zoneOverlay, wx, wy).fill({ color: ZONE_COLOR[zone] ?? 0xffffff, alpha: 0.35 });
+    }
+  };
+
   const highlight = new Graphics();
   diamondPath(highlight, 0, 0).fill({ color: HIGHLIGHT_COLOR, alpha: 0.55 });
   highlight.visible = false;
@@ -149,6 +227,17 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
         drawRoads(state.roads);
         drawnRoadVersion = state.roadVersion;
       }
+      if (state.buildingVersion !== drawnBuildingVersion) {
+        drawBuildings(state.buildings);
+        drawnBuildingVersion = state.buildingVersion;
+      }
+      if (state.zones !== null) {
+        lastZones = state.zones;
+      }
+      if (zoneOverlayOn && state.zoneVersion !== drawnZoneVersion) {
+        drawZones();
+        drawnZoneVersion = state.zoneVersion;
+      }
       if (state.highlight === null) {
         highlight.visible = false;
         return;
@@ -162,6 +251,14 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
         if (id >= 0 && id < layout.count) {
           bakeChunk(id);
         }
+      }
+    },
+    setZoneOverlay(visible: boolean): void {
+      zoneOverlayOn = visible;
+      zoneOverlay.visible = visible;
+      if (visible) {
+        drawZones();
+        drawnZoneVersion = -2; // force redraw pickup on next update
       }
     },
     setGhost(a, b): void {

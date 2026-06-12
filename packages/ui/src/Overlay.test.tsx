@@ -6,6 +6,7 @@
  */
 import { type Snapshot, SnapshotKind } from "@civitect/protocol";
 import { act, cleanup, render, screen } from "@testing-library/react";
+import * as fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import type { CommandIntent } from "./dispatch";
 import { Overlay } from "./Overlay";
@@ -29,6 +30,8 @@ function snapshot(partial: Partial<Snapshot>): Snapshot {
     demand: { r: 0, c: 0, i: 0, o: 0, factors: [] },
     buildingVersion: 0,
     buildings: null,
+    zoneVersion: 0,
+    zones: null,
     ...partial,
   };
 }
@@ -117,5 +120,96 @@ describe("Overlay (HUD + speed controls)", () => {
     });
     expect(store.getState().tick).toBe(7);
     expect(store.getState().speed).toBe(0);
+  });
+});
+
+describe("DemandPanel (exit criterion 3: factors sum to displayed demand)", () => {
+  it("displayed factor values sum to the displayed net, for arbitrary blocks (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: -500, max: 500 }), { minLength: 12, maxLength: 12 }),
+        (factors) => {
+          cleanup();
+          const store = createUiStore();
+          const demand = {
+            r: factors[0]! + factors[1]! + factors[2]!,
+            c: factors[3]! + factors[4]! + factors[5]!,
+            i: factors[6]! + factors[7]! + factors[8]!,
+            o: factors[9]! + factors[10]! + factors[11]!,
+            factors,
+          };
+          render(<Overlay store={store} dispatch={() => {}} />);
+          act(() => {
+            store.getState().applySnapshot(snapshot({ tick: 1, demand }));
+          });
+          for (const [key, from] of [
+            ["r", 0],
+            ["c", 3],
+            ["i", 6],
+            ["o", 9],
+          ] as const) {
+            const net = Number(screen.getByTestId(`demand-${key}`).textContent);
+            const sum =
+              Number(screen.getByTestId(`demand-${key}-f0`).textContent) +
+              Number(screen.getByTestId(`demand-${key}-f1`).textContent) +
+              Number(screen.getByTestId(`demand-${key}-f2`).textContent);
+            expect(sum).toBe(net);
+            expect(net).toBe(demand[key]);
+          }
+        },
+      ),
+      { numRuns: 25 },
+    );
+  });
+});
+
+describe("AdvisorFeed (cause chains rendered with resolvable refs)", () => {
+  it("renders events with subject kind/id data attributes", () => {
+    const store = createUiStore();
+    render(<Overlay store={store} dispatch={() => {}} />);
+    act(() => {
+      store.getState().applySnapshot(
+        snapshot({
+          tick: 9,
+          advisorEvents: [
+            {
+              id: 1,
+              tick: 9,
+              severity: 2,
+              messageKey: "advisor.abandonment",
+              cause: {
+                summaryKey: "cause.utilityFailure",
+                links: [
+                  {
+                    subject: { kind: 2, id: 1234 },
+                    labelKey: "cause.noUtilities",
+                    weightPermille: 1000,
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      );
+    });
+    const link = screen.getByTestId("cause-link");
+    expect(link.getAttribute("data-subject-kind")).toBe("building");
+    expect(link.getAttribute("data-subject-id")).toBe("1234");
+  });
+
+  it("accumulates events across snapshots (feed, not last-frame)", () => {
+    const store = createUiStore();
+    const event = (id: number) => ({
+      id,
+      tick: id,
+      severity: 1 as const,
+      messageKey: "advisor.abandonment",
+      cause: { summaryKey: "s", links: [] },
+    });
+    act(() => {
+      store.getState().applySnapshot(snapshot({ tick: 1, advisorEvents: [event(1)] }));
+      store.getState().applySnapshot(snapshot({ tick: 2, advisorEvents: [event(2)] }));
+    });
+    expect(store.getState().advisorEvents.map((e) => e.id)).toEqual([2, 1]);
   });
 });

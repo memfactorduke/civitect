@@ -6,7 +6,13 @@
  * The store holds *display scalars only* — world rendering state belongs to
  * the renderer's DisplayState, and game truth lives across the wall.
  */
-import { type AdvisorEvent, type Snapshot, SnapshotKind, type TileCoord } from "@civitect/protocol";
+import {
+  type AdvisorEvent,
+  type DemandBlock,
+  type Snapshot,
+  SnapshotKind,
+  type TileCoord,
+} from "@civitect/protocol";
 import { useStore } from "zustand";
 import { createStore, type StoreApi } from "zustand/vanilla";
 
@@ -16,7 +22,9 @@ export interface UiState {
   readonly population: number;
   readonly fundsCents: number;
   readonly selectedTile: TileCoord | null;
+  /** Rolling advisor feed (latest first, capped) — events ACCUMULATE. */
   readonly advisorEvents: readonly AdvisorEvent[];
+  readonly demand: DemandBlock;
   applySnapshot(snapshot: Snapshot): void;
 }
 
@@ -30,6 +38,7 @@ export function createUiStore(): UiStore {
     fundsCents: 0,
     selectedTile: null,
     advisorEvents: [],
+    demand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
     applySnapshot(snapshot: Snapshot): void {
       // Keyframes are authoritative resets (scene load / save-load rewind,
       // TDD §7) and apply even to an older tick; stale DELTAS lose.
@@ -42,7 +51,9 @@ export function createUiStore(): UiStore {
         population: snapshot.hud.population,
         fundsCents: snapshot.hud.fundsCents,
         selectedTile: snapshot.selectedTile,
-        advisorEvents: snapshot.advisorEvents,
+        // Feed semantics: snapshots carry only NEW events; accumulate.
+        advisorEvents: [...snapshot.advisorEvents, ...get().advisorEvents].slice(0, 20),
+        demand: snapshot.demand,
       });
     },
   }));

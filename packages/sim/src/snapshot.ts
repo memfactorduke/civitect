@@ -46,6 +46,7 @@ export function toSnapshot(
   kind: SnapshotKind = SnapshotKind.delta,
   includeRoads = kind === SnapshotKind.keyframe,
   includeBuildings = kind === SnapshotKind.keyframe,
+  includeZones = kind === SnapshotKind.keyframe,
 ): Snapshot {
   return {
     kind,
@@ -66,5 +67,7 @@ export function toSnapshot(
     demand: world.lastDemand,
     buildingVersion: world.buildings.version,
     buildings: includeBuildings ? buildingViews(world) : null,
+    zoneVersion: world.zoneVersion,
+    zones: includeZones ? Uint16Array.from(world.terrain.layers.zone) : null,
   };
 }

@@ -6,6 +6,9 @@
  * through the generic CauseChain inspector — events without cause chains
  * fail typecheck (ADR-009); all strings through i18n keys.
  */
+
+export { AdvisorFeed } from "./AdvisorFeed";
+export { DemandPanel } from "./DemandPanel";
 export { type CommandIntent, type DispatchFn, DispatchProvider, useDispatch } from "./dispatch";
 export { formatCount, formatFundsCents } from "./format";
 export { Hud } from "./Hud";

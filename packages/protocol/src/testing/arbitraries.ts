@@ -226,6 +226,11 @@ export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
   demand: demandArb,
   buildingVersion: u32Arb,
   buildings: fc.option(fc.array(buildingViewArb, { maxLength: 12 }), { nil: null }),
+  zoneVersion: u32Arb,
+  zones: fc.option(
+    fc.array(fc.integer({ min: 0, max: 6 }), { maxLength: 64 }).map((zs) => Uint16Array.from(zs)),
+    { nil: null },
+  ),
 });
 
 export const tileInfoArb: fc.Arbitrary<TileInfo> = fc.record({

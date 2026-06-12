@@ -27,6 +27,8 @@ describe("toSnapshot", () => {
       demand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
       buildingVersion: 0,
       buildings: [],
+      zoneVersion: 0,
+      zones: new Uint16Array(64 * 64),
     });
   });
 

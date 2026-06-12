@@ -235,8 +235,10 @@ function pickWithUnemployed(b: Buildings, rng: Pcg32): number {
   return -1;
 }
 
-/** Hourly lifecycle slice: status clocks, leveling, abandonment, births/aging. */
-export function lifecycleSlice(ctx: GrowthContext, hourOfDay: number, tick: number): void {
+/** Hourly lifecycle slice: status clocks, leveling, abandonment, births/aging.
+ * Returns the tile indices of buildings abandoned THIS slice (advisor fuel). */
+export function lifecycleSlice(ctx: GrowthContext, hourOfDay: number, tick: number): number[] {
+  const newlyAbandoned: number[] = [];
   const b = ctx.buildings;
   const slice = Math.floor(tick / TICKS_PER_HOUR) % LIFECYCLE_SLICES;
   for (let i = slice; i < b.count; i += LIFECYCLE_SLICES) {
@@ -273,6 +275,7 @@ export function lifecycleSlice(ctx: GrowthContext, hourOfDay: number, tick: numb
         b.status[i] = BuildingStatus.abandoned;
         b.failDays[i] = 0;
         b.version++;
+        newlyAbandoned.push(b.tileIdx[i] as number);
       }
       continue;
     }
@@ -313,4 +316,5 @@ export function lifecycleSlice(ctx: GrowthContext, hourOfDay: number, tick: numb
       ctx.flows.births++;
     }
   }
+  return newlyAbandoned;
 }
