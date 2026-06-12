@@ -138,6 +138,8 @@ describe("map files (.civmap)", () => {
       },
       terrain: flatTerrain(8, 8),
       roads: [],
+      buildings: [],
+      cohorts: new Uint16Array(0),
       worldCore: {
         speed: 1,
         selectedTileIdx: -1,

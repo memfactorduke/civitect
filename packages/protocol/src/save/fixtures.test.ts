@@ -20,6 +20,7 @@ const FIXTURES_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "
 const V1_PATH = join(FIXTURES_DIR, "v1", "empty-world-y1.civ");
 const V2_PATH = join(FIXTURES_DIR, "v2", "empty-world-y1.civ");
 const V3_PATH = join(FIXTURES_DIR, "v3", "empty-world-y1.civ");
+const V4_PATH = join(FIXTURES_DIR, "v4", "empty-world-y1.civ");
 
 /**
  * Canonical v1 fixture content: an empty 64×64 world one game-year in,
@@ -27,7 +28,7 @@ const V3_PATH = join(FIXTURES_DIR, "v3", "empty-world-y1.civ");
  * is a format contract, not a sim artifact (sim-produced saves are PR 9's
  * e2e territory).
  */
-const V1_SAVE: Omit<CivSave, "terrain" | "roads"> = {
+const V1_SAVE: Omit<CivSave, "terrain" | "roads" | "buildings" | "cohorts"> = {
   header: {
     formatVersion: 1,
     simVersion: 1,
@@ -70,11 +71,17 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
     const decoded = await decodeCiv(new Uint8Array(readFileSync(V1_PATH)));
     // Migration injects flat terrain at the world's dims; header keeps the
     // original formatVersion so tooling can see provenance (ADR-010).
-    expect(decoded).toEqual({ ...V1_SAVE, terrain: flatTerrain(64, 64), roads: [] });
+    expect(decoded).toEqual({
+      ...V1_SAVE,
+      terrain: flatTerrain(64, 64),
+      roads: [],
+      buildings: [],
+      cohorts: new Uint16Array(0),
+    });
     expect(decoded.header.formatVersion).toBe(1);
   });
 
-  const V2_SAVE: Omit<CivSave, "roads"> = {
+  const V2_SAVE: Omit<CivSave, "roads" | "buildings" | "cohorts"> = {
     ...V1_SAVE,
     header: { ...V1_SAVE.header, formatVersion: 2 },
     terrain: flatTerrain(64, 64),
@@ -85,31 +92,47 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
       throw new Error(`fixture missing: ${V2_PATH}`);
     }
     const decoded = await decodeCiv(new Uint8Array(readFileSync(V2_PATH)));
-    expect(decoded).toEqual({ ...V2_SAVE, roads: [] });
+    expect(decoded).toEqual({ ...V2_SAVE, roads: [], buildings: [], cohorts: new Uint16Array(0) });
     expect(decoded.header.formatVersion).toBe(2);
   });
 
-  const V3_SAVE: CivSave = {
+  const V3_SAVE: Omit<CivSave, "buildings" | "cohorts"> = {
     ...V2_SAVE,
     header: { ...V2_SAVE.header, formatVersion: 3 },
     roads: [{ ax: 3, ay: 3, bx: 7, by: 3, roadClass: 1 }],
   };
 
-  if (process.env.SEED_FIXTURES === "1" && !existsSync(V3_PATH)) {
-    it("seeds the v3 fixture (first time only)", async () => {
-      mkdirSync(dirname(V3_PATH), { recursive: true });
-      writeFileSync(V3_PATH, await encodeCiv(V3_SAVE));
-      expect(existsSync(V3_PATH)).toBe(true);
+  it("v3 fixture loads forever — migrated to empty buildings, provenance preserved", async () => {
+    if (!existsSync(V3_PATH)) {
+      throw new Error(`fixture missing: ${V3_PATH}`);
+    }
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V3_PATH)));
+    expect(decoded).toEqual({ ...V3_SAVE, buildings: [], cohorts: new Uint16Array(0) });
+    expect(decoded.header.formatVersion).toBe(3);
+  });
+
+  const V4_SAVE: CivSave = {
+    ...V3_SAVE,
+    header: { ...V3_SAVE.header, formatVersion: 4 },
+    buildings: [{ tileIdx: 200, kind: 1, level: 2, status: 0, failDays: 0, thriveDays: 1 }],
+    cohorts: Uint16Array.from({ length: 20 }, (_, k) => (k === 8 ? 2 : 0)),
+  };
+
+  if (process.env.SEED_FIXTURES === "1" && !existsSync(V4_PATH)) {
+    it("seeds the v4 fixture (first time only)", async () => {
+      mkdirSync(dirname(V4_PATH), { recursive: true });
+      writeFileSync(V4_PATH, await encodeCiv(V4_SAVE));
+      expect(existsSync(V4_PATH)).toBe(true);
     });
   }
 
   it(`v${SAVE_FORMAT_VERSION} fixture decodes to its archived world, bit-faithfully`, async () => {
-    if (!existsSync(V3_PATH)) {
+    if (!existsSync(V4_PATH)) {
       throw new Error(
-        `fixture missing: ${V3_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
+        `fixture missing: ${V4_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
       );
     }
-    const decoded = await decodeCiv(new Uint8Array(readFileSync(V3_PATH)));
-    expect(decoded).toEqual(V3_SAVE);
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V4_PATH)));
+    expect(decoded).toEqual(V4_SAVE);
   });
 });
