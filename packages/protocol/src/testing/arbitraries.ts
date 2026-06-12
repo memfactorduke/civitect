@@ -23,6 +23,7 @@ import {
 } from "../commands";
 import { type Message, MessageKind } from "../envelope";
 import type { InspectorRequest, InspectorResponse, TileInfo } from "../inspector";
+import type { LoadRequest, LoadResponse, SaveRequest, SaveResponse } from "../save/messages";
 import { type Snapshot, SnapshotKind } from "../snapshot";
 
 const u8Arb = fc.integer({ min: 0, max: 0xff });
@@ -111,10 +112,33 @@ export const inspectorResponseArb: fc.Arbitrary<InspectorResponse> = fc.record({
   tile: fc.option(tileInfoArb, { nil: null }),
 });
 
+const civBytesArb = fc
+  .array(fc.integer({ min: 0, max: 0xff }), { maxLength: 256 })
+  .map((bytes) => Uint8Array.from(bytes));
+
+export const saveRequestArb: fc.Arbitrary<SaveRequest> = fc.record({ slot: u8Arb });
+
+export const saveResponseArb: fc.Arbitrary<SaveResponse> = fc.record({
+  slot: u8Arb,
+  civ: civBytesArb,
+});
+
+export const loadRequestArb: fc.Arbitrary<LoadRequest> = fc.record({ civ: civBytesArb });
+
+export const loadResponseArb: fc.Arbitrary<LoadResponse> = fc.record({
+  ok: fc.boolean(),
+  tick: tickArb,
+  detail: keyArb,
+});
+
 export const messageArb: fc.Arbitrary<Message> = fc.oneof(
   commandArb.map((body): Message => ({ kind: MessageKind.command, body })),
   rejectionArb.map((body): Message => ({ kind: MessageKind.commandRejection, body })),
   snapshotArb.map((body): Message => ({ kind: MessageKind.snapshot, body })),
   inspectorRequestArb.map((body): Message => ({ kind: MessageKind.inspectorRequest, body })),
   inspectorResponseArb.map((body): Message => ({ kind: MessageKind.inspectorResponse, body })),
+  saveRequestArb.map((body): Message => ({ kind: MessageKind.saveRequest, body })),
+  saveResponseArb.map((body): Message => ({ kind: MessageKind.saveResponse, body })),
+  loadRequestArb.map((body): Message => ({ kind: MessageKind.loadRequest, body })),
+  loadResponseArb.map((body): Message => ({ kind: MessageKind.loadResponse, body })),
 );

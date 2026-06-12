@@ -70,7 +70,8 @@ describe("message envelope", () => {
 
   it("rejects empty and truncated envelopes", () => {
     expect(() => decodeMessage(new Uint8Array(0))).toThrow(DecodeError);
-    expect(() => decodeMessage(Uint8Array.of(1, 0, 1))).toThrow(DecodeError);
+    // Correct version stamp (little-endian u16), then truncation mid-header.
+    expect(() => decodeMessage(Uint8Array.of(PROTOCOL_VERSION, 0, 1))).toThrow(DecodeError);
   });
 
   // ── Wire-layout pins ────────────────────────────────────────────────────
@@ -79,17 +80,52 @@ describe("message envelope", () => {
   // the tripwire; the property tests above can't see layout drift because
   // both sides drift together.
 
-  it("pins the selectTile command wire layout (v1)", () => {
+  it("pins the selectTile command wire layout (v2 stamp; body unchanged since v1)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.command,
       body: { seq: 1, tick: 2, type: CommandType.selectTile, x: 3, y: 4 },
     });
     expect(toHex(bytes)).toBe(
-      ["0100", "01", "12000000", "01000000", "0200000000000000", "0100", "0300", "0400"].join(""),
+      ["0200", "01", "12000000", "01000000", "0200000000000000", "0100", "0300", "0400"].join(""),
     );
   });
 
-  it("pins the empty-world snapshot wire layout (v1)", () => {
+  it("pins the saveResponse wire layout (v2)", () => {
+    const bytes = encodeMessage({
+      kind: MessageKind.saveResponse,
+      body: { slot: 2, civ: Uint8Array.of(0xca, 0xfe) },
+    });
+    expect(toHex(bytes)).toBe(
+      [
+        "0200", // protocol version
+        "07", // MessageKind.saveResponse
+        "07000000", // body length 7
+        "02", // slot
+        "02000000", // civ byte length
+        "cafe", // civ bytes
+      ].join(""),
+    );
+  });
+
+  it("pins the loadResponse wire layout (v2)", () => {
+    const bytes = encodeMessage({
+      kind: MessageKind.loadResponse,
+      body: { ok: false, tick: 7, detail: "bad" },
+    });
+    expect(toHex(bytes)).toBe(
+      [
+        "0200", // protocol version
+        "09", // MessageKind.loadResponse
+        "0e000000", // body length 14
+        "00", // ok = false
+        "0700000000000000", // tick
+        "0300", // detail byte length
+        "626164", // "bad"
+      ].join(""),
+    );
+  });
+
+  it("pins the empty-world snapshot wire layout (v2 stamp; body unchanged since v1)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.snapshot,
       body: {
@@ -104,7 +140,7 @@ describe("message envelope", () => {
     });
     expect(toHex(bytes)).toBe(
       [
-        "0100", // protocol version
+        "0200", // protocol version
         "03", // MessageKind.snapshot
         "1d000000", // body length 29
         "01", // SnapshotKind.keyframe

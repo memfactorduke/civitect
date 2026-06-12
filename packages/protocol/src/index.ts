@@ -67,6 +67,20 @@ export {
   type WorldCore,
 } from "./save/civ";
 export { compressDeflateRaw, decompressDeflateRaw } from "./save/compression";
+export {
+  decodeLoadRequestBody,
+  decodeLoadResponseBody,
+  decodeSaveRequestBody,
+  decodeSaveResponseBody,
+  encodeLoadRequestBody,
+  encodeLoadResponseBody,
+  encodeSaveRequestBody,
+  encodeSaveResponseBody,
+  type LoadRequest,
+  type LoadResponse,
+  type SaveRequest,
+  type SaveResponse,
+} from "./save/messages";
 export { xxh64, xxh64Hex } from "./save/xxhash64";
 export {
   decodeSnapshotBody,

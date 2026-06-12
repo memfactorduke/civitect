@@ -7,4 +7,5 @@
  * impossible to miss. Wire ids (message kinds, command types, entity kinds,
  * reason codes) are append-only; never renumber.
  */
-export const PROTOCOL_VERSION = 1;
+// v2: save/load message kinds joined the envelope (board PR 9, TDD §10).
+export const PROTOCOL_VERSION = 2;
