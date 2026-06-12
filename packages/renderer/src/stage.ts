@@ -9,11 +9,11 @@
  * with terrain (map files), they bake flat tile tints (v0 "art" [TUNE]).
  */
 
-import type { TerrainGrid } from "@civitect/protocol";
+import type { RoadSegment, TerrainGrid } from "@civitect/protocol";
 import { Container, Graphics } from "pixi.js";
 import { CHUNK_TILES, chunkLayout, chunkTiles, terrainTint } from "./chunks";
 import type { DisplayState } from "./display";
-import { TILE_H, TILE_W, tileToWorld } from "./iso";
+import { TILE_H, TILE_W, tileCenterToWorld, tileToWorld } from "./iso";
 
 export interface WorldStageOptions {
   readonly mapWidth: number;
@@ -35,6 +35,13 @@ export interface WorldStage {
 
 const GRID_COLOR = 0x3a4a3f; // placeholder slate-green until terrain art
 const HIGHLIGHT_COLOR = 0xffd166;
+
+/** Road class → stroke {width, color} at 1× [TUNE until road sprites]. */
+const ROAD_STYLE: Readonly<Record<number, { width: number; color: number }>> = {
+  1: { width: 6, color: 0x4a4a4a }, // street
+  2: { width: 10, color: 0x5a5a5e }, // avenue
+  3: { width: 14, color: 0x6b6b70 }, // highway
+};
 
 function diamondPath(g: Graphics, wx: number, wy: number): Graphics {
   // wx/wy = tile top corner (north vertex), per iso.ts convention.
@@ -98,6 +105,27 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     bakeChunk(id);
   }
 
+  // Road layer: rebuilt wholesale when the road version moves (v0 — segment
+  // counts are small; per-segment diffing arrives with bigger networks).
+  const roadLayer = new Graphics();
+  root.addChild(roadLayer);
+  let drawnRoadVersion = -1;
+
+  const drawRoads = (segments: readonly RoadSegment[]): void => {
+    roadLayer.clear();
+    for (const seg of segments) {
+      const a = tileCenterToWorld(seg.ax, seg.ay);
+      const b = tileCenterToWorld(seg.bx, seg.by);
+      const style =
+        ROAD_STYLE[seg.roadClass] ?? (ROAD_STYLE[1] as { width: number; color: number });
+      roadLayer.moveTo(a.wx, a.wy).lineTo(b.wx, b.wy).stroke({
+        width: style.width,
+        color: style.color,
+        cap: "round",
+      });
+    }
+  };
+
   const highlight = new Graphics();
   diamondPath(highlight, 0, 0).fill({ color: HIGHLIGHT_COLOR, alpha: 0.55 });
   highlight.visible = false;
@@ -107,6 +135,10 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     root,
     chunkCount: layout.count,
     update(state: DisplayState): void {
+      if (state.roadVersion !== drawnRoadVersion) {
+        drawRoads(state.roads);
+        drawnRoadVersion = state.roadVersion;
+      }
       if (state.highlight === null) {
         highlight.visible = false;
         return;

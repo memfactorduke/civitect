@@ -35,6 +35,16 @@ export interface TileCoord {
   readonly y: number;
 }
 
+/** One road segment as the renderer needs it (tile-pair + class). */
+export interface RoadSegment {
+  readonly ax: number;
+  readonly ay: number;
+  readonly bx: number;
+  readonly by: number;
+  /** RoadClassWire value (commands.ts). */
+  readonly roadClass: number;
+}
+
 export interface Snapshot {
   readonly kind: SnapshotKind;
   readonly tick: number;
@@ -47,6 +57,13 @@ export interface Snapshot {
   readonly hud: HudScalars;
   /** Each event carries a required CauseChain (ADR-009). Empty until Phase 2. */
   readonly advisorEvents: readonly AdvisorEvent[];
+  /** Road-network version (u32) — renderers rebuild their road layer when it moves. */
+  readonly roadVersion: number;
+  /**
+   * Full segment list when the sender includes it (keyframes always; deltas
+   * after a road mutation); null = unchanged since the last list.
+   */
+  readonly roads: readonly RoadSegment[] | null;
 }
 
 export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
@@ -65,6 +82,15 @@ export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
   w.u16(snap.advisorEvents.length);
   for (const event of snap.advisorEvents) {
     encodeAdvisorEvent(w, event);
+  }
+  w.u32(snap.roadVersion);
+  if (snap.roads === null) {
+    w.u8(0);
+  } else {
+    w.u8(1).u32(snap.roads.length);
+    for (const seg of snap.roads) {
+      w.u16(seg.ax).u16(seg.ay).u16(seg.bx).u16(seg.by).u8(seg.roadClass);
+    }
   }
 }
 
@@ -91,5 +117,18 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
   for (let i = 0; i < eventCount; i++) {
     advisorEvents.push(decodeAdvisorEvent(r));
   }
-  return { kind, tick, speed, selectedTile, dirtyChunkIds, hud, advisorEvents };
+  const roadVersion = r.u32();
+  const hasRoads = r.u8();
+  if (hasRoads > 1) {
+    throw new DecodeError(`roads presence flag must be 0|1, got ${hasRoads}`);
+  }
+  let roads: RoadSegment[] | null = null;
+  if (hasRoads === 1) {
+    const count = r.u32();
+    roads = [];
+    for (let i = 0; i < count; i++) {
+      roads.push({ ax: r.u16(), ay: r.u16(), bx: r.u16(), by: r.u16(), roadClass: r.u8() });
+    }
+  }
+  return { kind, tick, speed, selectedTile, dirtyChunkIds, hud, advisorEvents, roadVersion, roads };
 }

@@ -22,6 +22,8 @@ describe("toSnapshot", () => {
       dirtyChunkIds: new Uint32Array(0),
       hud: { population: 0, fundsCents: 0 },
       advisorEvents: [],
+      roadVersion: 0,
+      roads: [], // keyframes state the no-roads truth explicitly
     });
   });
 

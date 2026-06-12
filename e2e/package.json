@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@civitect/protocol": "workspace:*",
+    "@civitect/renderer": "workspace:*",
     "@civitect/sim": "workspace:*"
   },
   "devDependencies": {

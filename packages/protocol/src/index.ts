@@ -108,6 +108,7 @@ export {
   decodeSnapshotBody,
   encodeSnapshotBody,
   type HudScalars,
+  type RoadSegment,
   type Snapshot,
   SnapshotKind,
   type TileCoord,

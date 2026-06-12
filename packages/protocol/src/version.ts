@@ -8,5 +8,6 @@
  * reason codes) are append-only; never renumber.
  */
 // v2: save/load message kinds (board PR 9). v3: road command vocabulary
-// — buildRoad/bulldozeRoad/upgradeRoad/undo/redo (phase-1 board task 5).
-export const PROTOCOL_VERSION = 3;
+// (task 5). v4: snapshots carry roadVersion + optional segment list
+// (task 12a — road rendering).
+export const PROTOCOL_VERSION = 4;
