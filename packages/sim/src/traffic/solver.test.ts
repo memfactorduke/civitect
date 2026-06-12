@@ -34,10 +34,25 @@ function grownWorld(seed: number, days: number): World {
   return world;
 }
 
-function finishJob(world: World): void {
+function finishJob(world: World, hourOfDay = 8): void {
   while (world.traffic.job !== null) {
-    stepSolveJob(world.traffic, world.buildings, world.roads, world.mapWidth, world.mapHeight);
+    stepSolveJob(
+      world.traffic,
+      world.buildings,
+      world.roads,
+      world.mapWidth,
+      world.mapHeight,
+      hourOfDay,
+    );
   }
+}
+
+/** Blend one PEAK-hour incremental step — overnight curves decay volumes
+ * to zero (by design), so probes that need traffic drive a rush hour. */
+function peakStep(world: World): void {
+  finishJob(world);
+  startSolveJob(world.traffic, SolveKind.incremental);
+  finishJob(world, 8);
 }
 
 describe("sliced solver (TDD §6.3 — no hour-boundary spike)", () => {
@@ -61,7 +76,7 @@ describe("sliced solver (TDD §6.3 — no hour-boundary spike)", () => {
 
   it("volumes persist between solves and only move at pass finalize", () => {
     const world = grownWorld(7, 2);
-    finishJob(world);
+    peakStep(world);
     const idle = trafficToSave(world.traffic, world.roads).volumes;
     expect(idle.reduce((s, v) => s + v, 0)).toBeGreaterThan(0); // memory, not derived
     while (world.tick % TICKS_PER_HOUR !== 0 || world.traffic.job !== null) {
@@ -96,7 +111,7 @@ describe("sliced solver (TDD §6.3 — no hour-boundary spike)", () => {
     const movement: number[] = [];
     for (let step = 0; step < 6; step++) {
       startSolveJob(world.traffic, SolveKind.incremental);
-      finishJob(world);
+      finishJob(world, 8); // fixed peak hour = static demand
       const cur = trafficToSave(world.traffic, world.roads).volumes;
       let delta = 0;
       for (let i = 0; i < cur.length; i++) {
@@ -115,7 +130,7 @@ describe("sliced solver (TDD §6.3 — no hour-boundary spike)", () => {
 
   it("network edits keep volumes for surviving canonical edges (no reset)", () => {
     const world = grownWorld(7, 2);
-    finishJob(world);
+    peakStep(world);
     const before = world.traffic.canonVolumes;
     expect(before.size).toBeGreaterThan(0);
     // Build a disconnected spur far from the corridor: the corridor's

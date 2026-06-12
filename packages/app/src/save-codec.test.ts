@@ -182,12 +182,13 @@ describe("traffic through the save pipeline (save format v5, TDD §6.3)", () => 
     expect(restored.traffic.job).not.toBeNull();
 
     // The strong claim: the resumed job and the never-interrupted one
-    // finish the solve — and the next several hours — identically.
-    for (let t = 0; t < 240; t++) {
+    // finish the solve — and the night, the 04:00 FULL equilibrium solve,
+    // and the morning rush — identically (600 ticks = hours 0→10).
+    for (let t = 0; t < 600; t++) {
       runTick(world, []);
       runTick(restored, []);
       expect(stateHash(restored)).toBe(stateHash(world));
     }
-    expect(world.traffic.generated).toBeGreaterThan(0);
+    expect(world.traffic.generated).toBeGreaterThan(0); // morning peak ran
   });
 });

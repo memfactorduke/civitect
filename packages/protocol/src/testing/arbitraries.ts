@@ -224,6 +224,11 @@ const buildingViewArb = fc.record({
 
 export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
   agentCount: fc.nat({ max: 0xffff }),
+  congestionVersion: u32Arb,
+  congestion: fc.option(
+    fc.array(fc.nat({ max: 3000 }), { maxLength: 8 }).map((xs) => Uint16Array.from(xs)),
+    { nil: null },
+  ),
   kind: fc.constantFrom(...Object.values(SnapshotKind)),
   tick: tickArb,
   speed: u8Arb,
@@ -255,10 +260,20 @@ export const inspectorRequestArb: fc.Arbitrary<InspectorRequest> = fc.record({
   target: entityRefArb,
 });
 
+export const roadInfoArb = fc.record({
+  roadClass: u8Arb,
+  volume: u32Arb,
+  capacity: u32Arb,
+  vcPermille: fc.nat({ max: 3000 }),
+  freeFlowCost: u32Arb,
+  congestedCost: u32Arb,
+});
+
 export const inspectorResponseArb: fc.Arbitrary<InspectorResponse> = fc.record({
   requestId: u32Arb,
   tick: tickArb,
   tile: fc.option(tileInfoArb, { nil: null }),
+  road: fc.option(roadInfoArb, { nil: null }),
 });
 
 const civBytesArb = fc

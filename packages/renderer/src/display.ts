@@ -33,6 +33,10 @@ export interface DisplayState {
   readonly zones: Uint16Array | null;
   /** Agents in the latest transform rider (the buffer rides separately). */
   readonly agentCount: number;
+  /** Traffic overlay redraws when this moves. */
+  readonly congestionVersion: number;
+  /** v/c permille parallel to `roads` (deltas with null keep the previous). */
+  readonly congestion: Uint16Array | null;
 }
 
 export function initialDisplayState(): DisplayState {
@@ -48,6 +52,8 @@ export function initialDisplayState(): DisplayState {
     zoneVersion: -1,
     zones: null,
     agentCount: 0,
+    congestionVersion: -1,
+    congestion: null,
   };
 }
 
@@ -78,5 +84,7 @@ export function applySnapshot(state: DisplayState, snapshot: Snapshot): DisplayS
     zoneVersion: snapshot.zoneVersion,
     zones: snapshot.zones ?? state.zones,
     agentCount: snapshot.agentCount,
+    congestionVersion: snapshot.congestionVersion,
+    congestion: snapshot.congestion ?? state.congestion,
   };
 }

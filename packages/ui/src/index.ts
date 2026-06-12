@@ -14,5 +14,6 @@ export { formatCount, formatFundsCents } from "./format";
 export { Hud } from "./Hud";
 export { type I18nKey, t } from "./i18n";
 export { Overlay } from "./Overlay";
+export { RoadInspector } from "./RoadInspector";
 export { SpeedControls } from "./SpeedControls";
 export { createUiStore, type UiState, type UiStore, useUiStore } from "./store";
