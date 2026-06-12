@@ -7,8 +7,11 @@ on:
   workflow_dispatch:
 
 jobs:
+  # TDD §12.6 / ADR-005: golden replays in Chromium + WebKit must reproduce
+  # the committed Node hashes (which the per-PR golden gate verifies) —
+  # catches engine float/JIT surprises. LIVE since board PR 12.
   determinism-cross-check:
-    name: Determinism cross-check (STUB — ROADMAP Phase 0)
+    name: Determinism cross-check (Node/Chromium/WebKit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +21,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: node scripts/ci/determinism-cross-check.mjs
+      - name: Golden gate (the Node anchor for the committed hashes)
+        run: pnpm gate:golden
+      - name: Install Playwright browsers (Chromium + WebKit)
+        run: pnpm --filter @civitect/e2e exec playwright install --with-deps chromium webkit
+      - name: Cross-check (browsers must reproduce the committed hashes)
+        run: pnpm e2e:cross-check
 
   device-perf-traces:
     name: Device perf traces (STUB — ROADMAP Phase 1)

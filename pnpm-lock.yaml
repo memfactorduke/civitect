@@ -45,6 +45,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.21
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.3(@types/node@22.19.21)
       vitest:
         specifier: ^3.0.0
         version: 3.2.6(@types/node@22.19.21)(jsdom@29.1.1)
