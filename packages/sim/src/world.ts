@@ -79,6 +79,7 @@ import {
   type ServiceCoverageCache,
   type ServiceFieldInputs,
 } from "./services/coverage";
+import { emptyFireFlows, type FireFlows, fireSlice } from "./services/fire";
 import { emptyServiceFlows, type ServiceFlows, servicesSlice } from "./services/loops";
 import {
   airFor,
@@ -173,6 +174,8 @@ export interface World {
   readonly serviceFlows: ServiceFlows;
   /** Derived air/noise/water fields + pump crisis — fenced, never hashed. */
   readonly pollutionCache: PollutionCache;
+  /** Fire diagnostics ledger (not hashed). */
+  readonly fireFlows: FireFlows;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
   agents: AgentPool;
   /** Camera bounds from the viewportHint message — sampler input ONLY. */
@@ -296,6 +299,7 @@ export function createWorld(
     coverageCache: createCoverageCache(),
     serviceFlows: emptyServiceFlows(),
     pollutionCache: createPollutionCache(),
+    fireFlows: emptyFireFlows(),
     agents: createAgentPool(seed),
     viewport: null,
     rng,
@@ -1182,6 +1186,41 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     // Deaths are population outflows — the conservation identity (pop =
     // in − out, exact every tick) routes them through GrowthFlows.
     world.flows.deaths += world.serviceFlows.deaths - deathsBefore;
+
+    // Fire (board task 5, rng.events): ignition/burn/response/spread.
+    // The congested twin cost field is the dispatcher's map — jams
+    // literally push fires out of a station's reach (GDD §9 [LOCKED]).
+    fireSlice(
+      {
+        buildings: world.buildings,
+        roads: world.roads,
+        traffic: world.traffic,
+        budgetsPermille: world.services.budgetsPermille,
+        mapWidth: world.mapWidth,
+        mapHeight: world.mapHeight,
+        rng: world.rng.events,
+        flows: world.fireFlows,
+        onFlee: (count) => {
+          world.flows.emigrants += count;
+        },
+        emit: (severity, messageKey, summaryKey, links) =>
+          emitAdvisor(
+            world,
+            severity === "alert" ? AdvisorSeverity.alert : AdvisorSeverity.warning,
+            messageKey,
+            summaryKey,
+            links.map((l) => ({
+              subject: {
+                kind: l.kind as AdvisorEvent["cause"]["links"][number]["subject"]["kind"],
+                id: l.id,
+              },
+              labelKey: l.labelKey,
+              weightPermille: l.weightPermille,
+            })),
+          ),
+      },
+      world.tick,
+    );
 
     const hourOfDay = Math.floor(world.tick / TICKS_PER_HOUR) % 24;
     const day = Math.floor(world.tick / 1440);

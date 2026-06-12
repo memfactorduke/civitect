@@ -18,6 +18,9 @@ export const BuildingStatus = {
   unpowered: 1,
   unwatered: 2,
   abandoned: 3,
+  /** Phase 4 fire states (append-only — status rides snapshots as u8). */
+  onFire: 4,
+  ruin: 5,
 } as const;
 export type BuildingStatus = (typeof BuildingStatus)[keyof typeof BuildingStatus];
 

@@ -97,6 +97,19 @@ export {
   type ServiceFieldInputs,
 } from "./services/coverage";
 export {
+  BURN_RUIN_HOURS,
+  burnHours,
+  emptyFireFlows,
+  type FireCauseLink,
+  type FireContext,
+  type FireFlows,
+  fireSlice,
+  IGNITION_PER_100K_DAY,
+  RUIN_CLEAR_DAYS,
+  SECONDARY_FIRE_BIT,
+  SPREAD_AFTER_HOURS,
+} from "./services/fire";
+export {
   BASE_SICK_PERMILLE,
   CORPSES_PER_HEARSE_PER_DAY,
   EDUCATION_DAYS,
