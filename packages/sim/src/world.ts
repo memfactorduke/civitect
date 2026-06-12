@@ -72,11 +72,14 @@ import {
   upgradeEdge,
 } from "./roads/graph";
 import {
+  coverageAtTile,
   coverageFor,
   createCoverageCache,
+  distancesFor,
   type ServiceCoverageCache,
   type ServiceFieldInputs,
 } from "./services/coverage";
+import { emptyServiceFlows, type ServiceFlows, servicesSlice } from "./services/loops";
 import {
   createTraffic,
   FULL_SOLVE_HOUR,
@@ -151,6 +154,8 @@ export interface World {
   readonly groundPollution: Uint8Array;
   /** Coverage fields per service — derived, fenced, never hashed/saved. */
   readonly coverageCache: ServiceCoverageCache;
+  /** Service-loop diagnostics ledger (GrowthFlows pattern, not hashed). */
+  readonly serviceFlows: ServiceFlows;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
   agents: AgentPool;
   /** Camera bounds from the viewportHint message — sampler input ONLY. */
@@ -272,30 +277,44 @@ export function createWorld(
     services: { budgetsPermille: new Uint16Array(SERVICE_COUNT).fill(1000), version: 0 },
     groundPollution: new Uint8Array(mapWidth * mapHeight),
     coverageCache: createCoverageCache(),
+    serviceFlows: emptyServiceFlows(),
     agents: createAgentPool(seed),
     viewport: null,
     rng,
   };
 }
 
+function coverageInputs(world: World): { inputs: ServiceFieldInputs; fenceKey: string } {
+  return {
+    inputs: {
+      roads: world.roads,
+      buildings: world.buildings,
+      budgetsPermille: world.services.budgetsPermille,
+      mapWidth: world.mapWidth,
+      mapHeight: world.mapHeight,
+    },
+    fenceKey: `${world.roads.version},${world.buildings.version},${world.services.version}`,
+  };
+}
+
 /**
- * Coverage field + content digest for one service — the overlay,
- * inspector and service loops all read through this one fence (derived
- * state; recomputes when roads/buildings/budgets move).
+ * FULL coverage field + content digest for one service — the overlay and
+ * exit-criterion surface (derived; recomputes when roads/buildings/
+ * budgets move). The loops use serviceCoverageAt instead.
  */
 export function serviceCoverage(
   world: World,
   service: ServiceId,
 ): { coverage: Uint8Array; digestU32: number } {
-  const inputs: ServiceFieldInputs = {
-    roads: world.roads,
-    buildings: world.buildings,
-    budgetsPermille: world.services.budgetsPermille,
-    mapWidth: world.mapWidth,
-    mapHeight: world.mapHeight,
-  };
-  const fenceKey = `${world.roads.version},${world.buildings.version},${world.services.version}`;
+  const { inputs, fenceKey } = coverageInputs(world);
   return coverageFor(world.coverageCache, service, inputs, fenceKey);
+}
+
+/** Spot-read coverage at one tile (loops/inspector; no full-field cost). */
+export function serviceCoverageAt(world: World, service: ServiceId, tileIdx: number): number {
+  const { inputs, fenceKey } = coverageInputs(world);
+  const dist = distancesFor(world.coverageCache, service, inputs, fenceKey);
+  return coverageAtTile(dist, tileIdx, world.mapWidth, world.mapHeight);
 }
 
 const ZONE_ROAD_DEPTH = 4; // GDD §6: zoning depth along roads
@@ -1066,7 +1085,32 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // test). The hashed rng.agents stream stays reserved for future
   // canonical agent decisions.
   updateAgents(world);
-  // services(queues)                  — TODO(ROADMAP Phase 4), rng.services
+  // services(queues): hourly staggered slice (board phase-4 task 3) —
+  // garbage, health/sickness, deathcare, education on rng.services.
+  if (world.tick % TICKS_PER_HOUR === 0) {
+    const deathsBefore = world.serviceFlows.deaths;
+    servicesSlice(
+      {
+        buildings: world.buildings,
+        budgetsPermille: world.services.budgetsPermille,
+        coverageAt: (service, tileIdx) => serviceCoverageAt(world, service, tileIdx),
+        rng: world.rng.services,
+        flows: world.serviceFlows,
+        emit: (messageKey, summaryKey, subjectTile, weightPermille) =>
+          emitAdvisor(world, AdvisorSeverity.warning, messageKey, summaryKey, [
+            {
+              subject: { kind: EntityKind.building, id: subjectTile },
+              labelKey: summaryKey,
+              weightPermille,
+            },
+          ]),
+      },
+      world.tick,
+    );
+    // Deaths are population outflows — the conservation identity (pop =
+    // in − out, exact every tick) routes them through GrowthFlows.
+    world.flows.deaths += world.serviceFlows.deaths - deathsBefore;
+  }
   // pollution/landValue(dirty regions)— land value v1 derives on demand
   // HUD/demand reuse the same scan (one tick of staleness on spawn counts
   // is deterministic and invisible at city scale).

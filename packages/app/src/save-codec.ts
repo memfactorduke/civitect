@@ -19,6 +19,7 @@ import {
   createBuildings,
   createCoverageCache,
   createRoadGraph,
+  emptyServiceFlows,
   Pcg32,
   type Pcg32State,
   RNG_STREAM_NAMES,
@@ -212,6 +213,7 @@ export function civToWorld(save: CivSave): World {
         ? new Uint8Array(core.mapWidth * core.mapHeight)
         : Uint8Array.from(save.services.groundPollution),
     coverageCache: createCoverageCache(),
+    serviceFlows: emptyServiceFlows(),
     agents: createAgentPool(save.header.seed),
     viewport: null,
     rng,

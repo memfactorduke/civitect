@@ -192,3 +192,60 @@ describe("traffic through the save pipeline (save format v5, TDD §6.3)", () => 
     expect(world.traffic.generated).toBeGreaterThan(0); // morning peak ran
   });
 });
+
+describe("services through the save pipeline (save format v7, phase-4 task 3)", () => {
+  // The serviced-city continuation test is THE order-leak hunter: a loaded
+  // world must make byte-identical service decisions (clearance order,
+  // sickness draws, promotion quotas, anchor choices) as the world that
+  // never stopped — the Phase 3 tranche-2 desync class.
+  const servicedLog = [
+    { seq: 0, tick: 0, type: CommandType.buildRoad, ax: 4, ay: 8, bx: 40, by: 8, roadClass: 1 },
+    { seq: 1, tick: 0, type: CommandType.buildRoad, ax: 4, ay: 16, bx: 40, by: 16, roadClass: 1 },
+    { seq: 2, tick: 0, type: CommandType.buildRoad, ax: 4, ay: 8, bx: 4, by: 16, roadClass: 1 },
+    { seq: 3, tick: 1, type: CommandType.placeBuilding, x: 5, y: 9, building: 1 },
+    { seq: 4, tick: 1, type: CommandType.placeBuilding, x: 6, y: 9, building: 2 },
+    { seq: 5, tick: 1, type: CommandType.placeBuilding, x: 7, y: 9, building: 18 },
+    { seq: 6, tick: 1, type: CommandType.placeBuilding, x: 8, y: 9, building: 7 },
+    { seq: 7, tick: 1, type: CommandType.placeBuilding, x: 9, y: 9, building: 9 },
+    { seq: 8, tick: 1, type: CommandType.placeBuilding, x: 10, y: 9, building: 11 },
+    { seq: 9, tick: 2, type: CommandType.zoneRect, x0: 5, y0: 10, x1: 38, y1: 14, zone: 1 },
+    { seq: 10, tick: 2, type: CommandType.zoneRect, x0: 5, y0: 4, x1: 38, y1: 7, zone: 5 },
+    { seq: 11, tick: 3, type: CommandType.setServiceBudget, service: 8, permille: 1300 },
+  ] as Parameters<typeof replay>[1];
+
+  it("budgets, building service fields and ground pollution round-trip bit-exactly", async () => {
+    const { world } = replay(BOOT.seed, servicedLog, 2 * 1440, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+    });
+    // Make the optional fields non-trivial before saving.
+    world.groundPollution[123] = 77;
+    const before = stateHash(world);
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(before);
+    expect(restored.services.budgetsPermille[7]).toBe(1300);
+    expect(restored.groundPollution[123]).toBe(77);
+  });
+
+  it("a save taken MID-DAY continues identically through two more service days", async () => {
+    // Save at a deliberately awkward tick: mid-day, mid-hour (not a slice
+    // boundary), with garbage half-collected and sickness in flight.
+    const horizon = 1440 + 700;
+    const { world } = replay(BOOT.seed, servicedLog, horizon, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+    });
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(stateHash(world));
+    for (let t = 0; t < 2 * 1440; t++) {
+      runTick(world, []);
+      runTick(restored, []);
+      if (t % 480 === 0) {
+        expect(stateHash(restored)).toBe(stateHash(world));
+      }
+    }
+    expect(stateHash(restored)).toBe(stateHash(world));
+    // The run was service-active, not vacuously green.
+    expect(world.serviceFlows.garbageGenerated).toBeGreaterThan(0);
+  });
+});
