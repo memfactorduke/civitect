@@ -38,5 +38,13 @@
       "population": 0,
       "fundsCents": 0
     }
+  },
+  "services-city-01": {
+    "hash": "44e02bc86f74c90a",
+    "hud": {
+      "tick": 131400,
+      "population": 38336,
+      "fundsCents": 0
+    }
   }
 }
