@@ -74,8 +74,8 @@ describe("save → load → state-hash-equal (TDD §10)", () => {
   });
 });
 
-describe("roads block saving until format v3 (honest failure beats silent loss)", () => {
-  it("worldToCiv throws on a world with roads", () => {
+describe("roads through the save pipeline (save format v3, task 12f)", () => {
+  it("a world with roads round-trips to an identical state hash", async () => {
     const { world } = replay(BOOT.seed, [], 1, {
       mapWidth: BOOT.mapWidth,
       mapHeight: BOOT.mapHeight,
@@ -83,7 +83,12 @@ describe("roads block saving until format v3 (honest failure beats silent loss)"
     runTick(world, [
       { seq: 0, tick: 1, type: CommandType.buildRoad, ax: 1, ay: 1, bx: 2, by: 1, roadClass: 1 },
     ]);
-    expect(() => worldToCiv(world, [])).toThrow(/save format v3/);
+    runTick(world, [
+      { seq: 1, tick: 2, type: CommandType.buildRoad, ax: 2, ay: 1, bx: 2, by: 4, roadClass: 3 },
+    ]);
+    const before = stateHash(world);
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(before);
   });
 });
 

@@ -137,6 +137,7 @@ describe("map files (.civmap)", () => {
         flags: 0,
       },
       terrain: flatTerrain(8, 8),
+      roads: [],
       worldCore: {
         speed: 1,
         selectedTileIdx: -1,

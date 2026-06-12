@@ -11,9 +11,9 @@ import { compressDeflateRaw, decompressDeflateRaw } from "./compression";
 import { xxh64 } from "./xxhash64";
 
 export const SAVE_MAGIC = "CIVT";
-// v2: saves carry a TERRAIN section (phase-1 task 7a); v1 loads via
-// migrations/v1_v2 (flat-terrain injection — ADR-010).
-export const SAVE_FORMAT_VERSION = 2;
+// v2: TERRAIN section (task 7a; v1 migrates via flat-terrain injection).
+// v3: ROADS section (task 12f; v2 migrates via empty-network injection).
+export const SAVE_FORMAT_VERSION = 3;
 
 export interface ContainerHeader {
   readonly formatVersion: number;
