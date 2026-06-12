@@ -72,6 +72,7 @@ describe("traffic assignment (GDD §9, Phase 3 tranche 1)", () => {
   it("assigned trips put volume on edges; congestion raises travel times", () => {
     const world = grownWorld(7, 8);
     const t = world.traffic;
+    expect(t.generated).toBeGreaterThan(0); // richness asserted HERE, deterministically
     expect(t.assigned).toBeGreaterThan(0);
     let volumeTotal = 0;
     let congestedEdges = 0;
