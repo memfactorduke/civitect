@@ -1219,10 +1219,7 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     // scale (demand > 500) — otherwise every hamlet nags from day one.
     if (hourOfDay === 7) {
       const sewage = sewageBalance(world.buildings);
-      if (
-        sewage.demand > sewage.capacity &&
-        (sewage.capacity > 0 || sewage.demand > 500)
-      ) {
+      if (sewage.demand > sewage.capacity && (sewage.capacity > 0 || sewage.demand > 500)) {
         emitAdvisor(world, AdvisorSeverity.warning, "advisor.sewage", "cause.sewageDeficit", [
           {
             subject: { kind: EntityKind.system, id: 0 },
