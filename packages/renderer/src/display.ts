@@ -6,7 +6,7 @@
  * DOM/Pixi-free so the board PR 5 verification ("snapshot→display-state
  * units") runs in Node.
  */
-import { type Snapshot, SnapshotKind } from "@civitect/protocol";
+import { type RoadSegment, type Snapshot, SnapshotKind } from "@civitect/protocol";
 
 export interface DisplayState {
   /** Last applied sim tick — stale-frame detection once deltas interleave. */
@@ -18,6 +18,10 @@ export interface DisplayState {
     readonly population: number;
     readonly fundsCents: number;
   };
+  /** Road layer rebuilds when this moves. */
+  readonly roadVersion: number;
+  /** Last full segment list received (deltas with null keep the previous). */
+  readonly roads: readonly RoadSegment[];
 }
 
 export function initialDisplayState(): DisplayState {
@@ -26,6 +30,8 @@ export function initialDisplayState(): DisplayState {
     speed: 1,
     highlight: null,
     hud: { population: 0, fundsCents: 0 },
+    roadVersion: -1,
+    roads: [],
   };
 }
 
@@ -49,5 +55,7 @@ export function applySnapshot(state: DisplayState, snapshot: Snapshot): DisplayS
       population: snapshot.hud.population,
       fundsCents: snapshot.hud.fundsCents,
     },
+    roadVersion: snapshot.roadVersion,
+    roads: snapshot.roads ?? state.roads,
   };
 }
