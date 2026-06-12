@@ -17,6 +17,11 @@ import {
   EntityKind,
   flatTerrain,
   RejectionReason,
+  SERVICE_BUDGET_MAX_PERMILLE,
+  SERVICE_BUDGET_MIN_PERMILLE,
+  SERVICE_COUNT,
+  SERVICE_ID_LIST,
+  type ServiceId,
   TERRAIN_LAYER_NAMES,
   type TerrainGrid,
   ZoneKind,
@@ -66,6 +71,12 @@ import {
   removeNode,
   upgradeEdge,
 } from "./roads/graph";
+import {
+  coverageFor,
+  createCoverageCache,
+  type ServiceCoverageCache,
+  type ServiceFieldInputs,
+} from "./services/coverage";
 import {
   createTraffic,
   FULL_SOLVE_HOUR,
@@ -127,6 +138,19 @@ export interface World {
   traffic: TrafficCore;
   /** Pinned cims (GDD §17.5) — CANONICAL: hashed and saved, sorted. */
   pins: { tileIdx: number; slot: number }[];
+  /**
+   * Service budget sliders, permille in SERVICE_ID_LIST order (GDD §7) —
+   * CANONICAL: hashed and saved (v7 SERVICES). `version` is a session
+   * cache fence only (never hashed — the congestionVersion lesson).
+   */
+  readonly services: { budgetsPermille: Uint16Array; version: number };
+  /**
+   * Persistent ground pollution, 0–255 per tile (GDD §10) — CANONICAL:
+   * hashed and saved. Zero until the pollution loop (board task 4).
+   */
+  readonly groundPollution: Uint8Array;
+  /** Coverage fields per service — derived, fenced, never hashed/saved. */
+  readonly coverageCache: ServiceCoverageCache;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
   agents: AgentPool;
   /** Camera bounds from the viewportHint message — sampler input ONLY. */
@@ -245,10 +269,33 @@ export function createWorld(
     zoneVersion: 0,
     traffic: createTraffic(roads),
     pins: [],
+    services: { budgetsPermille: new Uint16Array(SERVICE_COUNT).fill(1000), version: 0 },
+    groundPollution: new Uint8Array(mapWidth * mapHeight),
+    coverageCache: createCoverageCache(),
     agents: createAgentPool(seed),
     viewport: null,
     rng,
   };
+}
+
+/**
+ * Coverage field + content digest for one service — the overlay,
+ * inspector and service loops all read through this one fence (derived
+ * state; recomputes when roads/buildings/budgets move).
+ */
+export function serviceCoverage(
+  world: World,
+  service: ServiceId,
+): { coverage: Uint8Array; digestU32: number } {
+  const inputs: ServiceFieldInputs = {
+    roads: world.roads,
+    buildings: world.buildings,
+    budgetsPermille: world.services.budgetsPermille,
+    mapWidth: world.mapWidth,
+    mapHeight: world.mapHeight,
+  };
+  const fenceKey = `${world.roads.version},${world.buildings.version},${world.services.version}`;
+  return coverageFor(world.coverageCache, service, inputs, fenceKey);
 }
 
 const ZONE_ROAD_DEPTH = 4; // GDD §6: zoning depth along roads
@@ -843,10 +890,19 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       return null;
     }
     case CommandType.setServiceBudget: {
-      // Protocol v11 is ahead of the sim here by design (interface-first,
-      // board phase-4 task 1): budget state + the services step land with
-      // task 2. Until then the sim honestly says "not implemented".
-      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
+      // Decode already enforces the domain; the sim re-checks because IT
+      // is the authority (TDD §7) — a foreign encoder is not trusted.
+      const at = SERVICE_ID_LIST.indexOf(cmd.service);
+      if (
+        at === -1 ||
+        cmd.permille < SERVICE_BUDGET_MIN_PERMILLE ||
+        cmd.permille > SERVICE_BUDGET_MAX_PERMILLE
+      ) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      world.services.budgetsPermille[at] = cmd.permille;
+      world.services.version++;
+      return null;
     }
     case CommandType.placeBuilding: {
       if (!inBounds(world, cmd.x, cmd.y)) {
@@ -1145,7 +1201,12 @@ export function stateHash(world: World): string {
       .u8(world.buildings.level[i] as number)
       .u8(world.buildings.status[i] as number)
       .u8(world.buildings.failDays[i] as number)
-      .u8(world.buildings.thriveDays[i] as number);
+      .u8(world.buildings.thriveDays[i] as number)
+      // Phase 4 service fields (appended with the v7 layout bless).
+      .u32(world.buildings.stock[i] as number)
+      .u16(world.buildings.sick[i] as number)
+      .u16(world.buildings.corpses[i] as number)
+      .u8(world.buildings.fireTicks[i] as number);
     const base = i * COHORT_BLOCK;
     for (let c = 0; c < COHORT_BLOCK; c++) {
       w.u16(world.buildings.cohorts[base + c] as number);
@@ -1183,6 +1244,14 @@ export function stateHash(world: World): string {
   w.u32(world.pins.length);
   for (const pin of world.pins) {
     w.u32(pin.tileIdx).u8(pin.slot);
+  }
+  // Services joined with Phase 4 task 2: budgets in SERVICE_ID_LIST order
+  // + the persistent ground-pollution field (GDD §7/§10).
+  for (let s = 0; s < SERVICE_COUNT; s++) {
+    w.u16(world.services.budgetsPermille[s] as number);
+  }
+  for (let i = 0; i < world.groundPollution.length; i++) {
+    w.u8(world.groundPollution[i] as number);
   }
   return fnv1a64(w.finish());
 }

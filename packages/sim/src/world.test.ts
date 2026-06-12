@@ -142,20 +142,48 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   // determinism (catastrophic: investigate before touching the pin).
   // RE-PINNED at each canonical-state append (deliberate, documented):
   // terrain (P1 7b), roads (P1 8), buildings+cohorts (P2 systems),
-  // traffic MSA volumes + solver job (P3 tranche 2), pins (P3 tranche 3).
+  // traffic MSA volumes + solver job (P3 tranche 2), pins (P3 tranche 3),
+  // service fields + budgets + ground pollution (P4 task 2).
 
   it("fresh world, seed 1234", () => {
-    expect(stateHash(createWorld(1234))).toBe("ddcdd78be470531e");
+    expect(stateHash(createWorld(1234))).toBe("bc057942f2a57213");
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("855f9e20b1797d39");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("bc72bfef3fec0940");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("93f725c58acddeaf");
+    expect(stateHash(world)).toBe("f74fea32b61cfbf2");
+  });
+});
+
+describe("service budgets in the tick pipeline (phase-4 task 2)", () => {
+  const budget = (seq: number, tick: number, service: number, permille: number) =>
+    ({ seq, tick, type: CommandType.setServiceBudget, service, permille }) as Command;
+
+  it("a slider move is canonical: accepted, hashed, replay-stable", () => {
+    const a = replay(7, [budget(0, 3, 1, 1500)], 10);
+    const b = replay(7, [budget(0, 3, 1, 1500)], 10);
+    expect(a.rejections).toEqual([]);
+    expect(stateHash(a.world)).toBe(stateHash(b.world));
+    expect(a.world.services.budgetsPermille[0]).toBe(1500);
+    expect(stateHash(a.world)).not.toBe(stateHash(replay(7, [], 10).world));
+  });
+
+  it("the sim re-checks the domain even though decode already did (authority)", () => {
+    const world = createWorld(7);
+    const rejections = runTick(world, [budget(0, 0, 1, 400)]);
+    expect(rejections.map((r) => r.reason)).toEqual([RejectionReason.invalidTarget]);
+    const more = runTick(world, [budget(1, 1, 99, 1000)]);
+    expect(more.map((r) => r.reason)).toEqual([RejectionReason.invalidTarget]);
+    // Rejected sliders leave no fingerprints: same hash as idle ticks.
+    const reference = createWorld(7);
+    runTick(reference, []);
+    runTick(reference, []);
+    expect(stateHash(world)).toBe(stateHash(reference));
   });
 });
 

@@ -17,6 +17,7 @@ import {
   canonicalGraph,
   createAgentPool,
   createBuildings,
+  createCoverageCache,
   createRoadGraph,
   Pcg32,
   type Pcg32State,
@@ -55,13 +56,10 @@ function buildingRows(world: World): { rows: BuildingRow[]; cohorts: Uint16Array
       status: b.status[i] as number,
       failDays: b.failDays[i] as number,
       thriveDays: b.thriveDays[i] as number,
-      // Service fields (save v7) — the buildings table grows these arrays
-      // with the Phase 4 services core (board task 2); zero is the truth
-      // of a pre-services world.
-      stock: 0,
-      sick: 0,
-      corpses: 0,
-      fireTicks: 0,
+      stock: b.stock[i] as number,
+      sick: b.sick[i] as number,
+      corpses: b.corpses[i] as number,
+      fireTicks: b.fireTicks[i] as number,
     };
   });
   return { rows, cohorts };
@@ -94,11 +92,9 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
     })),
     // Same canonical edge order as roads — trafficToSave sorts identically.
     traffic: trafficToSave(world.traffic, world.roads),
-    // Default sliders + clean ground until the services core (task 2) gives
-    // the world real service state to persist.
     services: {
-      budgetsPermille: new Uint16Array(9).fill(1000),
-      groundPollution: new Uint8Array(0),
+      budgetsPermille: Uint16Array.from(world.services.budgetsPermille),
+      groundPollution: Uint8Array.from(world.groundPollution),
     },
     pins: world.pins.map((p) => ({ tileIdx: p.tileIdx, slot: p.slot })),
     worldCore: {
@@ -122,6 +118,10 @@ function rebuildBuildings(save: CivSave): World["buildings"] {
     b.status[i] = row.status;
     b.failDays[i] = row.failDays;
     b.thriveDays[i] = row.thriveDays;
+    b.stock[i] = row.stock;
+    b.sick[i] = row.sick;
+    b.corpses[i] = row.corpses;
+    b.fireTicks[i] = row.fireTicks;
     b.cohorts.set(
       save.cohorts.subarray(at * COHORT_BLOCK, (at + 1) * COHORT_BLOCK),
       i * COHORT_BLOCK,
@@ -205,6 +205,13 @@ export function civToWorld(save: CivSave): World {
     // edge identity; the continued-identity test enforces it.
     traffic: trafficFromSave(save.traffic, roads),
     pins: save.pins.map((p) => ({ tileIdx: p.tileIdx, slot: p.slot })),
+    services: { budgetsPermille: Uint16Array.from(save.services.budgetsPermille), version: 0 },
+    // Length 0 = the v6→v7 migration's dimension-free "all clean".
+    groundPollution:
+      save.services.groundPollution.length === 0
+        ? new Uint8Array(core.mapWidth * core.mapHeight)
+        : Uint8Array.from(save.services.groundPollution),
+    coverageCache: createCoverageCache(),
     agents: createAgentPool(save.header.seed),
     viewport: null,
     rng,
