@@ -6,7 +6,7 @@
  * The store holds *display scalars only* — world rendering state belongs to
  * the renderer's DisplayState, and game truth lives across the wall.
  */
-import type { AdvisorEvent, Snapshot, TileCoord } from "@civitect/protocol";
+import { type AdvisorEvent, type Snapshot, SnapshotKind, type TileCoord } from "@civitect/protocol";
 import { useStore } from "zustand";
 import { createStore, type StoreApi } from "zustand/vanilla";
 
@@ -31,8 +31,10 @@ export function createUiStore(): UiStore {
     selectedTile: null,
     advisorEvents: [],
     applySnapshot(snapshot: Snapshot): void {
-      if (snapshot.tick < get().tick) {
-        return; // last-tick-wins, mirroring the renderer's display projection
+      // Keyframes are authoritative resets (scene load / save-load rewind,
+      // TDD §7) and apply even to an older tick; stale DELTAS lose.
+      if (snapshot.kind !== SnapshotKind.keyframe && snapshot.tick < get().tick) {
+        return;
       }
       set({
         tick: snapshot.tick,

@@ -4,13 +4,14 @@
  * the MAIN THREAD never imports @civitect/sim — the sim exists only inside
  * the worker (ADR-006); everything it learns arrives as protocol snapshots.
  */
-import { CommandType, decodeMessage, MessageKind } from "@civitect/protocol";
+import { CommandType, decodeMessage, encodeMessage, MessageKind } from "@civitect/protocol";
 import { bootRenderer } from "@civitect/renderer";
 import { type CommandIntent, createUiStore, Overlay } from "@civitect/ui";
 import { createRoot } from "react-dom/client";
 import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
 import { pickTile } from "./picking";
+import { createSaveManager } from "./save-manager";
 
 async function main(): Promise<void> {
   const host = document.getElementById("world");
@@ -29,6 +30,17 @@ async function main(): Promise<void> {
   const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
   const queue = createCommandQueue((bytes, transfer) => worker.postMessage(bytes, { transfer }));
 
+  const saveManager = createSaveManager({
+    postSaveRequest(slot) {
+      const bytes = encodeMessage({ kind: MessageKind.saveRequest, body: { slot } });
+      worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
+    },
+    postLoadRequest(civ) {
+      const bytes = encodeMessage({ kind: MessageKind.loadRequest, body: { civ } });
+      worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
+    },
+  });
+
   worker.onmessage = (event: MessageEvent<unknown>) => {
     const data = event.data;
     const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
@@ -43,10 +55,31 @@ async function main(): Promise<void> {
         // rejection is just developer-visible.
         console.warn("[sim] rejected command", message.body);
         break;
+      case MessageKind.saveResponse:
+        saveManager.onSaveResponse(message.body);
+        break;
+      case MessageKind.loadResponse:
+        if (!message.body.ok) {
+          console.warn("[save] load refused:", message.body.detail);
+        }
+        saveManager.onLoadResponse(message.body);
+        break;
       default:
         throw new Error(`main thread received unexpected MessageKind ${message.kind}`);
     }
   };
+
+  // Quicksave/quickload (TDD §10; slot UI arrives with the pause menu).
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "s") {
+      event.preventDefault();
+      void saveManager.saveQuick();
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key === "o") {
+      event.preventDefault();
+      void saveManager.loadQuick();
+    }
+  });
 
   const dispatch = (intent: CommandIntent): void => {
     queue.dispatch(intent);
@@ -77,6 +110,9 @@ async function main(): Promise<void> {
   (globalThis as Record<string, unknown>).__civitect = {
     displayState: () => renderer.state(),
     commandCount: () => queue.count(),
+    saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
+    loadQuick: () => saveManager.loadQuick(),
+    hasQuicksave: () => saveManager.hasQuicksave(),
   };
 }
 
