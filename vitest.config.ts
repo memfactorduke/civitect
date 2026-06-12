@@ -2,10 +2,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    // Node-mode for everything for now (ADR-007: no browser overhead in the hot
-    // loop). Renderer/UI packages add their own browser-ish environments when
-    // their real implementations land (docs/board/phase-0.md PR 5/6).
+    // Node-mode by default (ADR-007: no browser overhead in the hot loop).
+    // Component tests opt into jsdom per-file via `// @vitest-environment
+    // jsdom` (packages/ui RTL tests) — the sim/protocol hot path never pays
+    // the DOM tax.
     environment: "node",
-    include: ["packages/*/src/**/*.test.ts"],
+    include: ["packages/*/src/**/*.test.{ts,tsx}"],
   },
 });
