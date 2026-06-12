@@ -1,12 +1,30 @@
 /**
- * @civitect/sim — pure deterministic simulation core (TDD §3–§6, ADR-005/006).
+ * @civitect/sim — pure deterministic simulation core (TDD §3/§4, ADR-005/006).
+ * Runs identically in a Web Worker (production) and Node (tests/tools).
  *
- * Placeholder shell: the deterministic tick loop, PCG32 streams (`sim/rng`),
- * and the structure-of-arrays store land per docs/board/phase-0.md PR 3.
- *
- * Hard rules for this package (CLAUDE.md, lint-enforced from PR 3):
- * no Math.random, no transcendentals, no wall clock, no DOM/Pixi imports,
- * no object-key iteration over sim state, money in integer cents.
- * Note: tsconfig deliberately omits the DOM lib — `document` does not typecheck here.
+ * Hard rules (lint-enforced via the scoped ESLint config + this package's
+ * DOM-free tsconfig): no Math.random, no transcendentals, no wall clock,
+ * no DOM/Pixi, no object-key iteration over sim state, money in integer
+ * cents. PCG32 streams via ./rng only.
  */
-export const SIM_PACKAGE = "@civitect/sim";
+export { fnv1a64 } from "./hash";
+export { add64, hex64, mul64, type U64 } from "./math64";
+export { type ReplayOptions, type ReplayResult, replay } from "./replay";
+export {
+  createRng,
+  Pcg32,
+  type Pcg32State,
+  RNG_STREAM_NAMES,
+  RngStream,
+  type RngStreamName,
+} from "./rng";
+export { toSnapshot } from "./snapshot";
+export {
+  createWorld,
+  runTick,
+  SIM_SPEEDS,
+  stateHash,
+  TICK_HZ,
+  TICKS_PER_GAME_YEAR,
+  type World,
+} from "./world";

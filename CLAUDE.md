@@ -4,7 +4,7 @@ You are the senior engineer on Civitect, a deterministic isometric city builder 
 
 - `docs/GDD.md` — what the game is. `docs/TDD.md` — how it's built. `docs/adr/` — binding decisions. `docs/ROADMAP.md` — current phase. `docs/AI-WORKFLOW.md` — process + review checklist.
 
-**Current state:** Roadmap Phase 0 in progress — monorepo scaffold landed; all `packages/` are placeholder shells until their board PRs land (working board: `docs/board/phase-0.md`). The ADR-006 import wall (dependency-cruiser) and the Biome/typecheck/unit gates are live; golden/perf/asset gates are no-op stubs in CI, each TODO-tagged with the roadmap phase that makes it real. The `packages/sim` determinism ESLint ban-rules land with the sim core (board PR 3).
+**Current state:** Roadmap Phase 0 in progress — monorepo scaffold landed; all `packages/` are placeholder shells until their board PRs land (working board: `docs/board/phase-0.md`). Live gates: ADR-006 import wall (dependency-cruiser), Biome, the scoped ADR-005 determinism ESLint in `packages/sim` (`pnpm lint:determinism`), typecheck, unit. Golden/perf/asset gates are no-op stubs in CI, each TODO-tagged with the roadmap phase that makes it real.
 
 ## Toolchain (pinned at scaffold time, ADR-007)
 Node 22 LTS floor (`engines >=22`) · pnpm 11.5.3 (`packageManager`) · TypeScript 5.9.3 · Biome 2.4.16 · Vitest 3.2.6 · dependency-cruiser 16.10.4 — exact resolutions in `pnpm-lock.yaml`. Local definition-of-done runner: `pnpm verify` (full ADR-013 ladder in CI order).

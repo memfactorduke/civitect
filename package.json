@@ -9,6 +9,7 @@
   },
   "scripts": {
     "lint": "biome ci .",
+    "lint:determinism": "eslint packages/sim/src",
     "lint:fix": "biome check --write .",
     "wall": "depcruise packages --config .dependency-cruiser.cjs",
     "typecheck": "tsc -b",
@@ -17,11 +18,13 @@
     "gate:balance": "node scripts/ci/balance-gate.mjs",
     "gate:perf": "node scripts/ci/perf-gate.mjs",
     "gate:assets": "node scripts/ci/asset-gate.mjs",
-    "verify": "pnpm lint && pnpm wall && pnpm typecheck && pnpm test && pnpm gate:golden && pnpm gate:balance && pnpm gate:perf && pnpm gate:assets"
+    "verify": "pnpm lint && pnpm lint:determinism && pnpm wall && pnpm typecheck && pnpm test && pnpm gate:golden && pnpm gate:balance && pnpm gate:perf && pnpm gate:assets"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
     "dependency-cruiser": "^16.0.0",
+    "eslint": "^9.0.0",
     "typescript": "^5.9.0",
     "vitest": "^3.0.0"
   }
