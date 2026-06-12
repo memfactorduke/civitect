@@ -90,4 +90,14 @@ export {
   SnapshotKind,
   type TileCoord,
 } from "./snapshot";
+export {
+  FOOTPRINT_MAX,
+  FOOTPRINT_MIN,
+  parseSpriteSidecar,
+  SPRITE_SOURCE_SCALE,
+  SPRITE_TILE_3X,
+  SpriteCategory,
+  type SpriteSidecar,
+  SpriteState,
+} from "./sprite";
 export { PROTOCOL_VERSION } from "./version";
