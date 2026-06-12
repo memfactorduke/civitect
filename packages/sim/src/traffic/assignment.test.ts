@@ -61,8 +61,11 @@ describe("traffic assignment (GDD §9, Phase 3 tranche 1)", () => {
         (seed, days) => {
           const world = grownWorld(seed, days);
           const t = world.traffic;
+          // Universal invariant ONLY. Richness (generated > 0) is existential —
+          // growth-luck-dependent at 3 days (CI counterexample: seed 2, days 3
+          // grew a city with zero employed commuters at the final hourly
+          // solve) — and is pinned deterministically in the seed-7 test below.
           expect(t.generated).toBe(t.assigned + t.walked + t.unroutable);
-          expect(t.generated).toBeGreaterThan(0); // a grown city commutes
         },
       ),
       { numRuns: 8 }, // each run simulates days of city time
