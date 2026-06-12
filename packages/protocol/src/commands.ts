@@ -28,6 +28,8 @@ export const CommandType = {
   /** Pin a cim persona (building tile + cohort slot, GDD §17.5) — canonical. */
   pinCim: 11,
   unpinCim: 12,
+  /** Service budget slider (GDD §7, Phase 4) — scales capacity + coverage. */
+  setServiceBudget: 13,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -86,14 +88,67 @@ export type ZoneKind = (typeof ZoneKind)[keyof typeof ZoneKind];
 
 const ZONE_KINDS: ReadonlySet<number> = new Set([1, 2, 3, 4, 5, 6]);
 
-/** Player-placed (ploppable) building kinds, Phase 2 utility set. Append-only. */
+/**
+ * Player-placed (ploppable) building kinds. 1–2 are the Phase 2 utility
+ * set; 3+ are the Phase 4 service set (GDD §7 table, v1 buildings —
+ * late-game helipad/stadium join with their phases). Append-only.
+ */
 export const BuildingKind = {
   powerPlant: 1,
   waterPump: 2,
+  fireStation: 3,
+  fireStationLarge: 4,
+  policeStation: 5,
+  policeHQ: 6,
+  clinic: 7,
+  hospital: 8,
+  cemetery: 9,
+  crematorium: 10,
+  schoolElementary: 11,
+  schoolHigh: 12,
+  university: 13,
+  library: 14,
+  parkSmall: 15,
+  plaza: 16,
+  telecomTower: 17,
+  landfill: 18,
+  incinerator: 19,
+  recyclingCenter: 20,
+  sewageOutlet: 21,
+  sewageTreatment: 22,
 } as const;
 export type BuildingKind = (typeof BuildingKind)[keyof typeof BuildingKind];
 
-const BUILDING_KINDS: ReadonlySet<number> = new Set([1, 2]);
+const BUILDING_KINDS: ReadonlySet<number> = new Set(Array.from({ length: 22 }, (_, i) => i + 1));
+
+/**
+ * Service domains (GDD §7) — the key for budget sliders, coverage overlays
+ * and the sim's service registry. Power/water stay utilities (Phase 2
+ * networks), not services. Ids are append-only.
+ */
+export const ServiceId = {
+  fire: 1,
+  police: 2,
+  health: 3,
+  deathcare: 4,
+  education: 5,
+  parks: 6,
+  telecom: 7,
+  garbage: 8,
+  sewage: 9,
+} as const;
+export type ServiceId = (typeof ServiceId)[keyof typeof ServiceId];
+
+/** Fixed iteration order (ADR-005 §4 — never Object.keys over wire enums). */
+export const SERVICE_ID_LIST: readonly ServiceId[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+export const SERVICE_COUNT = SERVICE_ID_LIST.length;
+
+const SERVICE_IDS: ReadonlySet<number> = new Set(SERVICE_ID_LIST);
+
+/** Budget slider domain, permille of base (GDD §7: 50–150%). */
+export const SERVICE_BUDGET_MIN_PERMILLE = 500;
+export const SERVICE_BUDGET_MAX_PERMILLE = 1500;
 
 const ROAD_CLASSES: ReadonlySet<number> = new Set([1, 2, 3, 4, 11, 12, 13, 14]);
 
@@ -169,6 +224,13 @@ export interface UnpinCimCommand extends CommandBase {
   readonly slot: number;
 }
 
+/** Budget slider for one service (GDD §7): permille of base, 500–1500. */
+export interface SetServiceBudgetCommand extends CommandBase {
+  readonly type: typeof CommandType.setServiceBudget;
+  readonly service: ServiceId;
+  readonly permille: number;
+}
+
 export type Command =
   | SelectTileCommand
   | SetSpeedCommand
@@ -181,7 +243,8 @@ export type Command =
   | DezoneRectCommand
   | PlaceBuildingCommand
   | PinCimCommand
-  | UnpinCimCommand;
+  | UnpinCimCommand
+  | SetServiceBudgetCommand;
 
 export const RejectionReason = {
   outOfBounds: 1,
@@ -241,6 +304,9 @@ export function encodeCommandBody(w: ByteWriter, cmd: Command): void {
     case CommandType.pinCim:
     case CommandType.unpinCim:
       w.u32(cmd.tileIdx).u8(cmd.slot);
+      break;
+    case CommandType.setServiceBudget:
+      w.u8(cmd.service).u16(cmd.permille);
       break;
   }
 }
@@ -339,6 +405,26 @@ export function decodeCommandBody(r: ByteReader): Command {
       return { seq, tick, type: CommandType.pinCim, tileIdx: r.u32(), slot: r.u8() };
     case CommandType.unpinCim:
       return { seq, tick, type: CommandType.unpinCim, tileIdx: r.u32(), slot: r.u8() };
+    case CommandType.setServiceBudget: {
+      const service = r.u8();
+      const permille = r.u16();
+      if (!SERVICE_IDS.has(service)) {
+        throw new DecodeError(`unknown ServiceId ${service}`);
+      }
+      if (permille < SERVICE_BUDGET_MIN_PERMILLE || permille > SERVICE_BUDGET_MAX_PERMILLE) {
+        throw new DecodeError(
+          `service budget ${permille}‰ outside ` +
+            `[${SERVICE_BUDGET_MIN_PERMILLE}, ${SERVICE_BUDGET_MAX_PERMILLE}]`,
+        );
+      }
+      return {
+        seq,
+        tick,
+        type: CommandType.setServiceBudget,
+        service: service as ServiceId,
+        permille,
+      };
+    }
     default:
       throw new DecodeError(`unknown CommandType ${type}`);
   }

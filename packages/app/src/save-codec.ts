@@ -55,6 +55,13 @@ function buildingRows(world: World): { rows: BuildingRow[]; cohorts: Uint16Array
       status: b.status[i] as number,
       failDays: b.failDays[i] as number,
       thriveDays: b.thriveDays[i] as number,
+      // Service fields (save v7) — the buildings table grows these arrays
+      // with the Phase 4 services core (board task 2); zero is the truth
+      // of a pre-services world.
+      stock: 0,
+      sick: 0,
+      corpses: 0,
+      fireTicks: 0,
     };
   });
   return { rows, cohorts };
@@ -87,6 +94,12 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
     })),
     // Same canonical edge order as roads — trafficToSave sorts identically.
     traffic: trafficToSave(world.traffic, world.roads),
+    // Default sliders + clean ground until the services core (task 2) gives
+    // the world real service state to persist.
+    services: {
+      budgetsPermille: new Uint16Array(9).fill(1000),
+      groundPollution: new Uint8Array(0),
+    },
     pins: world.pins.map((p) => ({ tileIdx: p.tileIdx, slot: p.slot })),
     worldCore: {
       speed: world.speed,

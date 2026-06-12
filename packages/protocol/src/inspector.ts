@@ -43,6 +43,34 @@ export interface RoadInfo {
   readonly congestedCost: number;
 }
 
+/**
+ * Building inspector payload (v11). Service fields are zero for grown
+ * buildings — `serviceId` 0 means "not a service building".
+ */
+export interface BuildingInfo {
+  /** ZoneKind for grown buildings; 100+BuildingKind for ploppables. */
+  readonly kind: number;
+  readonly level: number;
+  readonly status: number;
+  /** ServiceId this building provides, 0 = none (GDD §7). */
+  readonly serviceId: number;
+  /** Capacity after the budget slider's scaling. */
+  readonly capacityTotal: number;
+  readonly capacityUsed: number;
+  /** Jobs waiting on this building's service queue. */
+  readonly queueLength: number;
+  /** coverage × capacity-fill, permille (GDD §7 effectiveness). */
+  readonly effectivenessPermille: number;
+}
+
+/** Per-tile environment readout (GDD §10), all 0–255 field samples. */
+export interface EnvironInfo {
+  readonly airPollution: number;
+  readonly groundPollution: number;
+  readonly noise: number;
+  readonly waterPollution: number;
+}
+
 export interface InspectorResponse {
   readonly requestId: number;
   /** Tick the answer was computed on — stale answers are detectable. */
@@ -51,6 +79,10 @@ export interface InspectorResponse {
   readonly tile: TileInfo | null;
   /** Road covering the target tile, when there is one (v10). */
   readonly road: RoadInfo | null;
+  /** Building on the target tile, when there is one (v11). */
+  readonly building: BuildingInfo | null;
+  /** Environment fields at the target tile (v11). */
+  readonly environ: EnvironInfo | null;
 }
 
 export function encodeInspectorRequestBody(w: ByteWriter, req: InspectorRequest): void {
@@ -73,15 +105,37 @@ export function encodeInspectorResponseBody(w: ByteWriter, res: InspectorRespons
   }
   if (res.road === null) {
     w.u8(0);
-    return;
+  } else {
+    w.u8(1)
+      .u8(res.road.roadClass)
+      .u32(res.road.volume)
+      .u32(res.road.capacity)
+      .u16(res.road.vcPermille)
+      .u32(res.road.freeFlowCost)
+      .u32(res.road.congestedCost);
   }
-  w.u8(1)
-    .u8(res.road.roadClass)
-    .u32(res.road.volume)
-    .u32(res.road.capacity)
-    .u16(res.road.vcPermille)
-    .u32(res.road.freeFlowCost)
-    .u32(res.road.congestedCost);
+  if (res.building === null) {
+    w.u8(0);
+  } else {
+    w.u8(1)
+      .u16(res.building.kind)
+      .u8(res.building.level)
+      .u8(res.building.status)
+      .u8(res.building.serviceId)
+      .u32(res.building.capacityTotal)
+      .u32(res.building.capacityUsed)
+      .u32(res.building.queueLength)
+      .u16(res.building.effectivenessPermille);
+  }
+  if (res.environ === null) {
+    w.u8(0);
+  } else {
+    w.u8(1)
+      .u8(res.environ.airPollution)
+      .u8(res.environ.groundPollution)
+      .u8(res.environ.noise)
+      .u8(res.environ.waterPollution);
+  }
 }
 
 export function decodeInspectorResponseBody(r: ByteReader): InspectorResponse {
@@ -115,5 +169,35 @@ export function decodeInspectorResponseBody(r: ByteReader): InspectorResponse {
       congestedCost: r.u32(),
     };
   }
-  return { requestId, tick, tile, road };
+  const hasBuilding = r.u8();
+  if (hasBuilding > 1) {
+    throw new DecodeError(`building presence flag must be 0|1, got ${hasBuilding}`);
+  }
+  let building: BuildingInfo | null = null;
+  if (hasBuilding === 1) {
+    building = {
+      kind: r.u16(),
+      level: r.u8(),
+      status: r.u8(),
+      serviceId: r.u8(),
+      capacityTotal: r.u32(),
+      capacityUsed: r.u32(),
+      queueLength: r.u32(),
+      effectivenessPermille: r.u16(),
+    };
+  }
+  const hasEnviron = r.u8();
+  if (hasEnviron > 1) {
+    throw new DecodeError(`environ presence flag must be 0|1, got ${hasEnviron}`);
+  }
+  let environ: EnvironInfo | null = null;
+  if (hasEnviron === 1) {
+    environ = {
+      airPollution: r.u8(),
+      groundPollution: r.u8(),
+      noise: r.u8(),
+      waterPollution: r.u8(),
+    };
+  }
+  return { requestId, tick, tile, road, building, environ };
 }

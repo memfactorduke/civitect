@@ -149,6 +149,10 @@ describe("map files (.civmap)", () => {
         volumes: new Uint32Array(0),
         job: null,
       },
+      services: {
+        budgetsPermille: new Uint16Array(9).fill(1000),
+        groundPollution: new Uint8Array(0),
+      },
       pins: [],
       worldCore: {
         speed: 1,

@@ -13,4 +13,7 @@
 // v8: agent transform rider contract + pin commands (Phase 3 tranche 3).
 // v9: viewportHint message — the camera-aware sampler's input (ADR-002).
 // v10: snapshot congestion block + inspector road info (GDD §9.5).
-export const PROTOCOL_VERSION = 10;
+// v11: Phase 4 services interface — service BuildingKinds, setServiceBudget
+// command, overlayRequest message + snapshot coverage block, inspector
+// building/environment payloads (GDD §7/§10/§15).
+export const PROTOCOL_VERSION = 11;

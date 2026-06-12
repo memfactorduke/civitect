@@ -42,10 +42,13 @@ import {
   type SaveResponse,
 } from "./save/messages";
 import {
+  decodeOverlayRequestBody,
   decodeSnapshotBody,
   decodeViewportHintBody,
+  encodeOverlayRequestBody,
   encodeSnapshotBody,
   encodeViewportHintBody,
+  type OverlayRequest,
   type Snapshot,
   type ViewportHint,
 } from "./snapshot";
@@ -63,6 +66,8 @@ export const MessageKind = {
   loadResponse: 9,
   /** UI → sim camera bounds for the agent sampler (ADR-002 chokepoint). */
   viewportHint: 10,
+  /** UI → sim worker: which coverage overlay rides snapshots (v11). */
+  overlayRequest: 11,
 } as const;
 export type MessageKind = (typeof MessageKind)[keyof typeof MessageKind];
 
@@ -76,7 +81,8 @@ export type Message =
   | { readonly kind: typeof MessageKind.saveResponse; readonly body: SaveResponse }
   | { readonly kind: typeof MessageKind.loadRequest; readonly body: LoadRequest }
   | { readonly kind: typeof MessageKind.loadResponse; readonly body: LoadResponse }
-  | { readonly kind: typeof MessageKind.viewportHint; readonly body: ViewportHint };
+  | { readonly kind: typeof MessageKind.viewportHint; readonly body: ViewportHint }
+  | { readonly kind: typeof MessageKind.overlayRequest; readonly body: OverlayRequest };
 
 export function encodeMessage(message: Message): Uint8Array {
   const w = new ByteWriter();
@@ -114,6 +120,9 @@ export function encodeMessage(message: Message): Uint8Array {
       break;
     case MessageKind.viewportHint:
       encodeViewportHintBody(w, message.body);
+      break;
+    case MessageKind.overlayRequest:
+      encodeOverlayRequestBody(w, message.body);
       break;
   }
   w.patchU32(lengthAt, w.length - bodyStart);
@@ -162,6 +171,9 @@ export function decodeMessage(bytes: Uint8Array): Message {
       break;
     case MessageKind.viewportHint:
       message = { kind, body: decodeViewportHintBody(r) };
+      break;
+    case MessageKind.overlayRequest:
+      message = { kind, body: decodeOverlayRequestBody(r) };
       break;
     default:
       throw new DecodeError(`unknown MessageKind ${kind}`);

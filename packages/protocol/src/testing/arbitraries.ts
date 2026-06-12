@@ -25,7 +25,11 @@ import {
   type RedoCommand,
   RejectionReason,
   RoadClassWire,
+  SERVICE_BUDGET_MAX_PERMILLE,
+  SERVICE_BUDGET_MIN_PERMILLE,
+  SERVICE_ID_LIST,
   type SelectTileCommand,
+  type SetServiceBudgetCommand,
   type SetSpeedCommand,
   type UndoCommand,
   type UpgradeRoadCommand,
@@ -178,6 +182,14 @@ export const pinCimCommandArb: fc.Arbitrary<Command> = fc.record({
   slot: fc.nat({ max: 255 }),
 }) as fc.Arbitrary<Command>;
 
+export const setServiceBudgetCommandArb: fc.Arbitrary<SetServiceBudgetCommand> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.setServiceBudget),
+  service: fc.constantFrom(...SERVICE_ID_LIST),
+  permille: fc.integer({ min: SERVICE_BUDGET_MIN_PERMILLE, max: SERVICE_BUDGET_MAX_PERMILLE }),
+});
+
 export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   selectTileCommandArb,
   setSpeedCommandArb,
@@ -190,6 +202,7 @@ export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   dezoneRectCommandArb,
   placeBuildingCommandArb,
   pinCimCommandArb,
+  setServiceBudgetCommandArb,
 );
 
 export const rejectionArb: fc.Arbitrary<CommandRejection> = fc.record({
@@ -246,6 +259,12 @@ export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
     fc.array(fc.integer({ min: 0, max: 6 }), { maxLength: 64 }).map((zs) => Uint16Array.from(zs)),
     { nil: null },
   ),
+  coverageService: fc.integer({ min: 0, max: 9 }),
+  coverageVersion: u32Arb,
+  coverage: fc.option(
+    fc.array(u8Arb, { maxLength: 64 }).map((vs) => Uint8Array.from(vs)),
+    { nil: null },
+  ),
 });
 
 export const tileInfoArb: fc.Arbitrary<TileInfo> = fc.record({
@@ -269,11 +288,31 @@ export const roadInfoArb = fc.record({
   congestedCost: u32Arb,
 });
 
+export const buildingInfoArb = fc.record({
+  kind: u16Arb,
+  level: fc.integer({ min: 1, max: 5 }),
+  status: u8Arb,
+  serviceId: fc.integer({ min: 0, max: 9 }),
+  capacityTotal: u32Arb,
+  capacityUsed: u32Arb,
+  queueLength: u32Arb,
+  effectivenessPermille: fc.nat({ max: 1000 }),
+});
+
+export const environInfoArb = fc.record({
+  airPollution: u8Arb,
+  groundPollution: u8Arb,
+  noise: u8Arb,
+  waterPollution: u8Arb,
+});
+
 export const inspectorResponseArb: fc.Arbitrary<InspectorResponse> = fc.record({
   requestId: u32Arb,
   tick: tickArb,
   tile: fc.option(tileInfoArb, { nil: null }),
   road: fc.option(roadInfoArb, { nil: null }),
+  building: fc.option(buildingInfoArb, { nil: null }),
+  environ: fc.option(environInfoArb, { nil: null }),
 });
 
 const civBytesArb = fc
@@ -302,6 +341,9 @@ export const messageArb: fc.Arbitrary<Message> = fc.oneof(
   fc
     .record({ x0: u16Arb, y0: u16Arb, x1: u16Arb, y1: u16Arb })
     .map((body): Message => ({ kind: MessageKind.viewportHint, body })),
+  fc
+    .record({ service: fc.integer({ min: 0, max: 9 }) })
+    .map((body): Message => ({ kind: MessageKind.overlayRequest, body })),
   inspectorRequestArb.map((body): Message => ({ kind: MessageKind.inspectorRequest, body })),
   inspectorResponseArb.map((body): Message => ({ kind: MessageKind.inspectorResponse, body })),
   saveRequestArb.map((body): Message => ({ kind: MessageKind.saveRequest, body })),

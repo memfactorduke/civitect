@@ -29,6 +29,7 @@ import { migrateSectionsV2toV3 } from "./migrations/v2_v3";
 import { migrateSectionsV3toV4 } from "./migrations/v3_v4";
 import { migrateSectionsV4toV5 } from "./migrations/v4_v5";
 import { migrateSectionsV5toV6 } from "./migrations/v5_v6";
+import { migrateSectionsV6toV7 } from "./migrations/v6_v7";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -47,6 +48,8 @@ export const SectionId = {
   worldCore: 11,
   /** v5 (Phase 3 tranche 2): MSA volumes + sliced-solver job (TDD §6.3/§10). */
   traffic: 12,
+  /** v7 (Phase 4): service budgets + persistent ground pollution (GDD §7/§10). */
+  services: 13,
 } as const;
 export type SectionId = (typeof SectionId)[keyof typeof SectionId];
 
@@ -79,6 +82,28 @@ export interface BuildingRow {
   readonly status: number;
   readonly failDays: number;
   readonly thriveDays: number;
+  /**
+   * v7 service fields (Phase 4). `stock` is kind-contextual: garbage held
+   * for occupied buildings, fill level for landfills/cemeteries.
+   */
+  readonly stock: number;
+  readonly sick: number;
+  readonly corpses: number;
+  /** 0 = not burning; otherwise burn progress in fire-slice steps. */
+  readonly fireTicks: number;
+}
+
+/**
+ * Persistent service state (v7, GDD §7/§10): budget sliders in fixed
+ * ServiceId order (1–9) and the ground-pollution field. A zero-length
+ * pollution array means "all clean" (the migration's dimension-free
+ * injection); otherwise length must equal the map's tile count — the
+ * loader validates against the terrain dims.
+ */
+export interface ServicesSave {
+  /** Permille of base, one per ServiceId in id order — always 9 entries. */
+  readonly budgetsPermille: Uint16Array;
+  readonly groundPollution: Uint8Array;
 }
 
 /** A pinned cim persona ref: building TILE (stable across saves) + slot. */
@@ -134,6 +159,8 @@ export interface CivSave {
   readonly cohorts: Uint16Array;
   readonly worldCore: WorldCore;
   readonly traffic: TrafficSave;
+  /** Service budgets + ground pollution (v7, GDD §7/§10). */
+  readonly services: ServicesSave;
   /** Pinned cims (GDD §17.5), sorted by (tileIdx, slot). */
   readonly pins: readonly CimPinSave[];
   /** Commands since the snapshot, in applied (tick, seq) order. */
@@ -209,7 +236,11 @@ function encodeBuildings(rows: readonly BuildingRow[]): Uint8Array {
       .u8(row.level)
       .u8(row.status)
       .u8(row.failDays)
-      .u8(row.thriveDays);
+      .u8(row.thriveDays)
+      .u32(row.stock)
+      .u16(row.sick)
+      .u16(row.corpses)
+      .u8(row.fireTicks);
   }
   return w.finish();
 }
@@ -226,10 +257,44 @@ function decodeBuildings(bytes: Uint8Array): BuildingRow[] {
       status: r.u8(),
       failDays: r.u8(),
       thriveDays: r.u8(),
+      stock: r.u32(),
+      sick: r.u16(),
+      corpses: r.u16(),
+      fireTicks: r.u8(),
     });
   }
   r.expectEnd();
   return rows;
+}
+
+const SERVICE_COUNT = 9;
+
+/** Layout shared with migrateSectionsV6toV7's injected section — keep in sync. */
+function encodeServices(services: ServicesSave): Uint8Array {
+  const w = new ByteWriter();
+  for (let s = 0; s < SERVICE_COUNT; s++) {
+    w.u16(services.budgetsPermille[s] as number);
+  }
+  w.u32(services.groundPollution.length);
+  for (const v of services.groundPollution) {
+    w.u8(v);
+  }
+  return w.finish();
+}
+
+function decodeServices(bytes: Uint8Array): ServicesSave {
+  const r = new ByteReader(bytes);
+  const budgetsPermille = new Uint16Array(SERVICE_COUNT);
+  for (let s = 0; s < SERVICE_COUNT; s++) {
+    budgetsPermille[s] = r.u16();
+  }
+  const tiles = r.u32();
+  const groundPollution = new Uint8Array(tiles);
+  for (let i = 0; i < tiles; i++) {
+    groundPollution[i] = r.u8();
+  }
+  r.expectEnd();
+  return { budgetsPermille, groundPollution };
 }
 
 function encodeCohorts(cohorts: Uint16Array): Uint8Array {
@@ -385,6 +450,20 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
   if (save.traffic.job !== null && save.traffic.job.aon.length !== save.roads.length) {
     throw new EncodeError("traffic job per-edge arrays disagree with the roads section");
   }
+  if (save.services.budgetsPermille.length !== SERVICE_COUNT) {
+    throw new EncodeError(
+      `services carries ${save.services.budgetsPermille.length} budgets, expected ${SERVICE_COUNT}`,
+    );
+  }
+  const tiles = save.worldCore.mapWidth * save.worldCore.mapHeight;
+  if (
+    save.services.groundPollution.length !== 0 &&
+    save.services.groundPollution.length !== tiles
+  ) {
+    throw new EncodeError(
+      `ground pollution covers ${save.services.groundPollution.length} tiles, map has ${tiles}`,
+    );
+  }
   return encodeContainer({ ...save.header, formatVersion: SAVE_FORMAT_VERSION }, [
     { id: SectionId.terrain, raw: terrainWriter.finish() },
     { id: SectionId.roads, raw: encodeRoads(save.roads) },
@@ -392,6 +471,7 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
     { id: SectionId.cohorts, raw: encodeCohorts(save.cohorts) },
     { id: SectionId.worldCore, raw: encodeWorldCore(save.worldCore) },
     { id: SectionId.traffic, raw: encodeTraffic(save.traffic) },
+    { id: SectionId.services, raw: encodeServices(save.services) },
     { id: SectionId.agentPins, raw: encodePins(save.pins) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
@@ -426,6 +506,12 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   if (header.formatVersion <= 5) {
     sections = migrateSectionsV5toV6(sections, { agentPins: SectionId.agentPins });
   }
+  if (header.formatVersion <= 6) {
+    sections = migrateSectionsV6toV7(sections, {
+      buildings: SectionId.buildings,
+      services: SectionId.services,
+    });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
   const roadsRaw = sections.get(SectionId.roads);
@@ -433,6 +519,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   const cohortsRaw = sections.get(SectionId.cohorts);
   const worldCoreRaw = sections.get(SectionId.worldCore);
   const trafficRaw = sections.get(SectionId.traffic);
+  const servicesRaw = sections.get(SectionId.services);
   const pinsRaw = sections.get(SectionId.agentPins);
   const commandTailRaw = sections.get(SectionId.commandTail);
   if (
@@ -442,11 +529,12 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     cohortsRaw === undefined ||
     worldCoreRaw === undefined ||
     trafficRaw === undefined ||
+    servicesRaw === undefined ||
     pinsRaw === undefined ||
     commandTailRaw === undefined
   ) {
     throw new DecodeError(
-      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, AGENTPINS, COMMANDTAIL",
+      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, AGENTPINS, COMMANDTAIL",
     );
   }
   const buildings = decodeBuildings(buildingsRaw);
@@ -471,6 +559,13 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
       `traffic covers ${traffic.volumes.length} edges, roads carry ${roads.length} — corrupt save`,
     );
   }
+  const services = decodeServices(servicesRaw);
+  const tiles = worldCore.mapWidth * worldCore.mapHeight;
+  if (services.groundPollution.length !== 0 && services.groundPollution.length !== tiles) {
+    throw new DecodeError(
+      `ground pollution covers ${services.groundPollution.length} tiles, map has ${tiles} — corrupt save`,
+    );
+  }
   return {
     header,
     terrain,
@@ -479,6 +574,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     cohorts,
     worldCore,
     traffic,
+    services,
     pins: decodePins(pinsRaw),
     commandTail: decodeCommandTail(commandTailRaw),
   };
