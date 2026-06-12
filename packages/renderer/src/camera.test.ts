@@ -4,6 +4,7 @@ import {
   clampToBounds,
   containerTransform,
   createCamera,
+  frameBlend,
   LodTier,
   lodTier,
   pan,
@@ -110,5 +111,35 @@ describe("camera (TDD §8, phase-1 task 2)", () => {
     expect(t.scale).toBe(2);
     expect(t.x).toBe(VIEW.width / 2 - 200 * 2);
     expect(t.y).toBe(VIEW.height / 2 - 100 * 2);
+  });
+});
+
+describe("frame-rate-aware blend (ADR-008 ProMotion, task 12g)", () => {
+  it("60 Hz and 120 Hz converge identically per wall-clock time (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.double({ min: -2000, max: 2000, noNaN: true }),
+        fc.integer({ min: 1, max: 20 }),
+        (target, sixtyFrames) => {
+          const at60 = createCamera(0, 0, 1);
+          const at120 = createCamera(0, 0, 1);
+          at60.x = target;
+          at120.x = target;
+          for (let i = 0; i < sixtyFrames; i++) {
+            render(at60, frameBlend(1000 / 60));
+          }
+          for (let i = 0; i < sixtyFrames * 2; i++) {
+            render(at120, frameBlend(1000 / 120));
+          }
+          expect(at120.renderedX).toBeCloseTo(at60.renderedX, 6);
+        },
+      ),
+    );
+  });
+
+  it("blend is 0 for non-positive deltas and approaches 1 for huge ones", () => {
+    expect(frameBlend(0)).toBe(0);
+    expect(frameBlend(-5)).toBe(0);
+    expect(frameBlend(10_000)).toBeCloseTo(1, 6);
   });
 });
