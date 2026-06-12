@@ -29,6 +29,7 @@ function syntheticSnapshot(tick: number): Snapshot {
     buildings: null,
     zoneVersion: 0,
     zones: null,
+    agentCount: 0,
   };
 }
 

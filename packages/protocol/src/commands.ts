@@ -25,6 +25,9 @@ export const CommandType = {
   zoneRect: 8,
   dezoneRect: 9,
   placeBuilding: 10,
+  /** Pin a cim persona (building tile + cohort slot, GDD §17.5) — canonical. */
+  pinCim: 11,
+  unpinCim: 12,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -153,6 +156,19 @@ export interface PlaceBuildingCommand extends CommandBase {
   readonly building: BuildingKind;
 }
 
+/** Persona ref: the building's TILE (stable across saves) + cohort slot. */
+export interface PinCimCommand extends CommandBase {
+  readonly type: typeof CommandType.pinCim;
+  readonly tileIdx: number;
+  readonly slot: number;
+}
+
+export interface UnpinCimCommand extends CommandBase {
+  readonly type: typeof CommandType.unpinCim;
+  readonly tileIdx: number;
+  readonly slot: number;
+}
+
 export type Command =
   | SelectTileCommand
   | SetSpeedCommand
@@ -163,7 +179,9 @@ export type Command =
   | RedoCommand
   | ZoneRectCommand
   | DezoneRectCommand
-  | PlaceBuildingCommand;
+  | PlaceBuildingCommand
+  | PinCimCommand
+  | UnpinCimCommand;
 
 export const RejectionReason = {
   outOfBounds: 1,
@@ -219,6 +237,10 @@ export function encodeCommandBody(w: ByteWriter, cmd: Command): void {
       break;
     case CommandType.placeBuilding:
       w.u16(cmd.x).u16(cmd.y).u8(cmd.building);
+      break;
+    case CommandType.pinCim:
+    case CommandType.unpinCim:
+      w.u32(cmd.tileIdx).u8(cmd.slot);
       break;
   }
 }
@@ -313,6 +335,10 @@ export function decodeCommandBody(r: ByteReader): Command {
         building: building as BuildingKind,
       };
     }
+    case CommandType.pinCim:
+      return { seq, tick, type: CommandType.pinCim, tileIdx: r.u32(), slot: r.u8() };
+    case CommandType.unpinCim:
+      return { seq, tick, type: CommandType.unpinCim, tileIdx: r.u32(), slot: r.u8() };
     default:
       throw new DecodeError(`unknown CommandType ${type}`);
   }

@@ -170,6 +170,14 @@ export const placeBuildingCommandArb: fc.Arbitrary<PlaceBuildingCommand> = fc.re
   building: fc.constantFrom(...Object.values(BuildingKind)),
 });
 
+export const pinCimCommandArb: fc.Arbitrary<Command> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constantFrom(CommandType.pinCim, CommandType.unpinCim),
+  tileIdx: fc.nat({ max: 0xffffffff }),
+  slot: fc.nat({ max: 255 }),
+}) as fc.Arbitrary<Command>;
+
 export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   selectTileCommandArb,
   setSpeedCommandArb,
@@ -181,6 +189,7 @@ export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   zoneRectCommandArb,
   dezoneRectCommandArb,
   placeBuildingCommandArb,
+  pinCimCommandArb,
 );
 
 export const rejectionArb: fc.Arbitrary<CommandRejection> = fc.record({
@@ -214,6 +223,7 @@ const buildingViewArb = fc.record({
 });
 
 export const snapshotArb: fc.Arbitrary<Snapshot> = fc.record({
+  agentCount: fc.nat({ max: 0xffff }),
   kind: fc.constantFrom(...Object.values(SnapshotKind)),
   tick: tickArb,
   speed: u8Arb,

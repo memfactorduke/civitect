@@ -86,6 +86,8 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
     })),
     // Same canonical edge order as roads — trafficToSave sorts identically.
     traffic: trafficToSave(world.traffic, world.roads),
+    // Pinned cims join with the agents sim PR (Phase 3 tranche 3).
+    pins: [],
     worldCore: {
       speed: world.speed,
       selectedTileIdx: world.selectedTileIdx,

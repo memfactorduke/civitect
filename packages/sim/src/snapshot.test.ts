@@ -29,6 +29,7 @@ describe("toSnapshot", () => {
       buildings: [],
       zoneVersion: 0,
       zones: new Uint16Array(64 * 64),
+      agentCount: 0,
     });
   });
 

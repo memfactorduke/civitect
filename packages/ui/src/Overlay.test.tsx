@@ -32,6 +32,7 @@ function snapshot(partial: Partial<Snapshot>): Snapshot {
     buildings: null,
     zoneVersion: 0,
     zones: null,
+    agentCount: 0,
     ...partial,
   };
 }

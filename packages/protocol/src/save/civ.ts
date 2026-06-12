@@ -28,6 +28,7 @@ import { migrateSectionsV1toV2 } from "./migrations/v1_v2";
 import { migrateSectionsV2toV3 } from "./migrations/v2_v3";
 import { migrateSectionsV3toV4 } from "./migrations/v3_v4";
 import { migrateSectionsV4toV5 } from "./migrations/v4_v5";
+import { migrateSectionsV5toV6 } from "./migrations/v5_v6";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -80,6 +81,12 @@ export interface BuildingRow {
   readonly thriveDays: number;
 }
 
+/** A pinned cim persona ref: building TILE (stable across saves) + slot. */
+export interface CimPinSave {
+  readonly tileIdx: number;
+  readonly slot: number;
+}
+
 /**
  * An in-flight sliced solver job (TDD §6.3). The solver freezes nothing —
  * OD and costs re-derive from live state — so a resumable job is just its
@@ -127,6 +134,8 @@ export interface CivSave {
   readonly cohorts: Uint16Array;
   readonly worldCore: WorldCore;
   readonly traffic: TrafficSave;
+  /** Pinned cims (GDD §17.5), sorted by (tileIdx, slot). */
+  readonly pins: readonly CimPinSave[];
   /** Commands since the snapshot, in applied (tick, seq) order. */
   readonly commandTail: readonly Command[];
 }
@@ -310,6 +319,26 @@ function decodeTraffic(bytes: Uint8Array): TrafficSave {
   };
 }
 
+function encodePins(pins: readonly CimPinSave[]): Uint8Array {
+  const w = new ByteWriter();
+  w.u32(pins.length);
+  for (const pin of pins) {
+    w.u32(pin.tileIdx).u8(pin.slot);
+  }
+  return w.finish();
+}
+
+function decodePins(bytes: Uint8Array): CimPinSave[] {
+  const r = new ByteReader(bytes);
+  const count = r.u32();
+  const pins: CimPinSave[] = [];
+  for (let i = 0; i < count; i++) {
+    pins.push({ tileIdx: r.u32(), slot: r.u8() });
+  }
+  r.expectEnd();
+  return pins;
+}
+
 function encodeCommandTail(commands: readonly Command[]): Uint8Array {
   const w = new ByteWriter();
   w.u32(commands.length);
@@ -363,6 +392,7 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
     { id: SectionId.cohorts, raw: encodeCohorts(save.cohorts) },
     { id: SectionId.worldCore, raw: encodeWorldCore(save.worldCore) },
     { id: SectionId.traffic, raw: encodeTraffic(save.traffic) },
+    { id: SectionId.agentPins, raw: encodePins(save.pins) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
 }
@@ -393,6 +423,9 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
       traffic: SectionId.traffic,
     });
   }
+  if (header.formatVersion <= 5) {
+    sections = migrateSectionsV5toV6(sections, { agentPins: SectionId.agentPins });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
   const roadsRaw = sections.get(SectionId.roads);
@@ -400,6 +433,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   const cohortsRaw = sections.get(SectionId.cohorts);
   const worldCoreRaw = sections.get(SectionId.worldCore);
   const trafficRaw = sections.get(SectionId.traffic);
+  const pinsRaw = sections.get(SectionId.agentPins);
   const commandTailRaw = sections.get(SectionId.commandTail);
   if (
     terrainRaw === undefined ||
@@ -408,10 +442,11 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     cohortsRaw === undefined ||
     worldCoreRaw === undefined ||
     trafficRaw === undefined ||
+    pinsRaw === undefined ||
     commandTailRaw === undefined
   ) {
     throw new DecodeError(
-      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, COMMANDTAIL",
+      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, AGENTPINS, COMMANDTAIL",
     );
   }
   const buildings = decodeBuildings(buildingsRaw);
@@ -444,6 +479,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     cohorts,
     worldCore,
     traffic,
+    pins: decodePins(pinsRaw),
     commandTail: decodeCommandTail(commandTailRaw),
   };
 }

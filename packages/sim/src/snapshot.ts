@@ -69,5 +69,8 @@ export function toSnapshot(
     buildings: includeBuildings ? buildingViews(world) : null,
     zoneVersion: world.zoneVersion,
     zones: includeZones ? Uint16Array.from(world.terrain.layers.zone) : null,
+    // The transform rider attaches at the worker boundary; the agent pool
+    // fills this with the sampled count (Phase 3 tranche 3 sim PR).
+    agentCount: 0,
   };
 }

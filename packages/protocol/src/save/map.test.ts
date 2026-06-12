@@ -149,6 +149,7 @@ describe("map files (.civmap)", () => {
         volumes: new Uint32Array(0),
         job: null,
       },
+      pins: [],
       worldCore: {
         speed: 1,
         selectedTileIdx: -1,
