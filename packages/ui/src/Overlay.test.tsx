@@ -38,6 +38,8 @@ function snapshot(partial: Partial<Snapshot>): Snapshot {
     coverageService: 0,
     coverageVersion: 0,
     coverage: null,
+    report: null,
+    milestone: null,
     ...partial,
   };
 }
