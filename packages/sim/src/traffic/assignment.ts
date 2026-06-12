@@ -24,9 +24,23 @@ import {
 } from "../growth/buildings";
 import { fnv1a64 } from "../hash";
 import { edgesOf, otherEnd, type RoadGraph } from "../roads/graph";
-import { createPathfinder, edgeCost, findPath, type Pathfinder } from "../roads/pathfind";
+import {
+  createPathfinder,
+  dijkstraTree,
+  edgeCost,
+  findPath,
+  type Pathfinder,
+} from "../roads/pathfind";
 
 export const CELL_TILES = 8;
+
+/**
+ * Destinations per origin cell, top-trips first [TUNE]. Caps the OD matrix
+ * row so metro maps don't route workers×every-job-cell — destination
+ * choice sampling, the standard demand-model cut. Small cities never hit
+ * the cap (their job cells number fewer), so behavior there is unchanged.
+ */
+export const DEST_CAP = 16;
 
 /** Walk wins short trips [TUNE] — the v1 mode table (GDD §9.2). */
 export const WALK_MAX_CELL_DISTANCE = 1; // Chebyshev cells (≤ ~8-16 tiles)
@@ -153,8 +167,6 @@ export interface ConservationLedger {
  */
 export function assignOriginCell(
   g: RoadGraph,
-  pf: Pathfinder,
-  paths: Map<number, number[] | null>,
   cells: readonly Cell[],
   origin: Cell,
   totalJobs: number,
@@ -170,23 +182,34 @@ export function assignOriginCell(
   if (workers === 0 || totalJobs === 0) {
     return;
   }
+  // Destination choice: the DEST_CAP biggest job cells get this origin's
+  // trips (proportional split, largest-remainder rounding).
+  let dests = cells.filter((c) => c.jobs > 0);
+  if (dests.length > DEST_CAP) {
+    dests = [...dests].sort((a, b) => b.jobs - a.jobs || a.index - b.index).slice(0, DEST_CAP);
+  }
+  let destJobs = 0;
+  for (const dest of dests) {
+    destJobs += dest.jobs;
+  }
+  if (destJobs === 0) {
+    return;
+  }
   let allocated = 0;
   const shares: { cell: Cell; trips: number; rem: number }[] = [];
-  for (const dest of cells) {
-    if (dest.jobs === 0) {
-      continue;
-    }
+  for (const dest of dests) {
     const exact = workers * dest.jobs;
-    const trips = Math.floor(exact / totalJobs);
-    shares.push({ cell: dest, trips, rem: exact % totalJobs });
-    allocated += trips;
+    shares.push({ cell: dest, trips: Math.floor(exact / destJobs), rem: exact % destJobs });
+    allocated += Math.floor(exact / destJobs);
   }
   shares.sort((a, b) => b.rem - a.rem || a.cell.index - b.cell.index);
   for (let k = 0; k < workers - allocated && k < shares.length; k++) {
     (shares[k] as { trips: number }).trips++;
   }
 
-  const costOf = (e: number): number => costs[e] as number;
+  // ONE shortest-path tree serves every destination (per-pair A* explodes
+  // quadratically in OD cells — found sizing the 250k metro scenario).
+  let tree: { dist: Uint32Array; cameFromEdge: Int32Array } | null = null;
   for (const share of shares) {
     if (share.trips === 0) {
       continue;
@@ -202,14 +225,19 @@ export function assignOriginCell(
       ledger.unroutable += share.trips;
       continue;
     }
-    const path = findEdgePath(g, pf, paths, origin.anchor, dest.anchor, costOf);
-    if (path === null) {
+    if (tree === null) {
+      tree = dijkstraTree(g, origin.anchor, (e) => costs[e] as number);
+    }
+    if ((tree.dist[dest.anchor] as number) === 0xffffffff) {
       ledger.unroutable += share.trips;
       continue;
     }
     ledger.assigned += share.trips;
-    for (const e of path) {
+    let node = dest.anchor;
+    while (node !== origin.anchor) {
+      const e = tree.cameFromEdge[node] as number;
       addVolume(e, share.trips);
+      node = otherEnd(g, e, node);
     }
   }
 }

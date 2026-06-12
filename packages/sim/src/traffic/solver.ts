@@ -47,21 +47,19 @@ import {
   type Cell,
   type ConservationLedger,
   costFieldHash,
-  pathfinderFor,
-  pathsForCostField,
 } from "./assignment";
 
 export const FULL_SOLVE_HOUR = 4; // daily equilibrium at 04:00 (TDD §6.3)
 export const FULL_SOLVE_PASSES = 4; // [TUNE]
 export const MSA_K_CAP = 8; // [TUNE]
 /**
- * Ticks per PASS — an incremental job spans 12 ticks, a full solve 48,
- * both inside the 60-tick hour. Shorter passes also bound the dominant
- * solver cost (the per-tick live-OD rebuild) [TUNE; PERF: 34-tick passes
- * put the year-long balance replay at 125 s — this is the lever].
+ * Origin cells processed per tick — the per-tick WORK bound is fixed and
+ * passes stretch with map size instead (an L map's incremental pass takes
+ * ⌈cells/8⌉ ticks; metro maps solve at a slower cadence — the hourly step
+ * becomes "as fast as the budget allows" past ~96 cells [TUNE; PERF:
+ * sized against the 250k metro scenario, tranche 6]).
  */
-export const TICKS_PER_PASS = 12;
-export const JOB_BUDGET_TICKS = TICKS_PER_PASS * FULL_SOLVE_PASSES;
+export const ORIGINS_PER_TICK = 8;
 
 /**
  * Rush-hour departure curve (GDD §9.5), permille of a cell's commuters
@@ -266,9 +264,7 @@ export function stepSolveJob(
     totalJobs += cell.jobs;
   }
   const passes = job.kind === SolveKind.full ? FULL_SOLVE_PASSES : 1;
-  const sliceCells = Math.max(1, Math.ceil(cells.length / TICKS_PER_PASS));
-  const pf = pathfinderFor(twin);
-  const paths = pathsForCostField(twin, core.costHash);
+  const sliceCells = ORIGINS_PER_TICK;
   const addVolume = (slot: number, trips: number): void => {
     const key = core.twinSlotKeys[slot] ?? null;
     if (key !== null) {
@@ -280,8 +276,6 @@ export function stepSolveJob(
   for (; job.cursor < end; job.cursor++) {
     assignOriginCell(
       twin,
-      pf,
-      paths,
       cells,
       cells[job.cursor] as Cell,
       totalJobs,

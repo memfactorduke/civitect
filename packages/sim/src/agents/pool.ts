@@ -78,6 +78,8 @@ export interface AgentPool {
   dxMilli: Int32Array;
   dyMilli: Int32Array;
   nextFree: Int32Array;
+  /** Spawn budget per sample pass (device-scaled; perf harness raises it). */
+  spawnsPerSample: number;
   /** Visual-only rng — camera-dependent draws stay out of the hash. */
   rng: Pcg32;
   /** The twin these agents' paths live on; a new twin clears the pool. */
@@ -90,27 +92,28 @@ export interface AgentPool {
 
 const NO_INDEX = -1;
 
-export function createAgentPool(worldSeed: number): AgentPool {
+export function createAgentPool(worldSeed: number, cap = AGENT_POOL_CAP): AgentPool {
   return {
     count: 0,
     liveCount: 0,
     nextId: 1,
     freeHead: NO_INDEX,
-    id: new Uint32Array(AGENT_POOL_CAP),
-    alive: new Uint8Array(AGENT_POOL_CAP),
-    kind: new Uint8Array(AGENT_POOL_CAP),
-    pinned: new Uint8Array(AGENT_POOL_CAP),
-    cohortTile: new Uint32Array(AGENT_POOL_CAP),
-    cohortSlot: new Uint8Array(AGENT_POOL_CAP),
-    paths: new Array<number[] | null>(AGENT_POOL_CAP).fill(null),
-    pathIndex: new Uint16Array(AGENT_POOL_CAP),
-    node: new Int32Array(AGENT_POOL_CAP).fill(NO_INDEX),
-    progressMilli: new Uint32Array(AGENT_POOL_CAP),
-    xMilli: new Int32Array(AGENT_POOL_CAP),
-    yMilli: new Int32Array(AGENT_POOL_CAP),
-    dxMilli: new Int32Array(AGENT_POOL_CAP),
-    dyMilli: new Int32Array(AGENT_POOL_CAP),
-    nextFree: new Int32Array(AGENT_POOL_CAP).fill(NO_INDEX),
+    id: new Uint32Array(cap),
+    alive: new Uint8Array(cap),
+    kind: new Uint8Array(cap),
+    pinned: new Uint8Array(cap),
+    cohortTile: new Uint32Array(cap),
+    cohortSlot: new Uint8Array(cap),
+    paths: new Array<number[] | null>(cap).fill(null),
+    pathIndex: new Uint16Array(cap),
+    node: new Int32Array(cap).fill(NO_INDEX),
+    progressMilli: new Uint32Array(cap),
+    xMilli: new Int32Array(cap),
+    yMilli: new Int32Array(cap),
+    dxMilli: new Int32Array(cap),
+    dyMilli: new Int32Array(cap),
+    nextFree: new Int32Array(cap).fill(NO_INDEX),
+    spawnsPerSample: SPAWNS_PER_SAMPLE,
     rng: Pcg32.seeded(worldSeed, VISUAL_STREAM),
     twin: null,
     cells: null,
@@ -143,7 +146,7 @@ function spawnSlot(pool: AgentPool): number {
     slot = pool.freeHead;
     pool.freeHead = pool.nextFree[slot] as number;
   } else {
-    if (pool.count >= AGENT_POOL_CAP) {
+    if (pool.count >= pool.alive.length) {
       return NO_INDEX;
     }
     slot = pool.count;
@@ -333,7 +336,7 @@ function samplePool(world: AgentWorld, twin: RoadGraph): void {
     const cy = c.cy * CELL_TILES + CELL_TILES / 2;
     return cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1;
   });
-  for (let n = 0; n < SPAWNS_PER_SAMPLE && pool.liveCount < AGENT_POOL_CAP; n++) {
+  for (let n = 0; n < pool.spawnsPerSample && pool.liveCount < pool.alive.length; n++) {
     const oi = pickWeighted(pool, visible, (c) => c.workers);
     const di = pickWeighted(pool, cells, (c) => c.jobs);
     if (oi === NO_INDEX || di === NO_INDEX) {

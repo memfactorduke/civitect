@@ -10,7 +10,8 @@ import { describe, expect, it } from "vitest";
 import { createWorld, runTick, type World } from "../world";
 import {
   FULL_SOLVE_HOUR,
-  JOB_BUDGET_TICKS,
+  FULL_SOLVE_PASSES,
+  ORIGINS_PER_TICK,
   SolveKind,
   startSolveJob,
   stepSolveJob,
@@ -65,11 +66,15 @@ describe("sliced solver (TDD §6.3 — no hour-boundary spike)", () => {
     }
     runTick(world, []); // the boundary tick starts (and slices) the job
     expect(world.traffic.job).not.toBeNull(); // genuinely sliced, not one-shot
+    // Per-tick WORK is fixed; the pass bound derives from the cell count.
+    const cellsX = Math.ceil(world.mapWidth / 8);
+    const cellsY = Math.ceil(world.mapHeight / 8);
+    const bound = Math.ceil((cellsX * cellsY) / ORIGINS_PER_TICK) * FULL_SOLVE_PASSES + 1;
     let ticks = 1;
     while (world.traffic.job !== null) {
       runTick(world, []);
       ticks++;
-      expect(ticks).toBeLessThanOrEqual(JOB_BUDGET_TICKS); // structural work bound
+      expect(ticks).toBeLessThanOrEqual(bound); // structural work bound
     }
     expect(ticks).toBeGreaterThan(1);
   });
