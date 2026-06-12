@@ -1214,10 +1214,15 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
         },
       ]);
     }
-    // Sewage adequacy (GDD §7): a daily city-level balance check.
+    // Sewage adequacy (GDD §7): a daily city-level balance check. Young
+    // towns with no sewage infrastructure at all get grace until real
+    // scale (demand > 500) — otherwise every hamlet nags from day one.
     if (hourOfDay === 7) {
       const sewage = sewageBalance(world.buildings);
-      if (sewage.demand > sewage.capacity && sewage.demand > 0) {
+      if (
+        sewage.demand > sewage.capacity &&
+        (sewage.capacity > 0 || sewage.demand > 500)
+      ) {
         emitAdvisor(world, AdvisorSeverity.warning, "advisor.sewage", "cause.sewageDeficit", [
           {
             subject: { kind: EntityKind.system, id: 0 },
