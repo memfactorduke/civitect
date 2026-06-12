@@ -89,6 +89,31 @@ doesn't cover that. Everything from PR #11 on was built from a dedicated
 worktree at `Projects/Civitect-worktree-overnight` (remove with
 `git worktree remove` when convenient — but see recommendation below).
 
+## Extension run (after the first stop): tasks 6 + 12a/12b
+
+- **#29 merged** — map generator v1: six archetypes, all-integer noise,
+  reproducible catalog committed (maps + previews for your taste pass at
+  `tools/map-generator/previews/`). The sanity suite caught three bad
+  shapes before anything was committed.
+- **#30+#31 merged** — road rendering: protocol v4 (snapshots carry road
+  segments), renderer road layer, and the device frame-budget harness.
+  **Exit criterion 1's render half measured and passing: p95 10.1 ms
+  (16 ms budget), zero frames over 33 ms**, panning a rendered
+  500-segment L-map network on real hardware.
+- **#32 parked on the stack** — real road data into snapshots (two
+  surgical changes); when you land the stack, built roads render the
+  tick they're accepted.
+- The stack was refreshed with main (protocol v4 etc.) — #23/#24/#25
+  diffs are current and green.
+- **Incident 2 recurred once** (pipe-masked check status merged #30 with
+  a red run — the render-perf spec couldn't boot on CI software-GL; main
+  red ~8 min until #31). Spec is now device-only per TDD §12.4's own
+  cadence, and my merge procedure checks the watch exit code unpiped.
+  Branch protection remains the structural fix and is one checkbox away.
+- Remaining Phase 1 scope is decomposed as board rows 12c–12g
+  (pending-approval): intersections, bridges/tunnels + ped/bike, road
+  tool UX, save v3 ROADS section, 120 Hz polish.
+
 ## Recommended next three items (updated, end of night)
 
 1. **Land the parked stack**: read two balance-diffs (#23, #24 — both
