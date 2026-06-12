@@ -34,6 +34,14 @@ export {
   removeEdge,
   removeNode,
 } from "./roads/graph";
+export {
+  createPathfinder,
+  dijkstraField,
+  edgeCost,
+  findPath,
+  type Pathfinder,
+  type PathResult,
+} from "./roads/pathfind";
 export { toSnapshot } from "./snapshot";
 export {
   createWorld,
