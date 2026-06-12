@@ -19,9 +19,9 @@ runnable verification, ≤ a session). Roadmap scope + exit criteria:
 | 8 | `.civ` save codec: header (magic/formatVersion/simVersion/seed/tick/checksums), sectioned layout, deflate-raw; fixture-save archive seeded | protocol | TDD §10, ADR-010 | M | round-trip property test + fixture round-trip | 2 | done |
 | 9a | Save/load worker messages: saveRequest/saveResponse/loadRequest/loadResponse kinds, protocol v2 (interface-first split out of task 9 — .civ blobs must wear the envelope to cross the worker boundary) | protocol | TDD §7/§10 | S | symmetric codec property + v2 wire pins | 8 | done |
 | 9 | Save manager: save/load empty world, checksum verify, version-header validation | app | TDD §10 | S | e2e save→load→state-hash-equal | 7, 8, 9a | done |
-| 10 | Sprite sidecar JSON schema (footprint/anchor/states/emissive mask) — interface first for tools | protocol | TDD §11, ADR-012 | S | schema validation units | 2 | in-review |
+| 10 | Sprite sidecar JSON schema (footprint/anchor/states/emissive mask) — interface first for tools | protocol | TDD §11, ADR-012 | S | schema validation units | 2 | done |
 | 11 | sprite-intake chain (bg removal, palette snap, 3×→2×/1× fixed-kernel downscale) + atlas packer validation + 64-swatch palette linter + contact sheets. Unstubs asset gate | tools | TDD §11, ADR-012 | L | gate rejects seeded bad fixtures (wrong size / off-palette / missing state), accepts good | 10 | approved |
-| 12 | Determinism cross-check: golden replays in Chromium/WebKit/Node hash-agree. Unstubs weekly workflow | e2e | TDD §12.6, ADR-005 | S–M | three-engine hash agreement (exit criterion 1) | 4 | approved |
+| 12 | Determinism cross-check: golden replays in Chromium/WebKit/Node hash-agree. Unstubs weekly workflow | e2e | TDD §12.6, ADR-005 | S–M | three-engine hash agreement (exit criterion 1) | 4 | in-review |
 
 **Parallel, not a Claude Code PR:** style-bible seed batch (~12 hero sprites) —
 Codex generates, Mem curates (AI-WORKFLOW §1/§5); hard-gated on PR 11

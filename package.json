@@ -20,6 +20,7 @@
     "gate:assets": "node scripts/ci/asset-gate.mjs",
     "bless": "pnpm --filter @civitect/e2e bless",
     "e2e:smoke": "pnpm --filter @civitect/e2e smoke",
+    "e2e:cross-check": "pnpm --filter @civitect/e2e cross-check",
     "verify": "pnpm lint && pnpm lint:determinism && pnpm wall && pnpm typecheck && pnpm test && pnpm gate:golden && pnpm gate:balance && pnpm gate:perf && pnpm gate:assets"
   },
   "devDependencies": {
