@@ -26,9 +26,9 @@ export function AdvisorFeed(props: { readonly store: UiStore }): ReactNode {
             <span>{event.messageKey}</span>
             <em>{event.cause.summaryKey}</em>
             <ul>
-              {event.cause.links.map((link, index) => (
+              {event.cause.links.map((link) => (
                 <li
-                  key={index}
+                  key={`${link.subject.kind}:${link.subject.id}:${link.labelKey}`}
                   data-testid="cause-link"
                   data-subject-kind={KIND_NAMES[link.subject.kind] ?? link.subject.kind}
                   data-subject-id={link.subject.id}
