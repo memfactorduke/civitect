@@ -31,6 +31,7 @@ import {
   residentsOf,
 } from "../growth/buildings";
 import type { Pcg32 } from "../rng";
+import { GROUND_PER_INDUSTRY_DAY, GROUND_PER_LANDFILL_10K_DAY } from "./pollution";
 import { scaledCapacity, specForTableKind } from "./registry";
 
 export const SERVICE_SLICES = 24; // one visit per building per game-day
@@ -125,6 +126,13 @@ export interface ServicesContext {
   readonly budgetsPermille: Uint16Array;
   /** coverage(service) — 0–255 per tile, the task-2 fenced field. */
   readonly coverageAt: (service: ServiceId, tileIdx: number) => number;
+  /**
+   * Extra sickness pressure at a tile, permille/day, from pollution
+   * (task 4): air + ground + the pump-crisis multiplier. 0 pre-pollution.
+   */
+  readonly extraSickPermille: (tileIdx: number) => number;
+  /** CANONICAL ground-pollution field — industry/landfill accrual target. */
+  readonly groundPollution: Uint8Array;
   readonly rng: Pcg32;
   readonly flows: ServiceFlows;
   /** Advisor sink — at most a handful per slice, each with a cause chain. */
@@ -313,9 +321,24 @@ export function servicesSlice(ctx: ServicesContext, tick: number): void {
     }
     const kind = b.kind[i] as number;
     if (kind >= PLOPPABLE_KIND_OFFSET) {
+      // Landfills leach into the ground as they fill (GDD §10).
+      if (kind - PLOPPABLE_KIND_OFFSET === BuildingKind.landfill) {
+        const leach = Math.floor(((b.stock[i] as number) * GROUND_PER_LANDFILL_10K_DAY) / 10_000);
+        if (leach > 0) {
+          const at = b.tileIdx[i] as number;
+          ctx.groundPollution[at] = Math.min(255, (ctx.groundPollution[at] as number) + leach);
+        }
+      }
       continue; // service/utility buildings neither rot nor sicken (v1)
     }
     const tile = b.tileIdx[i] as number;
+    // Industry stains its ground daily — the persistent legacy field.
+    if (kind === ZoneKind.industrial) {
+      ctx.groundPollution[tile] = Math.min(
+        255,
+        (ctx.groundPollution[tile] as number) + GROUND_PER_INDUSTRY_DAY,
+      );
+    }
 
     // ── garbage: daily accrual, then collection from the slice budget ──
     const gen = garbagePerDay(kind, b.level[i] as number);
@@ -362,8 +385,9 @@ export function servicesSlice(ctx: ServicesContext, tick: number): void {
     if (isResidential) {
       const residents = residentsOf(b, i);
       if (residents > 0) {
-        // ── sickness: base urban rate (pollution joins in task 4) ──
-        const expected = residents * BASE_SICK_PERMILLE;
+        // ── sickness: base urban rate + pollution pressure (GDD §10) ──
+        const rate = BASE_SICK_PERMILLE + ctx.extraSickPermille(tile);
+        const expected = residents * rate;
         let sickInc = Math.floor(expected / 1000);
         if (ctx.rng.nextBounded(1000) < expected % 1000) {
           sickInc++;

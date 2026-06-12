@@ -81,6 +81,21 @@ import {
 } from "./services/coverage";
 import { emptyServiceFlows, type ServiceFlows, servicesSlice } from "./services/loops";
 import {
+  airFor,
+  createPollutionCache,
+  crisisFor,
+  fieldDigestU32,
+  GROUND_DECAY_DAYS,
+  noiseFor,
+  type PollutionCache,
+  type PollutionInputs,
+  SICK_PER_64_AIR,
+  SICK_PER_64_GROUND,
+  SICK_WATER_CRISIS,
+  sewageBalance,
+  waterFor,
+} from "./services/pollution";
+import {
   createTraffic,
   FULL_SOLVE_HOUR,
   refreshTrafficDerived,
@@ -156,6 +171,8 @@ export interface World {
   readonly coverageCache: ServiceCoverageCache;
   /** Service-loop diagnostics ledger (GrowthFlows pattern, not hashed). */
   readonly serviceFlows: ServiceFlows;
+  /** Derived air/noise/water fields + pump crisis — fenced, never hashed. */
+  readonly pollutionCache: PollutionCache;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
   agents: AgentPool;
   /** Camera bounds from the viewportHint message — sampler input ONLY. */
@@ -278,6 +295,7 @@ export function createWorld(
     groundPollution: new Uint8Array(mapWidth * mapHeight),
     coverageCache: createCoverageCache(),
     serviceFlows: emptyServiceFlows(),
+    pollutionCache: createPollutionCache(),
     agents: createAgentPool(seed),
     viewport: null,
     rng,
@@ -315,6 +333,50 @@ export function serviceCoverageAt(world: World, service: ServiceId, tileIdx: num
   const { inputs, fenceKey } = coverageInputs(world);
   const dist = distancesFor(world.coverageCache, service, inputs, fenceKey);
   return coverageAtTile(dist, tileIdx, world.mapWidth, world.mapHeight);
+}
+
+function pollutionInputs(world: World): { inputs: PollutionInputs; fence: string } {
+  return {
+    inputs: {
+      buildings: world.buildings,
+      roads: world.roads,
+      traffic: world.traffic,
+      waterLayer: world.terrain.layers.water,
+      elevation: world.terrain.layers.elevation,
+      mapWidth: world.mapWidth,
+      mapHeight: world.mapHeight,
+    },
+    fence: `${world.buildings.version},${world.roads.version},${world.traffic.costHash}`,
+  };
+}
+
+/** All four pollution samples at a tile (inspector environ block). */
+export function pollutionAt(
+  world: World,
+  tileIdx: number,
+): { air: number; ground: number; noise: number; water: number } {
+  const { inputs, fence } = pollutionInputs(world);
+  return {
+    air: airFor(world.pollutionCache, inputs, fence)[tileIdx] as number,
+    ground: world.groundPollution[tileIdx] as number,
+    noise: noiseFor(world.pollutionCache, inputs, fence)[tileIdx] as number,
+    water: waterFor(world.pollutionCache, inputs, fence)[tileIdx] as number,
+  };
+}
+
+/** Full derived pollution field + digest (overlay surface, task 6). */
+export function pollutionField(
+  world: World,
+  kind: "air" | "noise" | "water",
+): { field: Uint8Array; digestU32: number } {
+  const { inputs, fence } = pollutionInputs(world);
+  const field =
+    kind === "air"
+      ? airFor(world.pollutionCache, inputs, fence)
+      : kind === "noise"
+        ? noiseFor(world.pollutionCache, inputs, fence)
+        : waterFor(world.pollutionCache, inputs, fence);
+  return { field, digestU32: fieldDigestU32(world.pollutionCache, kind, field) };
 }
 
 const ZONE_ROAD_DEPTH = 4; // GDD §6: zoning depth along roads
@@ -1088,12 +1150,22 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // services(queues): hourly staggered slice (board phase-4 task 3) —
   // garbage, health/sickness, deathcare, education on rng.services.
   if (world.tick % TICKS_PER_HOUR === 0) {
+    const { inputs: pollInputs, fence: pollFence } = pollutionInputs(world);
+    const crisis = crisisFor(world.pollutionCache, pollInputs, pollFence);
+    const airField = airFor(world.pollutionCache, pollInputs, pollFence);
     const deathsBefore = world.serviceFlows.deaths;
     servicesSlice(
       {
         buildings: world.buildings,
         budgetsPermille: world.services.budgetsPermille,
         coverageAt: (service, tileIdx) => serviceCoverageAt(world, service, tileIdx),
+        // Pollution → sickness (GDD §10): air + persistent ground + the
+        // citywide pump-crisis multiplier, permille/day.
+        extraSickPermille: (tileIdx) =>
+          Math.floor(((airField[tileIdx] as number) * SICK_PER_64_AIR) / 64) +
+          Math.floor(((world.groundPollution[tileIdx] as number) * SICK_PER_64_GROUND) / 64) +
+          (crisis !== null ? SICK_WATER_CRISIS : 0),
+        groundPollution: world.groundPollution,
         rng: world.rng.services,
         flows: world.serviceFlows,
         emit: (messageKey, summaryKey, subjectTile, weightPermille) =>
@@ -1110,6 +1182,56 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     // Deaths are population outflows — the conservation identity (pop =
     // in − out, exact every tick) routes them through GrowthFlows.
     world.flows.deaths += world.serviceFlows.deaths - deathsBefore;
+
+    const hourOfDay = Math.floor(world.tick / TICKS_PER_HOUR) % 24;
+    const day = Math.floor(world.tick / 1440);
+    // Ground pollution decays 1 point per GROUND_DECAY_DAYS — row-sliced
+    // so no single tick pays the full-field pass (TDD §4 stagger).
+    if (day % GROUND_DECAY_DAYS === 0) {
+      for (let y = hourOfDay; y < world.mapHeight; y += 24) {
+        const row = y * world.mapWidth;
+        for (let x = 0; x < world.mapWidth; x++) {
+          const v = world.groundPollution[row + x] as number;
+          if (v > 0) {
+            world.groundPollution[row + x] = v - 1;
+          }
+        }
+      }
+    }
+    // The pump crisis (GDD §10): dramatic, diagnosable, daily check —
+    // outlet → polluted intake → pump, every link resolvable (ADR-009).
+    if (crisis !== null && hourOfDay === 6) {
+      emitAdvisor(world, AdvisorSeverity.alert, "advisor.waterCrisis", "cause.pollutedIntake", [
+        {
+          subject: { kind: EntityKind.building, id: crisis.pumpTile },
+          labelKey: "cause.pumpDrinksPollution",
+          weightPermille: 1000,
+        },
+        {
+          subject: { kind: EntityKind.tile, id: crisis.intakeTile },
+          labelKey: "cause.pollutedWater",
+          weightPermille: 1000,
+        },
+      ]);
+    }
+    // Sewage adequacy (GDD §7): a daily city-level balance check. Young
+    // towns with no sewage infrastructure at all get grace until real
+    // scale (demand > 500) — otherwise every hamlet nags from day one.
+    if (hourOfDay === 7) {
+      const sewage = sewageBalance(world.buildings);
+      if (sewage.demand > sewage.capacity && (sewage.capacity > 0 || sewage.demand > 500)) {
+        emitAdvisor(world, AdvisorSeverity.warning, "advisor.sewage", "cause.sewageDeficit", [
+          {
+            subject: { kind: EntityKind.system, id: 0 },
+            labelKey: "cause.sewageOverCapacity",
+            weightPermille: Math.min(
+              1000,
+              Math.floor(((sewage.demand - sewage.capacity) * 1000) / sewage.demand),
+            ),
+          },
+        ]);
+      }
+    }
   }
   // pollution/landValue(dirty regions)— land value v1 derives on demand
   // HUD/demand reuse the same scan (one tick of staleness on spawn counts

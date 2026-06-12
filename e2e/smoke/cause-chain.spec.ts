@@ -25,9 +25,15 @@ test("abandonment advisor's cause link resolves to the real abandoned building",
     c.dispatchIntent({ type: 2, speed: 9 }); // fast-forward
   });
 
-  // Wait for the advisor event to surface in the DOM feed (≈2 game-days
-  // at 90 ticks/s ≈ 35 s + spawn lead time).
-  const link = page.locator('[data-testid="cause-link"]').first();
+  // Wait for the ABANDONMENT advisor to surface in the DOM feed (≈2
+  // game-days at 90 ticks/s ≈ 35 s + spawn lead time). Target it by
+  // message key — Phase 4 services emit their own advisors into the same
+  // feed, and this test is about the abandonment chain specifically.
+  const link = page
+    .locator(
+      '[data-testid="advisor-event"][data-message-key="advisor.abandonment"] [data-testid="cause-link"]',
+    )
+    .first();
   await expect(link).toBeVisible({ timeout: 180_000 });
   expect(await link.getAttribute("data-subject-kind")).toBe("building");
   const subjectId = Number(await link.getAttribute("data-subject-id"));
