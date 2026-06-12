@@ -193,79 +193,139 @@ function stationsOf(
   return { anchors };
 }
 
-/**
- * The full coverage field for one service: per radius group, road-tile
- * distances → reach-window expansion → decay; tiles take the MAX over
- * groups. O(tiles × reach²) per group — overlay/property-test surface;
- * loops use coverageAt-style spot reads on the cached field.
- */
-export function computeCoverageField(service: ServiceId, inputs: ServiceFieldInputs): Uint8Array {
-  const { mapWidth, mapHeight } = inputs;
-  const tiles = mapWidth * mapHeight;
-  const out = new Uint8Array(tiles);
-  const groups = stationsOf(service, inputs);
-  for (const [radius, anchorList] of [...groups.anchors.entries()].sort((p, q) => p[0] - q[0])) {
-    const roadDist = roadTileDistances(inputs.roads, anchorList, mapWidth, mapHeight);
-    for (let y = 0; y < mapHeight; y++) {
-      for (let x = 0; x < mapWidth; x++) {
-        const idx = y * mapWidth + x;
-        let min = INF;
-        for (let dy = -SERVICE_REACH; dy <= SERVICE_REACH; dy++) {
-          const ny = y + dy;
-          if (ny < 0 || ny >= mapHeight) {
-            continue;
-          }
-          for (let dx = -SERVICE_REACH; dx <= SERVICE_REACH; dx++) {
-            const nx = x + dx;
-            if (nx < 0 || nx >= mapWidth) {
-              continue;
-            }
-            const d = roadDist[ny * mapWidth + nx] as number;
-            if (d < min) {
-              min = d;
-            }
-          }
+/** Distance groups for one service: (budget-scaled radius, roadDist field). */
+export interface DistanceGroups {
+  readonly groups: readonly { radius: number; roadDist: Uint32Array }[];
+}
+
+/** Per-radius-group road-distance fields — the spot-read substrate. */
+export function computeDistanceGroups(
+  service: ServiceId,
+  inputs: ServiceFieldInputs,
+): DistanceGroups {
+  const groups: { radius: number; roadDist: Uint32Array }[] = [];
+  const stations = stationsOf(service, inputs);
+  for (const [radius, anchorList] of [...stations.anchors.entries()].sort((p, q) => p[0] - q[0])) {
+    groups.push({
+      radius,
+      roadDist: roadTileDistances(inputs.roads, anchorList, inputs.mapWidth, inputs.mapHeight),
+    });
+  }
+  return { groups };
+}
+
+/** Coverage at ONE tile: max over groups of decayed window-min distance. */
+export function coverageAtTile(
+  dist: DistanceGroups,
+  tileIdx: number,
+  mapWidth: number,
+  mapHeight: number,
+): number {
+  const x = tileIdx % mapWidth;
+  const y = Math.floor(tileIdx / mapWidth);
+  let best = 0;
+  for (const { radius, roadDist } of dist.groups) {
+    let min = INF;
+    for (let dy = -SERVICE_REACH; dy <= SERVICE_REACH; dy++) {
+      const ny = y + dy;
+      if (ny < 0 || ny >= mapHeight) {
+        continue;
+      }
+      for (let dx = -SERVICE_REACH; dx <= SERVICE_REACH; dx++) {
+        const nx = x + dx;
+        if (nx < 0 || nx >= mapWidth) {
+          continue;
         }
-        if (min !== INF) {
-          const c = decay(min, radius);
-          if (c > (out[idx] as number)) {
-            out[idx] = c;
-          }
+        const d = roadDist[ny * mapWidth + nx] as number;
+        if (d < min) {
+          min = d;
         }
       }
     }
+    if (min !== INF) {
+      const c = decay(min, radius);
+      if (c > best) {
+        best = c;
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * The full coverage field for one service — the overlay and the
+ * exit-criterion-2 ground-truth property's surface. The service LOOPS
+ * never materialize this: they spot-read via coverageAtTile, because the
+ * fence moves with every building spawn and a full O(tiles × reach²)
+ * rebuild inside the hourly tick would blow the TDD §2 tick gate on L
+ * maps.
+ */
+export function computeCoverageField(service: ServiceId, inputs: ServiceFieldInputs): Uint8Array {
+  const { mapWidth, mapHeight } = inputs;
+  const out = new Uint8Array(mapWidth * mapHeight);
+  const dist = computeDistanceGroups(service, inputs);
+  for (let idx = 0; idx < out.length; idx++) {
+    out[idx] = coverageAtTile(dist, idx, mapWidth, mapHeight);
   }
   return out;
 }
 
 /**
- * Derived-field cache, fenced on (roads.version, buildings.version,
- * budgets version) like utilities — version counters are session-local
- * CACHE KEYS only; the wire carries the content DIGEST (the congestion-
- * version lesson: display state must match across save/load).
+ * Derived caches, fenced on (roads.version, buildings.version, budgets
+ * version) like utilities — version counters are session-local CACHE KEYS
+ * only; the wire carries the content DIGEST (the congestionVersion
+ * lesson: display state must match across save/load). Distance groups
+ * cache independently of full fields: loops touch only the former.
  */
 export interface ServiceCoverageCache {
   fenceKey: string;
+  distances: Map<ServiceId, DistanceGroups>;
   fields: Map<ServiceId, { coverage: Uint8Array; digestU32: number }>;
 }
 
 export function createCoverageCache(): ServiceCoverageCache {
-  return { fenceKey: "", fields: new Map() };
+  return { fenceKey: "", distances: new Map(), fields: new Map() };
 }
 
+function refreshFence(cache: ServiceCoverageCache, fenceKey: string): void {
+  if (cache.fenceKey !== fenceKey) {
+    cache.fenceKey = fenceKey;
+    cache.distances.clear();
+    cache.fields.clear();
+  }
+}
+
+/** Spot-read substrate for one service (cached on the fence). */
+export function distancesFor(
+  cache: ServiceCoverageCache,
+  service: ServiceId,
+  inputs: ServiceFieldInputs,
+  fenceKey: string,
+): DistanceGroups {
+  refreshFence(cache, fenceKey);
+  let dist = cache.distances.get(service);
+  if (dist === undefined) {
+    dist = computeDistanceGroups(service, inputs);
+    cache.distances.set(service, dist);
+  }
+  return dist;
+}
+
+/** Full field + digest for one service (overlay surface; cached on fence). */
 export function coverageFor(
   cache: ServiceCoverageCache,
   service: ServiceId,
   inputs: ServiceFieldInputs,
   fenceKey: string,
 ): { coverage: Uint8Array; digestU32: number } {
-  if (cache.fenceKey !== fenceKey) {
-    cache.fenceKey = fenceKey;
-    cache.fields.clear();
-  }
+  refreshFence(cache, fenceKey);
   let field = cache.fields.get(service);
   if (field === undefined) {
-    const coverage = computeCoverageField(service, inputs);
+    const dist = distancesFor(cache, service, inputs, fenceKey);
+    const coverage = new Uint8Array(inputs.mapWidth * inputs.mapHeight);
+    for (let idx = 0; idx < coverage.length; idx++) {
+      coverage[idx] = coverageAtTile(dist, idx, inputs.mapWidth, inputs.mapHeight);
+    }
     const digestU32 = Number.parseInt(fnv1a64(coverage).slice(0, 8), 16);
     field = { coverage, digestU32 };
     cache.fields.set(service, field);
