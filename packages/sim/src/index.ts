@@ -101,6 +101,7 @@ export {
 export {
   controlAt,
   createWorld,
+  edgeAtTile,
   IntersectionControl,
   type RoadOp,
   runTick,

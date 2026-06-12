@@ -30,6 +30,8 @@ function syntheticSnapshot(tick: number): Snapshot {
     zoneVersion: 0,
     zones: null,
     agentCount: 0,
+    congestionVersion: 0,
+    congestion: null,
   };
 }
 

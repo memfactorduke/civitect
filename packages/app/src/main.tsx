@@ -8,6 +8,7 @@ import {
   AGENT_FLOATS,
   CommandType,
   decodeMessage,
+  EntityKind,
   encodeMessage,
   MessageKind,
   RoadClassWire,
@@ -74,6 +75,9 @@ async function main(): Promise<void> {
         store.getState().applySnapshot(message.body);
         break;
       }
+      case MessageKind.inspectorResponse:
+        store.getState().applyInspectorResponse(message.body);
+        break;
       case MessageKind.commandRejection:
         // Optimistic ghosts arrive with build tools (Phase 1); for now a
         // rejection is just developer-visible.
@@ -116,6 +120,7 @@ async function main(): Promise<void> {
   type Tool = "select" | "road" | "bulldoze";
   let tool: Tool = "select";
   let zoneOverlayOn = false;
+  let trafficOverlayOn = false;
   let anchor: { x: number; y: number } | null = null;
 
   const tileAt = (event: PointerEvent): { x: number; y: number } | null => {
@@ -131,6 +136,7 @@ async function main(): Promise<void> {
     }
     if (tool === "select") {
       dispatch({ type: CommandType.selectTile, x: tile.x, y: tile.y });
+      inspectTile(tile.y * BOOT.mapWidth + tile.x);
     } else {
       anchor = tile;
       renderer.stage.setGhost(anchor, tile);
@@ -176,6 +182,9 @@ async function main(): Promise<void> {
     if (event.key === "z") {
       zoneOverlayOn = !zoneOverlayOn;
       renderer.stage.setZoneOverlay(zoneOverlayOn);
+    } else if (event.key === "t") {
+      trafficOverlayOn = !trafficOverlayOn;
+      renderer.stage.setTrafficOverlay(trafficOverlayOn);
     } else if (event.key === "r") tool = "road";
     else if (event.key === "b") tool = "bulldoze";
     else if (event.key === "s" || event.key === "Escape") tool = "select";
@@ -183,6 +192,18 @@ async function main(): Promise<void> {
   attachCameraControls(renderer, renderer.app.canvas as unknown as HTMLElement, {
     panEnabled: () => tool === "select",
   });
+
+  // Tap-to-inspect (GDD §9.5): selected tiles also query the inspector
+  // channel (4 Hz re-poll while a panel is open arrives with panel state;
+  // v1 queries per tap — the snapshot keeps HUD fresh regardless).
+  let inspectorRequestId = 0;
+  const inspectTile = (tileIdx: number): void => {
+    const bytes = encodeMessage({
+      kind: MessageKind.inspectorRequest,
+      body: { requestId: ++inspectorRequestId, target: { kind: EntityKind.tile, id: tileIdx } },
+    });
+    worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
+  };
 
   // Camera → sampler viewport (ADR-002): visible tile bbox, sent through
   // the protocol like everything else, throttled and only on change.
@@ -235,6 +256,14 @@ async function main(): Promise<void> {
       dispatch(intent);
     },
     tool: () => tool,
+    inspectTile: (tileIdx: number) => {
+      inspectTile(tileIdx);
+    },
+    roadInfo: () => store.getState().roadInfo,
+    setTrafficOverlay: (on: boolean) => {
+      trafficOverlayOn = on;
+      renderer.stage.setTrafficOverlay(on);
+    },
     // Agents observability for the follow e2e (GDD §17.5): the latest
     // transform rider, decoded into plain objects.
     agents: () => {

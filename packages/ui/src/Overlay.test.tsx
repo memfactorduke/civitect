@@ -33,6 +33,8 @@ function snapshot(partial: Partial<Snapshot>): Snapshot {
     zoneVersion: 0,
     zones: null,
     agentCount: 0,
+    congestionVersion: 0,
+    congestion: null,
     ...partial,
   };
 }

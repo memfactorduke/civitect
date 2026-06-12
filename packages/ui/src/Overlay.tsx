@@ -8,6 +8,7 @@ import { AdvisorFeed } from "./AdvisorFeed";
 import { DemandPanel } from "./DemandPanel";
 import { type DispatchFn, DispatchProvider } from "./dispatch";
 import { Hud } from "./Hud";
+import { RoadInspector } from "./RoadInspector";
 import { SpeedControls } from "./SpeedControls";
 import type { UiStore } from "./store";
 
@@ -20,6 +21,7 @@ export function Overlay(props: {
       <Hud store={props.store} />
       <SpeedControls store={props.store} />
       <DemandPanel store={props.store} />
+      <RoadInspector store={props.store} />
       <AdvisorFeed store={props.store} />
     </DispatchProvider>
   );

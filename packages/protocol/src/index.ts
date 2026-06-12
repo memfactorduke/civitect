@@ -67,6 +67,7 @@ export {
   encodeInspectorResponseBody,
   type InspectorRequest,
   type InspectorResponse,
+  type RoadInfo,
   type TileInfo,
 } from "./inspector";
 export {

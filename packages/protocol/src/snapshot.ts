@@ -136,6 +136,13 @@ export interface Snapshot {
   readonly zones: Uint16Array | null;
   /** Agents in the transferable rider (AGENT_FLOATS floats each); 0 = none. */
   readonly agentCount: number;
+  /** Bumps when MSA volumes re-blend; congestion rides changes (v10). */
+  readonly congestionVersion: number;
+  /**
+   * v/c permille per snapshot ROAD (same canonical order as `roads`),
+   * capped 3000. Null = unchanged since the last carried block.
+   */
+  readonly congestion: Uint16Array | null;
 }
 
 export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
@@ -191,6 +198,15 @@ export function encodeSnapshotBody(w: ByteWriter, snap: Snapshot): void {
     }
   }
   w.u16(snap.agentCount);
+  w.u32(snap.congestionVersion);
+  if (snap.congestion === null) {
+    w.u8(0);
+  } else {
+    w.u8(1).u32(snap.congestion.length);
+    for (const c of snap.congestion) {
+      w.u16(c);
+    }
+  }
 }
 
 export function decodeSnapshotBody(r: ByteReader): Snapshot {
@@ -266,6 +282,19 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
     }
   }
   const agentCount = r.u16();
+  const congestionVersion = r.u32();
+  const hasCongestion = r.u8();
+  if (hasCongestion > 1) {
+    throw new DecodeError(`congestion presence flag must be 0|1, got ${hasCongestion}`);
+  }
+  let congestion: Uint16Array | null = null;
+  if (hasCongestion === 1) {
+    const count = r.u32();
+    congestion = new Uint16Array(count);
+    for (let i = 0; i < count; i++) {
+      congestion[i] = r.u16();
+    }
+  }
   return {
     kind,
     tick,
@@ -282,5 +311,7 @@ export function decodeSnapshotBody(r: ByteReader): Snapshot {
     zoneVersion,
     zones,
     agentCount,
+    congestionVersion,
+    congestion,
   };
 }

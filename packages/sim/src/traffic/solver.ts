@@ -63,6 +63,15 @@ export const MSA_K_CAP = 8; // [TUNE]
 export const TICKS_PER_PASS = 12;
 export const JOB_BUDGET_TICKS = TICKS_PER_PASS * FULL_SOLVE_PASSES;
 
+/**
+ * Rush-hour departure curve (GDD §9.5), permille of a cell's commuters
+ * departing in each hour [TUNE]: AM peak 7–9, PM peak 17–19, quiet nights.
+ */
+export const DEPARTURE_CURVE_PERMILLE: readonly number[] = [
+  50, 30, 30, 30, 60, 150, 500, 900, 1000, 700, 450, 400, 420, 400, 380, 420, 600, 900, 1000, 650,
+  350, 200, 120, 80,
+];
+
 export const SolveKind = {
   incremental: 1,
   full: 2,
@@ -91,6 +100,8 @@ export interface TrafficCore {
   unroutable: number;
   job: SolveJob | null;
   // ── derived (rebuilt on edit/finalize/load — never hashed or saved) ──
+  /** Bumps when volumes re-blend / re-derive — snapshot change key. */
+  version: number;
   /** Graph revision the derived fields describe (fence, like utilities'). */
   graphVersion: number;
   /**
@@ -130,6 +141,7 @@ function edgeKey(g: RoadGraph, e: number): string {
 
 /** Re-derive cost fields + mirrors from canonical volumes (twin reused). */
 function retimeTraffic(core: TrafficCore, g: RoadGraph): void {
+  core.version++;
   const twin = core.twin;
   core.twinCosts = new Uint32Array(twin.edgeCount);
   for (let e = 0; e < twin.edgeCount; e++) {
@@ -204,6 +216,7 @@ export function createTraffic(g: RoadGraph): TrafficCore {
     walked: 0,
     unroutable: 0,
     job: null,
+    version: 0,
     graphVersion: g.version,
     twin: createRoadGraph(),
     twinSlotKeys: [],
@@ -237,6 +250,7 @@ export function stepSolveJob(
   g: RoadGraph,
   mapWidth: number,
   mapHeight: number,
+  hourOfDay = 8, // peak default keeps direct-driven tests meaningful
 ): boolean {
   const job = core.job;
   if (job === null) {
@@ -261,6 +275,7 @@ export function stepSolveJob(
       job.aon.set(key, (job.aon.get(key) ?? 0) + trips);
     }
   };
+  const demandPermille = DEPARTURE_CURVE_PERMILLE[hourOfDay] ?? 1000;
   const end = Math.min(cells.length, job.cursor + sliceCells);
   for (; job.cursor < end; job.cursor++) {
     assignOriginCell(
@@ -273,6 +288,7 @@ export function stepSolveJob(
       core.twinCosts,
       addVolume,
       job.ledger,
+      demandPermille,
     );
   }
   if (job.cursor < cells.length) {
@@ -376,6 +392,7 @@ export function trafficFromSave(saved: TrafficSave, g: RoadGraph): TrafficCore {
     walked: saved.walked,
     unroutable: saved.unroutable,
     job: null,
+    version: 0,
     graphVersion: g.version,
     twin: createRoadGraph(),
     twinSlotKeys: [],

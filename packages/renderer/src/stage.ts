@@ -40,6 +40,8 @@ export interface WorldStage {
   setZoneOverlay(visible: boolean): void;
   /** Redraw the agent layer from a transform rider (null = clear). */
   setAgents(buffer: Float32Array | null): void;
+  /** Toggle the traffic overlay (v/c tints over road segments, GDD §9.5). */
+  setTrafficOverlay(visible: boolean): void;
   /** Chunk count — observability for tests/devtools. */
   readonly chunkCount: number;
 }
@@ -156,6 +158,52 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     }
   };
 
+  // Traffic overlay (GDD §9.5): v/c tints stroked OVER the road layer,
+  // redrawn when congestionVersion or the road list moves.
+  const trafficOverlay = new Graphics();
+  trafficOverlay.visible = false;
+  root.addChild(trafficOverlay);
+  let trafficOverlayOn = false;
+  let drawnCongestionVersion = -1;
+  let lastRoads: readonly RoadSegment[] = [];
+  let lastCongestion: Uint16Array | null = null;
+
+  const congestionColor = (permille: number): number => {
+    if (permille >= 1200) {
+      return 0xd83a3a; // jammed
+    }
+    if (permille >= 900) {
+      return 0xe07b2f;
+    }
+    if (permille >= 500) {
+      return 0xd9c544;
+    }
+    return 0x4ea64e; // free-flowing
+  };
+
+  const drawTrafficOverlay = (): void => {
+    trafficOverlay.clear();
+    if (lastCongestion === null) {
+      return;
+    }
+    for (let i = 0; i < lastRoads.length; i++) {
+      const seg = lastRoads[i] as RoadSegment;
+      const a = tileCenterToWorld(seg.ax, seg.ay);
+      const b = tileCenterToWorld(seg.bx, seg.by);
+      const style =
+        ROAD_STYLE[seg.roadClass] ?? (ROAD_STYLE[1] as { width: number; color: number });
+      trafficOverlay
+        .moveTo(a.wx, a.wy)
+        .lineTo(b.wx, b.wy)
+        .stroke({
+          width: style.width + 2,
+          color: congestionColor((lastCongestion[i] as number | undefined) ?? 0),
+          alpha: 0.75,
+          cap: "round",
+        });
+    }
+  };
+
   // Building layer: placeholder iso blocks until sprites exist (style
   // bible pending — Phase 0 criterion 3). Rebuilt on buildingVersion moves.
   const buildingLayer = new Graphics();
@@ -236,6 +284,15 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
       if (state.roadVersion !== drawnRoadVersion) {
         drawRoads(state.roads);
         drawnRoadVersion = state.roadVersion;
+        drawnCongestionVersion = -2; // overlay aligns to roads by index
+      }
+      lastRoads = state.roads;
+      if (state.congestion !== null) {
+        lastCongestion = state.congestion;
+      }
+      if (trafficOverlayOn && state.congestionVersion !== drawnCongestionVersion) {
+        drawTrafficOverlay();
+        drawnCongestionVersion = state.congestionVersion;
       }
       if (state.buildingVersion !== drawnBuildingVersion) {
         drawBuildings(state.buildings);
@@ -284,6 +341,14 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
         } else {
           agentLayer.circle(wx, wy, 1.6).fill({ color: 0x9be4ff });
         }
+      }
+    },
+    setTrafficOverlay(visible: boolean): void {
+      trafficOverlayOn = visible;
+      trafficOverlay.visible = visible;
+      if (visible) {
+        drawTrafficOverlay();
+        drawnCongestionVersion = -2; // redraw pickup on next update
       }
     },
     setGhost(a, b): void {

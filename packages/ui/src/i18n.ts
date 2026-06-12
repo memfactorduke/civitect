@@ -33,6 +33,11 @@ const en = {
   "demand.factor.educated": "Educated workforce",
   "demand.factor.admin": "Administrative need",
   "advisor.title": "Advisors",
+  "roadInspector.title": "Road",
+  "roadInspector.volume": "Volume (trips)",
+  "roadInspector.capacity": "Capacity",
+  "roadInspector.vc": "Load",
+  "roadInspector.delay": "Travel-time factor",
 } as const;
 
 export type I18nKey = keyof typeof en;

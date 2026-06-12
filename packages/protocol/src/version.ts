@@ -12,4 +12,5 @@
 // building snapshot blocks (Phase 2). v7: zone layer rides snapshots.
 // v8: agent transform rider contract + pin commands (Phase 3 tranche 3).
 // v9: viewportHint message — the camera-aware sampler's input (ADR-002).
-export const PROTOCOL_VERSION = 9;
+// v10: snapshot congestion block + inspector road info (GDD §9.5).
+export const PROTOCOL_VERSION = 10;

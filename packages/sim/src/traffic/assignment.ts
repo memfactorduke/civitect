@@ -161,8 +161,13 @@ export function assignOriginCell(
   costs: Uint32Array,
   addVolume: (edgeSlot: number, trips: number) => void,
   ledger: ConservationLedger,
+  demandPermille = 1000,
 ): void {
-  if (origin.workers === 0 || totalJobs === 0) {
+  // Rush-hour departure curve (GDD §9.5): this hour's share of the cell's
+  // commuters. Conservation stays exact — the ledger counts what was
+  // GENERATED this hour, and every generated trip is still accounted.
+  const workers = Math.floor((origin.workers * demandPermille) / 1000);
+  if (workers === 0 || totalJobs === 0) {
     return;
   }
   let allocated = 0;
@@ -171,13 +176,13 @@ export function assignOriginCell(
     if (dest.jobs === 0) {
       continue;
     }
-    const exact = origin.workers * dest.jobs;
+    const exact = workers * dest.jobs;
     const trips = Math.floor(exact / totalJobs);
     shares.push({ cell: dest, trips, rem: exact % totalJobs });
     allocated += trips;
   }
   shares.sort((a, b) => b.rem - a.rem || a.cell.index - b.cell.index);
-  for (let k = 0; k < origin.workers - allocated && k < shares.length; k++) {
+  for (let k = 0; k < workers - allocated && k < shares.length; k++) {
     (shares[k] as { trips: number }).trips++;
   }
 

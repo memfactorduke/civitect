@@ -9,7 +9,7 @@ import {
   type Snapshot,
   SnapshotKind,
 } from "@civitect/protocol";
-import { canonicalGraph } from "./roads/graph";
+import { canonicalEdgeOrder, canonicalGraph } from "./roads/graph";
 import type { World } from "./world";
 
 /** Canonical road segments in renderer form — stable order, id-free. */
@@ -47,6 +47,7 @@ export function toSnapshot(
   includeRoads = kind === SnapshotKind.keyframe,
   includeBuildings = kind === SnapshotKind.keyframe,
   includeZones = kind === SnapshotKind.keyframe,
+  includeCongestion = kind === SnapshotKind.keyframe,
 ): Snapshot {
   return {
     kind,
@@ -72,5 +73,22 @@ export function toSnapshot(
     // The transform rider attaches at the worker boundary (app builds the
     // Float32Array from the pool's SoA mirrors).
     agentCount: world.agents.liveCount,
+    congestionVersion: world.traffic.version,
+    congestion: includeCongestion ? congestionPermille(world) : null,
   };
+}
+
+/** v/c permille per canonical road segment — aligns with snapshot.roads. */
+function congestionPermille(world: World): Uint16Array {
+  const order = canonicalEdgeOrder(world.roads);
+  const out = new Uint16Array(order.length);
+  for (let i = 0; i < order.length; i++) {
+    const e = order[i] as number;
+    const cap = world.roads.edgeCapacity_[e] as number;
+    out[i] =
+      cap === 0
+        ? 0
+        : Math.min(3000, Math.floor(((world.traffic.volumes[e] as number) * 1000) / cap));
+  }
+  return out;
 }

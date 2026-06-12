@@ -53,6 +53,7 @@ import {
   addEdge,
   addNode,
   baseClass,
+  canonicalEdgeOrder,
   canonicalGraph,
   createRoadGraph,
   edgeBetween,
@@ -947,7 +948,16 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
       hourOfDay === FULL_SOLVE_HOUR ? SolveKind.full : SolveKind.incremental,
     );
   }
-  if (stepSolveJob(world.traffic, world.buildings, world.roads, world.mapWidth, world.mapHeight)) {
+  if (
+    stepSolveJob(
+      world.traffic,
+      world.buildings,
+      world.roads,
+      world.mapWidth,
+      world.mapHeight,
+      Math.floor(world.tick / TICKS_PER_HOUR) % 24,
+    )
+  ) {
     // Congestion consequences are never just red lines (GDD §9 [LOCKED]):
     // the worst saturated edge gets a diagnosable advisor whose cause
     // chain names the EDGE and its midpoint TILE [TUNE threshold 150%].
@@ -1037,6 +1047,31 @@ export function controlAt(world: World, node: number): IntersectionControl {
     }
   }
   return IntersectionControl.stop;
+}
+
+/**
+ * The alive edge whose supercover contains the tile, lowest canonical
+ * first; -1 = no road here. The road inspector's resolver (GDD §9.5).
+ */
+export function edgeAtTile(world: World, tileIdx: number): number {
+  const g = world.roads;
+  const x = tileIdx % world.mapWidth;
+  const y = Math.floor(tileIdx / world.mapWidth);
+  for (const e of canonicalEdgeOrder(g)) {
+    const a = g.edgeA[e] as number;
+    const b = g.edgeB[e] as number;
+    for (const t of supercoverTiles(
+      g.nodeX[a] as number,
+      g.nodeY[a] as number,
+      g.nodeX[b] as number,
+      g.nodeY[b] as number,
+    )) {
+      if (t.x === x && t.y === y) {
+        return e;
+      }
+    }
+  }
+  return -1;
 }
 
 /** True when any building (grown or ploppable) is alive — save guard. */

@@ -23,13 +23,14 @@ import {
   type Command,
   decodeCiv,
   decodeMessage,
+  EntityKind,
   encodeCiv,
   encodeMessage,
   MessageKind,
   type Snapshot,
   SnapshotKind,
 } from "@civitect/protocol";
-import { createWorld, runTick, toSnapshot } from "@civitect/sim";
+import { createWorld, edgeAtTile, edgeCost, runTick, toSnapshot } from "@civitect/sim";
 import { BOOT } from "./boot-config";
 import { civToWorld, worldToCiv } from "./save-codec";
 
@@ -56,6 +57,7 @@ function post(bytes: Uint8Array): void {
 let lastSentRoadVersion = -1;
 let lastSentBuildingVersion = -1;
 let lastSentZoneVersion = -1;
+let lastSentCongestionVersion = -1;
 
 /**
  * The agent transform rider (TDD §7): [id, kind, x, y, headingMilli] per
@@ -91,9 +93,11 @@ function postSnapshot(kind: Snapshot["kind"]): void {
   const includeBuildings =
     kind === SnapshotKind.keyframe || world.buildings.version !== lastSentBuildingVersion;
   const includeZones = kind === SnapshotKind.keyframe || world.zoneVersion !== lastSentZoneVersion;
+  const includeCongestion =
+    kind === SnapshotKind.keyframe || world.traffic.version !== lastSentCongestionVersion;
   const bytes = encodeMessage({
     kind: MessageKind.snapshot,
-    body: toSnapshot(world, kind, includeRoads, includeBuildings, includeZones),
+    body: toSnapshot(world, kind, includeRoads, includeBuildings, includeZones, includeCongestion),
   });
   const agents = agentRider();
   const transfer: ArrayBuffer[] = [bytes.buffer as ArrayBuffer];
@@ -104,6 +108,7 @@ function postSnapshot(kind: Snapshot["kind"]): void {
   lastSentRoadVersion = world.roads.version;
   lastSentBuildingVersion = world.buildings.version;
   lastSentZoneVersion = world.zoneVersion;
+  lastSentCongestionVersion = world.traffic.version;
 }
 
 function applyBatch(batch: readonly Command[]): void {
@@ -173,6 +178,41 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
     case MessageKind.loadRequest:
       void handleLoadRequest(message.body.civ);
       break;
+    case MessageKind.inspectorRequest: {
+      const target = message.body.target;
+      let tile = null;
+      let road = null;
+      if (target.kind === EntityKind.tile) {
+        const tileIdx = target.id;
+        tile = {
+          tileIdx,
+          terrainKind: 0, // terrain kind table joins with its phase
+          elevationTerrace: 0,
+          zoneKind: world.terrain.layers.zone[tileIdx] ?? 0,
+        };
+        const e = edgeAtTile(world, tileIdx);
+        if (e !== -1) {
+          const g = world.roads;
+          const capacity = g.edgeCapacity_[e] as number;
+          const volume = world.traffic.volumes[e] as number;
+          road = {
+            roadClass: g.edgeClass[e] as number,
+            volume,
+            capacity,
+            vcPermille: capacity === 0 ? 0 : Math.min(3000, Math.floor((volume * 1000) / capacity)),
+            freeFlowCost: edgeCost(g, e),
+            congestedCost: world.traffic.congestedCost[e] as number,
+          };
+        }
+      }
+      post(
+        encodeMessage({
+          kind: MessageKind.inspectorResponse,
+          body: { requestId: message.body.requestId, tick: world.tick, tile, road },
+        }),
+      );
+      break;
+    }
     case MessageKind.viewportHint:
       // Sampler input ONLY (ADR-002) — by construction it cannot move the
       // hash: the projection-purity test in sim holds that line.
