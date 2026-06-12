@@ -148,7 +148,7 @@ describe("DemandPanel (exit criterion 3: factors sum to displayed demand)", () =
           act(() => {
             store.getState().applySnapshot(snapshot({ tick: 1, demand }));
           });
-          for (const [key, from] of [
+          for (const [key] of [
             ["r", 0],
             ["c", 3],
             ["i", 6],
