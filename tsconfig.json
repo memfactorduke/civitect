@@ -6,6 +6,7 @@
     { "path": "packages/renderer" },
     { "path": "packages/ui" },
     { "path": "packages/app" },
-    { "path": "packages/backend" }
+    { "path": "packages/backend" },
+    { "path": "e2e" }
   ]
 }

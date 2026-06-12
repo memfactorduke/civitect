@@ -1,0 +1,19 @@
+{
+  "name": "@civitect/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "golden": "vitest run --config vitest.golden.config.ts",
+    "perf": "vitest run --config vitest.perf.config.ts",
+    "bless": "BLESS=1 vitest run --config vitest.golden.config.ts"
+  },
+  "dependencies": {
+    "@civitect/protocol": "workspace:*",
+    "@civitect/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vitest": "^3.0.0"
+  }
+}
