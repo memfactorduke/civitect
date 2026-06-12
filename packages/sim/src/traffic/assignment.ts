@@ -253,7 +253,7 @@ export function pathfinderFor(g: RoadGraph): Pathfinder {
 }
 
 /** Congested A* returning the EDGE list, memoized in `paths`. */
-function findEdgePath(
+export function findEdgePath(
   g: RoadGraph,
   pf: Pathfinder,
   paths: Map<number, number[] | null>,

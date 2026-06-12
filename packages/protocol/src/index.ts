@@ -122,12 +122,15 @@ export {
   type BuildingView,
   type DemandBlock,
   decodeSnapshotBody,
+  decodeViewportHintBody,
   encodeSnapshotBody,
+  encodeViewportHintBody,
   type HudScalars,
   type RoadSegment,
   type Snapshot,
   SnapshotKind,
   type TileCoord,
+  type ViewportHint,
 } from "./snapshot";
 export {
   FOOTPRINT_MAX,

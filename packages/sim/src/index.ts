@@ -9,6 +9,19 @@
  */
 
 export {
+  AGENT_POOL_CAP,
+  AgentKindSim,
+  type AgentPool,
+  clearAgentPool,
+  createAgentPool,
+  MAX_PINS,
+  PED_SPEED_MILLI,
+  SAMPLE_EVERY_TICKS,
+  updateAgents,
+  VIEW_MARGIN_TILES,
+  type Viewport,
+} from "./agents/pool";
+export {
   adultsOf,
   BuildingStatus,
   type Buildings,

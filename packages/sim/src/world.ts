@@ -22,6 +22,13 @@ import {
   ZoneKind,
 } from "@civitect/protocol";
 import {
+  type AgentPool,
+  createAgentPool,
+  MAX_PINS,
+  updateAgents,
+  type Viewport,
+} from "./agents/pool";
+import {
   BuildingStatus,
   type Buildings,
   COHORT_BLOCK,
@@ -117,6 +124,12 @@ export interface World {
    * including any in-flight sliced solver job. congestedCost is derived.
    */
   traffic: TrafficCore;
+  /** Pinned cims (GDD §17.5) — CANONICAL: hashed and saved, sorted. */
+  pins: { tileIdx: number; slot: number }[];
+  /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
+  agents: AgentPool;
+  /** Camera bounds from the viewportHint message — sampler input ONLY. */
+  viewport: Viewport | null;
   /**
    * Undo/redo stacks (LIFO inverse ops). SESSION-LOCAL by design: not
    * hashed, not saved — the exit criterion build∘undo ≡ identity on the
@@ -230,6 +243,9 @@ export function createWorld(
     advisorIdCounter: 0,
     zoneVersion: 0,
     traffic: createTraffic(roads),
+    pins: [],
+    agents: createAgentPool(seed),
+    viewport: null,
     rng,
   };
 }
@@ -800,12 +816,31 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.redoStack.length = 0;
       return null;
     }
-    case CommandType.pinCim:
-    case CommandType.unpinCim:
-      // Pin state ships with the agents sim PR (Phase 3 tranche 3); until
-      // then this build doesn't know the command — same answer as a stale
-      // client sending a future type.
-      return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.unknownCommand };
+    case CommandType.pinCim: {
+      const building = world.buildings.byTile.get(cmd.tileIdx);
+      const exists = world.pins.some((p) => p.tileIdx === cmd.tileIdx && p.slot === cmd.slot);
+      if (
+        building === undefined ||
+        world.buildings.alive[building] !== 1 ||
+        cmd.slot >= 32 || // persona slots per building [TUNE]
+        exists ||
+        world.pins.length >= MAX_PINS
+      ) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      world.pins.push({ tileIdx: cmd.tileIdx, slot: cmd.slot });
+      // Sorted order is the canonical (and serialized) order.
+      world.pins.sort((p, q) => p.tileIdx - q.tileIdx || p.slot - q.slot);
+      return null;
+    }
+    case CommandType.unpinCim: {
+      const at = world.pins.findIndex((p) => p.tileIdx === cmd.tileIdx && p.slot === cmd.slot);
+      if (at === -1) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      world.pins.splice(at, 1);
+      return null;
+    }
     case CommandType.placeBuilding: {
       if (!inBounds(world, cmd.x, cmd.y)) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.outOfBounds };
@@ -954,7 +989,11 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
       ]);
     }
   }
-  // agents(move, spawn/recycle)       — TODO(ROADMAP Phase 3), rng.agents
+  // agents(move, spawn/recycle): a sampled PROJECTION (ADR-002) — its own
+  // UNHASHED rng; reads canonical state, writes none (projection-purity
+  // test). The hashed rng.agents stream stays reserved for future
+  // canonical agent decisions.
+  updateAgents(world);
   // services(queues)                  — TODO(ROADMAP Phase 4), rng.services
   // pollution/landValue(dirty regions)— land value v1 derives on demand
   // HUD/demand reuse the same scan (one tick of staleness on spawn counts
@@ -1098,6 +1137,11 @@ export function stateHash(world: World): string {
     for (const v of job.aon) {
       w.u32(v);
     }
+  }
+  // Pins joined with Phase 3 tranche 3 — canonical player state (sorted).
+  w.u32(world.pins.length);
+  for (const pin of world.pins) {
+    w.u32(pin.tileIdx).u8(pin.slot);
   }
   return fnv1a64(w.finish());
 }

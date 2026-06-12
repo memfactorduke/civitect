@@ -31,6 +31,26 @@ export const AgentKind = {
 } as const;
 export type AgentKind = (typeof AgentKind)[keyof typeof AgentKind];
 
+/**
+ * Camera bounds, UI → sim (tile rect, inclusive). Input to the camera-aware
+ * agent sampler ONLY (ADR-002): it must never influence canonical state —
+ * the projection-purity test in sim enforces that hashes ignore it.
+ */
+export interface ViewportHint {
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+}
+
+export function encodeViewportHintBody(w: ByteWriter, v: ViewportHint): void {
+  w.u16(v.x0).u16(v.y0).u16(v.x1).u16(v.y1);
+}
+
+export function decodeViewportHintBody(r: ByteReader): ViewportHint {
+  return { x0: r.u16(), y0: r.u16(), x1: r.u16(), y1: r.u16() };
+}
+
 export const SnapshotKind = {
   keyframe: 1,
   delta: 2,

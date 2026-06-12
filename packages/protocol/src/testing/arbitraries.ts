@@ -284,6 +284,9 @@ export const messageArb: fc.Arbitrary<Message> = fc.oneof(
   commandArb.map((body): Message => ({ kind: MessageKind.command, body })),
   rejectionArb.map((body): Message => ({ kind: MessageKind.commandRejection, body })),
   snapshotArb.map((body): Message => ({ kind: MessageKind.snapshot, body })),
+  fc
+    .record({ x0: u16Arb, y0: u16Arb, x1: u16Arb, y1: u16Arb })
+    .map((body): Message => ({ kind: MessageKind.viewportHint, body })),
   inspectorRequestArb.map((body): Message => ({ kind: MessageKind.inspectorRequest, body })),
   inspectorResponseArb.map((body): Message => ({ kind: MessageKind.inspectorResponse, body })),
   saveRequestArb.map((body): Message => ({ kind: MessageKind.saveRequest, body })),

@@ -80,24 +80,24 @@ describe("message envelope", () => {
   // the tripwire; the property tests above can't see layout drift because
   // both sides drift together.
 
-  it("pins the selectTile command wire layout (v8 stamp; body unchanged since v1)", () => {
+  it("pins the selectTile command wire layout (v9 stamp; body unchanged since v1)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.command,
       body: { seq: 1, tick: 2, type: CommandType.selectTile, x: 3, y: 4 },
     });
     expect(toHex(bytes)).toBe(
-      ["0800", "01", "12000000", "01000000", "0200000000000000", "0100", "0300", "0400"].join(""),
+      ["0900", "01", "12000000", "01000000", "0200000000000000", "0100", "0300", "0400"].join(""),
     );
   });
 
-  it("pins the saveResponse wire layout (v8 stamp; body unchanged since v2)", () => {
+  it("pins the saveResponse wire layout (v9 stamp; body unchanged since v2)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.saveResponse,
       body: { slot: 2, civ: Uint8Array.of(0xca, 0xfe) },
     });
     expect(toHex(bytes)).toBe(
       [
-        "0800", // protocol version
+        "0900", // protocol version
         "07", // MessageKind.saveResponse
         "07000000", // body length 7
         "02", // slot
@@ -107,14 +107,14 @@ describe("message envelope", () => {
     );
   });
 
-  it("pins the loadResponse wire layout (v8 stamp; body unchanged since v2)", () => {
+  it("pins the loadResponse wire layout (v9 stamp; body unchanged since v2)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.loadResponse,
       body: { ok: false, tick: 7, detail: "bad" },
     });
     expect(toHex(bytes)).toBe(
       [
-        "0800", // protocol version
+        "0900", // protocol version
         "09", // MessageKind.loadResponse
         "0e000000", // body length 14
         "00", // ok = false
@@ -125,7 +125,7 @@ describe("message envelope", () => {
     );
   });
 
-  it("pins the buildRoad command wire layout (v8 stamp; body unchanged since v3)", () => {
+  it("pins the buildRoad command wire layout (v9 stamp; body unchanged since v3)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.command,
       body: {
@@ -141,7 +141,7 @@ describe("message envelope", () => {
     });
     expect(toHex(bytes)).toBe(
       [
-        "0800", // protocol version
+        "0900", // protocol version
         "01", // MessageKind.command
         "17000000", // body length 23
         "01000000", // seq
@@ -156,7 +156,7 @@ describe("message envelope", () => {
     );
   });
 
-  it("pins the snapshot wire layout (v8: agent rider contract joined)", () => {
+  it("pins the snapshot wire layout (v9 stamp; agent rider contract since v8)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.snapshot,
       body: {
@@ -179,7 +179,7 @@ describe("message envelope", () => {
     });
     expect(toHex(bytes)).toBe(
       [
-        "0800", // protocol version
+        "0900", // protocol version
         "03", // MessageKind.snapshot
         "80000000", // body length 128
         "01", // SnapshotKind.keyframe
@@ -219,6 +219,24 @@ describe("message envelope", () => {
         "0000", // zone none
         "0100", // zone rLow
         "0300", // agentCount (transform rider carries 3 agents)
+      ].join(""),
+    );
+  });
+
+  it("pins the viewportHint wire layout (v9: the sampler's camera input)", () => {
+    const bytes = encodeMessage({
+      kind: MessageKind.viewportHint,
+      body: { x0: 1, y0: 2, x1: 30, y1: 40 },
+    });
+    expect(toHex(bytes)).toBe(
+      [
+        "0900", // protocol version
+        "0a", // MessageKind.viewportHint
+        "08000000", // body length 8
+        "0100", // x0
+        "0200", // y0
+        "1e00", // x1
+        "2800", // y1
       ].join(""),
     );
   });
