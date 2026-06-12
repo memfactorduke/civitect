@@ -143,3 +143,25 @@ describe("pinned hashes (engine-stability tripwires)", () => {
     expect(stateHash(world)).toBe("bb15b4106250fb2f");
   });
 });
+
+describe("protocol v3 road commands before road state exists (phase-1 task 8)", () => {
+  it("rejects buildRoad as unknownCommand and leaves state untouched", () => {
+    const untouched = createWorld(42);
+    const poked = createWorld(42);
+    runTick(untouched, []);
+    const rejections = runTick(poked, [
+      {
+        seq: 3,
+        tick: 0,
+        type: CommandType.buildRoad,
+        ax: 1,
+        ay: 1,
+        bx: 2,
+        by: 1,
+        roadClass: 1,
+      },
+    ]);
+    expect(rejections).toEqual([{ seq: 3, tick: 0, reason: RejectionReason.unknownCommand }]);
+    expect(stateHash(poked)).toBe(stateHash(untouched));
+  });
+});
