@@ -145,9 +145,14 @@ export async function bootRenderer(options: RendererBootOptions): Promise<Render
 export function attachCameraControls(
   handle: RendererHandle,
   element: HTMLElement,
-  options: { readonly dragThresholdPx?: number } = {},
+  options: {
+    readonly dragThresholdPx?: number;
+    /** Drag-pan only while true (tool modes own the drag); wheel zoom is unconditional. */
+    readonly panEnabled?: () => boolean;
+  } = {},
 ): () => void {
   const threshold = options.dragThresholdPx ?? 4;
+  const panEnabled = options.panEnabled ?? ((): boolean => true);
   let pointerDown = false;
   let dragging = false;
   let lastX = 0;
@@ -160,7 +165,7 @@ export function attachCameraControls(
     lastY = e.clientY;
   };
   const onMove = (e: PointerEvent): void => {
-    if (!pointerDown) {
+    if (!pointerDown || !panEnabled()) {
       return;
     }
     const dx = e.clientX - lastX;
