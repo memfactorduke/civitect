@@ -31,6 +31,8 @@ export interface DisplayState {
   readonly buildings: readonly BuildingView[];
   readonly zoneVersion: number;
   readonly zones: Uint16Array | null;
+  /** Agents in the latest transform rider (the buffer rides separately). */
+  readonly agentCount: number;
 }
 
 export function initialDisplayState(): DisplayState {
@@ -45,6 +47,7 @@ export function initialDisplayState(): DisplayState {
     buildings: [],
     zoneVersion: -1,
     zones: null,
+    agentCount: 0,
   };
 }
 
@@ -74,5 +77,6 @@ export function applySnapshot(state: DisplayState, snapshot: Snapshot): DisplayS
     buildings: snapshot.buildings ?? state.buildings,
     zoneVersion: snapshot.zoneVersion,
     zones: snapshot.zones ?? state.zones,
+    agentCount: snapshot.agentCount,
   };
 }
