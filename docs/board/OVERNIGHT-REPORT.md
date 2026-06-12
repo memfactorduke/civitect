@@ -135,6 +135,29 @@ ready, deliberately not rushed at hour ten) and your playable-feel pass
 (ROADMAP's standing rule makes the feel half of "done" yours by
 definition).
 
+## Fourth leg: 12d + 12e — Phase 1 scope complete
+
+#38 (protocol v5: path + bridge classes) and #39 (the big one):
+integer-exact crossing/T-junction auto-splits with a **planarity
+invariant property** (no two accepted non-bridge edges ever relate
+beyond endpoint-kissing — oracle-checked over random batches),
+generalized undo that restores split worlds hash-identically,
+water/bridge/cliff validation, **grade separation** (bridge crossings
+make no junction — over/underpasses by construction), derived
+auto-signals/stops, and the `bridges-city-01` golden (river, bridge,
+underpass, signal intersection, path T) reproduced in Chromium +
+WebKit. All pre-existing goldens verified byte-identical against main
+BEFORE blessing — zero drift from the new semantics. Live-app evidence:
+`evidence-playable-roads.png` (and the screen-vertical drags in that
+session were correctly REJECTED — diagonal world lines crossing at
+non-integer points; the planarity rules at work).
+
+**Phase 1 status: every board row built and merged; all three exit
+criteria pass as automated tests on main.** What remains is solely the
+half the ROADMAP's standing rule assigns to you by definition — the
+playable-feel pass. Deferred mechanics are recorded in their rows
+(tunnels, roundabouts, toolbar UI, reason-code enrichment).
+
 ## Recommended next three items (updated, end of night)
 
 1. **Review the landed bless post-hoc** (#23/#24 balance-diffs + the

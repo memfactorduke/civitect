@@ -29,8 +29,8 @@ behind it; tasks 1–6 are deliberately bless-free and land first.
 | 12a | Road rendering: protocol v4 snapshots (roadVersion + segment list) + renderer road layer + device frame-budget harness — pulled forward (bless-free, completes exit criterion 1's render half) | protocol+renderer+e2e | TDD §7/§8 | M | device-measured: p95 10.1 ms < 16 ms, zero frames >33 ms over a rendered 500-segment L-map pan | 2, 9 | done (#30+#31) |
 | 12b | Real road data in snapshots: sim toSnapshot canonical segments keyed on graph version; worker sends on mutation | sim+app | TDD §7 | S | units: keyframe carries segments, idle deltas null | 8, 12a | parked — stacked on 8 (PR #32, green) |
 | 12c | Drag-to-build road tool UX (ghost preview, optimistic rejection rollback) + chunk-level road tinting | renderer+app+ui | TDD §7/§8/§9 | M | e2e: drag builds a segment end-to-end (real mouse, ghost preview, mode-aware camera); polyline + optimistic rollback ride the toolbar-UI slice | stack landed | done (#36) |
-| 12d | Intersections: auto signals/stops by class meeting, roundabout pieces; segment splitting at crossings | sim (+protocol if new commands) | ROADMAP P1, TDD §5 | L | crossing/T-junction splits + planarity property + control fn; covered by golden `bridges-city-01` | stack landed | in-review |
-| 12e | Bridges/tunnels: water/elevation crossing validation + cost class; ped/bike path class | sim+protocol | ROADMAP P1 | L | water/bridge/cliff validation suite; grade separation; golden `bridges-city-01` (first golden — agent bless) | 12d | in-review |
+| 12d | Intersections: auto signals/stops by class meeting, roundabout pieces; segment splitting at crossings | sim (+protocol if new commands) | ROADMAP P1, TDD §5 | L | crossing/T-junction splits + planarity property + control fn; covered by golden `bridges-city-01` | stack landed | done (#39) |
+| 12e | Bridges/tunnels: water/elevation crossing validation + cost class; ped/bike path class | sim+protocol | ROADMAP P1 | L | water/bridge/cliff validation suite; grade separation; golden `bridges-city-01` (first golden — agent bless) | 12d | done (#39) |
 | 12f | Save format v3: ROADS section (canonical graph serial) + v2→v3 migration; lifts the saves-with-roads refusal | protocol+app | TDD §10, ADR-010 | M | migration fixtures; save→load→hash-equal with roads | stack landed | done (#34) |
 | 12g | 120 Hz pan polish: ProMotion frame-rate-aware blend into the camera's render() hook | renderer | ADR-008 | S | 60↔120 Hz trajectory-equivalence property; device feel check remains Mem | — | done (#35) |
 
@@ -49,14 +49,18 @@ directive — see #23's comment; revert is one click each, every diff
 hash-only with identical HUDs). 12f (#34), 12g (#35), 12c (#36) merged.
 All three ROADMAP exit criteria pass as automated tests ON MAIN.
 
-Remaining scope: **12d (intersections) and 12e (bridges/tunnels +
-ped/bike)** — both L-sized, hash-bearing sim geometry, left as the next
-session's first builds rather than hour-ten rush jobs in the
-determinism-critical core (quality over checkbox; they are fully
-decomposed above). Per ROADMAP's standing rule, phase DONE additionally
-requires Mem's playable-feel pass — `pnpm --filter @civitect/app dev`,
-R to draw roads, B to bulldoze, drag to pan, wheel to zoom,
-Cmd+S/Cmd+O save/load.
+**Every board row is now BUILT AND MERGED** (12d/12e landed as #38+#39
+with the planarity-invariant property, grade separation, and the
+`bridges-city-01` golden — all pre-existing goldens verified
+byte-identical before blessing). Playability evidence captured from the
+live app: `evidence-playable-roads.png`.
+
+The single remaining element of phase-done is the half the ROADMAP
+assigns to a human by definition: **Mem's playable-feel pass** —
+`pnpm --filter @civitect/app dev`; R draws roads (crossings make real
+intersections), B bulldozes, undo/redo, wheel zooms, drag pans (select
+mode), Cmd+S/Cmd+O save/load. Deferred mechanics recorded in-row:
+tunnels, roundabout pieces, toolbar UI, reason-code enrichment.
 
 **Codex parallelization candidates:** 6 preview-render styling; 9 tint
 palettes — after 1/2 land interfaces.
