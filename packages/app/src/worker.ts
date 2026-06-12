@@ -20,7 +20,9 @@
  */
 import {
   type Command,
+  decodeCiv,
   decodeMessage,
+  encodeCiv,
   encodeMessage,
   MessageKind,
   type Snapshot,
@@ -28,6 +30,7 @@ import {
 } from "@civitect/protocol";
 import { createWorld, runTick, toSnapshot } from "@civitect/sim";
 import { BOOT } from "./boot-config";
+import { civToWorld, worldToCiv } from "./save-codec";
 
 const ctx = globalThis as unknown as {
   onmessage: ((event: MessageEvent<unknown>) => void) | null;
@@ -36,14 +39,14 @@ const ctx = globalThis as unknown as {
 
 const TICK_MS = 100; // 10 Hz (ADR-005)
 
-const world = createWorld(BOOT.seed, BOOT.mapWidth, BOOT.mapHeight);
+let world = createWorld(BOOT.seed, BOOT.mapWidth, BOOT.mapHeight);
 
 /**
  * Authoritative session command log, in applied (re-stamped) form — the
- * substrate for save command-tails (board PR 9) and bug-report repros
- * (seed + log = perfect repro, ADR-005 §6).
+ * save command-tail and the bug-report repro (seed + log, ADR-005 §6).
+ * Loading replaces the world wholesale, so the log resets with it.
  */
-const commandLog: Command[] = [];
+let commandLog: Command[] = [];
 
 function post(bytes: Uint8Array): void {
   ctx.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
@@ -60,18 +63,62 @@ function applyBatch(batch: readonly Command[]): void {
   }
 }
 
+async function handleSaveRequest(slot: number): Promise<void> {
+  // Capture synchronously (plain numbers + RNG state tuples), THEN compress
+  // async — ticks that land mid-encode can't smear into the snapshot.
+  const captured = worldToCiv(world, commandLog);
+  const civ = await encodeCiv(captured);
+  post(encodeMessage({ kind: MessageKind.saveResponse, body: { slot, civ } }));
+}
+
+async function handleLoadRequest(civ: Uint8Array): Promise<void> {
+  try {
+    const save = await decodeCiv(civ); // checksum + version-header validation (TDD §10)
+    world = civToWorld(save);
+    commandLog = [];
+    post(
+      encodeMessage({
+        kind: MessageKind.loadResponse,
+        body: { ok: true, tick: world.tick, detail: "" },
+      }),
+    );
+    postSnapshot(SnapshotKind.keyframe); // scene-jump: full re-prime
+  } catch (error) {
+    post(
+      encodeMessage({
+        kind: MessageKind.loadResponse,
+        body: {
+          ok: false,
+          tick: world.tick,
+          detail: error instanceof Error ? error.message : String(error),
+        },
+      }),
+    );
+  }
+}
+
 ctx.onmessage = (event: MessageEvent<unknown>) => {
   const data = event.data;
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
   const message = decodeMessage(bytes);
-  if (message.kind !== MessageKind.command) {
-    throw new Error(`sim worker received unexpected MessageKind ${message.kind}`);
+  switch (message.kind) {
+    case MessageKind.command: {
+      // Re-stamp to the tick this command actually applies on (see header).
+      const command = { ...message.body, tick: world.tick } as Command;
+      commandLog.push(command);
+      applyBatch([command]);
+      postSnapshot(SnapshotKind.delta);
+      break;
+    }
+    case MessageKind.saveRequest:
+      void handleSaveRequest(message.body.slot);
+      break;
+    case MessageKind.loadRequest:
+      void handleLoadRequest(message.body.civ);
+      break;
+    default:
+      throw new Error(`sim worker received unexpected MessageKind ${message.kind}`);
   }
-  // Re-stamp to the tick this command actually applies on (see header).
-  const command = { ...message.body, tick: world.tick } as Command;
-  commandLog.push(command);
-  applyBatch([command]);
-  postSnapshot(SnapshotKind.delta);
 };
 
 setInterval(() => {

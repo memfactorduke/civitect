@@ -6,7 +6,7 @@
  * DOM/Pixi-free so the board PR 5 verification ("snapshot→display-state
  * units") runs in Node.
  */
-import type { Snapshot } from "@civitect/protocol";
+import { type Snapshot, SnapshotKind } from "@civitect/protocol";
 
 export interface DisplayState {
   /** Last applied sim tick — stale-frame detection once deltas interleave. */
@@ -30,16 +30,15 @@ export function initialDisplayState(): DisplayState {
 }
 
 /**
- * Apply one snapshot. Phase 0 snapshots carry full visible state, so delta
- * and keyframe apply identically; once Phase 1 chunks land, keyframes reset
- * accumulated chunk state and deltas patch it (TDD §7).
+ * Apply one snapshot.
  *
- * Out-of-order snapshots (tick older than current) are ignored — transferable
- * postMessage preserves order, but a re-posted keyframe after a scene jump
- * may race a stale delta; last-tick-wins is the rule.
+ * KEYFRAMES are authoritative resets — scene load, camera jump, save-load
+ * rewind (TDD §7) — and apply unconditionally, even to an older tick:
+ * rewinding time is exactly what a load does. DELTAS are last-tick-wins:
+ * a stale delta racing a newer one must lose.
  */
 export function applySnapshot(state: DisplayState, snapshot: Snapshot): DisplayState {
-  if (snapshot.tick < state.tick) {
+  if (snapshot.kind !== SnapshotKind.keyframe && snapshot.tick < state.tick) {
     return state;
   }
   return {

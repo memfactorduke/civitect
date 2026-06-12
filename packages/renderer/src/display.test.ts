@@ -48,13 +48,23 @@ describe("snapshot → display-state (board PR 5 verification)", () => {
     expect(s.hud).toEqual({ population: 1234, fundsCents: 5_000_00 });
   });
 
-  it("stale snapshots (older tick) are ignored — last-tick-wins", () => {
+  it("stale DELTAS (older tick) are ignored — last-tick-wins", () => {
     const fresh = applySnapshot(
       initialDisplayState(),
       snapshot({ tick: 10, selectedTile: { x: 5, y: 5 } }),
     );
     const afterStale = applySnapshot(fresh, snapshot({ tick: 4, selectedTile: null }));
     expect(afterStale).toBe(fresh);
+  });
+
+  it("KEYFRAMES rewind to older ticks (save-load / scene jump, TDD §7)", () => {
+    const fresh = applySnapshot(initialDisplayState(), snapshot({ tick: 100, selectedTile: null }));
+    const rewound = applySnapshot(
+      fresh,
+      snapshot({ kind: SnapshotKind.keyframe, tick: 7, selectedTile: { x: 1, y: 2 } }),
+    );
+    expect(rewound.tick).toBe(7);
+    expect(rewound.highlight).toEqual({ x: 1, y: 2 });
   });
 
   it("same-tick snapshots re-apply (keyframe after scene jump)", () => {

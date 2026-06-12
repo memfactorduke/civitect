@@ -11,3 +11,9 @@
 export { BOOT } from "./boot-config";
 export { type CommandQueue, createCommandQueue, type PostFn } from "./command-queue";
 export { pickTile, type StageTransform } from "./picking";
+export { civToWorld, SIM_VERSION, worldToCiv } from "./save-codec";
+export {
+  createSaveManager,
+  type SaveManager,
+  type SaveManagerPorts,
+} from "./save-manager";

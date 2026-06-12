@@ -92,7 +92,7 @@ describe("Overlay (HUD + speed controls)", () => {
     expect(screen.getByRole("button", { name: "1×" }).getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("ignores stale snapshots (older tick) — last-tick-wins", () => {
+  it("ignores stale DELTAS (older tick) — last-tick-wins", () => {
     const store = createUiStore();
     act(() => {
       store
@@ -102,5 +102,15 @@ describe("Overlay (HUD + speed controls)", () => {
     });
     expect(store.getState().population).toBe(100);
     expect(store.getState().tick).toBe(10);
+  });
+
+  it("accepts KEYFRAMES at older ticks — save-load rewinds time (TDD §7)", () => {
+    const store = createUiStore();
+    act(() => {
+      store.getState().applySnapshot(snapshot({ tick: 100, speed: 9 }));
+      store.getState().applySnapshot(snapshot({ kind: SnapshotKind.keyframe, tick: 7, speed: 0 }));
+    });
+    expect(store.getState().tick).toBe(7);
+    expect(store.getState().speed).toBe(0);
   });
 });
