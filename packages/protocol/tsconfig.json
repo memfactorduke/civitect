@@ -3,7 +3,11 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "lib": ["ES2023"]
+    "lib": ["ES2023"],
+    // Node types exist for the test files only (fixture archive I/O); the
+    // runtime codecs stay environment-pure — they touch nothing beyond
+    // ES2023 + the structurally-typed CompressionStream globals.
+    "types": ["node"]
   },
   "include": ["src"]
 }

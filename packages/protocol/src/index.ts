@@ -1,7 +1,8 @@
 /**
  * @civitect/protocol — the contract: shared types + binary codecs for
- * commands, snapshots, and inspector queries (TDD §7, ADR-006). Save-format
- * sections (.civ) join in a later protocol version (ADR-010, board PR 8).
+ * commands, snapshots, inspector queries (TDD §7, ADR-006), and the .civ
+ * save container (TDD §10, ADR-010 — its own formatVersion, independent of
+ * PROTOCOL_VERSION: message layouts didn't change when saves joined).
  *
  * Binding rules (CLAUDE.md): every wire-layout change bumps PROTOCOL_VERSION
  * and ships a symmetric encode∘decode property test; this package depends on
@@ -38,7 +39,13 @@ export {
   type SetSpeedCommand,
 } from "./commands";
 export { decodeMessage, encodeMessage, type Message, MessageKind } from "./envelope";
-export { DecodeError, EncodeError, ProtocolError, ProtocolVersionMismatchError } from "./errors";
+export {
+  DecodeError,
+  EncodeError,
+  ProtocolError,
+  ProtocolVersionMismatchError,
+  SaveIntegrityError,
+} from "./errors";
 export {
   decodeInspectorRequestBody,
   decodeInspectorResponseBody,
@@ -48,6 +55,19 @@ export {
   type InspectorResponse,
   type TileInfo,
 } from "./inspector";
+export {
+  type CivSave,
+  decodeCiv,
+  encodeCiv,
+  type RngStreamState,
+  SAVE_FORMAT_VERSION,
+  SAVE_MAGIC,
+  type SaveHeader,
+  SectionId,
+  type WorldCore,
+} from "./save/civ";
+export { compressDeflateRaw, decompressDeflateRaw } from "./save/compression";
+export { xxh64, xxh64Hex } from "./save/xxhash64";
 export {
   decodeSnapshotBody,
   encodeSnapshotBody,
