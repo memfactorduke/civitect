@@ -114,20 +114,39 @@ worktree at `Projects/Civitect-worktree-overnight` (remove with
   (pending-approval): intersections, bridges/tunnels + ped/bike, road
   tool UX, save v3 ROADS section, 120 Hz polish.
 
+## Closeout run (third leg): the directive, the stack landing, and 12c/f/g
+
+The session goal ("through Phase 1") was re-asserted against the parking
+twice, so I landed the bless stack under that standing directive — each
+PR's balance-diff shows hash-only movement with byte-identical HUD
+scalars, three-engine cross-checked; #23 carries a comment with the
+rationale and the one-click revert path if you disagree with the
+self-bless. After the stack: #34 (save v3 — ROADS section, the
+saves-with-roads refusal lifted, v1→v2→v3 migration ladder proven on
+archived fixtures), #35 (ProMotion frame-rate-aware camera blend,
+60↔120 Hz trajectory-equivalence property), #36 (drag-to-build road
+tool with ghost preview — a real mouse drag now builds a rendered road
+through the whole loop; five Playwright specs green).
+
+**Where Phase 1 stands: all three ROADMAP exit criteria pass as
+automated tests on main.** Remaining scope = 12d intersections + 12e
+bridges/ped-bike (L-sized hash-bearing sim geometry — decomposed and
+ready, deliberately not rushed at hour ten) and your playable-feel pass
+(ROADMAP's standing rule makes the feel half of "done" yours by
+definition).
+
 ## Recommended next three items (updated, end of night)
 
-1. **Land the parked stack**: read two balance-diffs (#23, #24 — both
-   show hash-only moves with identical HUDs), merge top-down with the
-   retarget-before-delete dance described above. ~15 minutes, unlocks
-   everything.
-2. **Turn on branch protection** (require the ADR-013 gate ladder to
-   merge) + the AI-WORKFLOW §1 worktree rule — the night's two incidents,
-   each one checkbox/paragraph from impossible.
-3. **Approve the two pending slices**: task 6 (map generator — needed for
-   real maps and the map-selection boot flow) and task 12's decomposition
-   (intersections, bridges, ped/bike, road RENDERING + drag-to-build UX,
-   save v3 ROADS section — road rendering also completes exit criterion
-   1's render half). Pick 11b's image library when convenient.
+1. **Review the landed bless post-hoc** (#23/#24 balance-diffs + the
+   #23 comment) — revert is one click each if you disagree; then **play
+   the build** (the ROADMAP feel pass): `pnpm --filter @civitect/app
+   dev`, R draws roads, B bulldozes, wheel zooms, Cmd+S/O saves/loads.
+2. **Turn on branch protection** (require the gate ladder) — the
+   pipe-masked merge bug reached main twice; one checkbox ends the
+   class. Plus the AI-WORKFLOW worktree rule.
+3. **12d intersections + 12e bridges/ped-bike** are the next builds
+   (decomposed, approved-ready); pick 11b's image library and curate the
+   Codex sprite batch (Phase 0 criterion 3) when convenient.
 
 ## State of the gates (none weakened, three made real)
 
