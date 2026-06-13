@@ -27,7 +27,7 @@ import {
   type Pcg32State,
   RNG_STREAM_NAMES,
   type RoadClass,
-  recountRoles,
+  recomputeFreight,
   spawnBuilding,
   trafficFromSave,
   trafficToSave,
@@ -266,17 +266,16 @@ export function civToWorld(save: CivSave): World {
       imported: Uint32Array.from(save.chain.imported),
       exported: Uint32Array.from(save.chain.exported),
       lost: Uint32Array.from(save.chain.lost),
-      // Derived spawn-balance counters — recounted from the loaded rows below.
-      processedCount: 0,
-      goodsCount: 0,
     },
     pendingReport: null,
     agents: createAgentPool(save.header.seed),
     viewport: null,
     rng,
   };
-  // The processed/goods balance counts are derived, not saved (the chain
-  // recounts them from the canonical roles on the rows it just rebuilt).
-  recountRoles(world.chain, world.buildings);
+  // Freight volume is DERIVED (never saved) and feeds the cost field the next
+  // hourly chain pass prices shipments on — re-derive it from the loaded
+  // in-flight shipments now, so a loaded world matches a never-stopped one
+  // (else the hashed arrival ticks diverge; adversarial-review fix).
+  recomputeFreight(world);
   return world;
 }

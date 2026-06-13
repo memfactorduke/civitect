@@ -152,9 +152,10 @@ export function growthSlice(
       const idx = spawnBuilding(b, tileIdx, zone);
       // Industry takes a chain role at spawn (GDD §8): a resource tile makes
       // a raw extractor of that resource (specialized industry NEVER sites
-      // off-resource); plain land balances the processed/goods split.
+      // off-resource); plain land's processed/goods split is a deterministic
+      // function of the tile (no running counter — see chainRoleForSpawn).
       if (zone === ZoneKind.industrial && ctx.chain !== undefined) {
-        b.chainRole[idx] = chainRoleForSpawn(ctx.chain, ctx.resourceAt?.(tileIdx) ?? 0);
+        b.chainRole[idx] = chainRoleForSpawn(ctx.resourceAt?.(tileIdx) ?? 0, tileIdx);
       }
     }
   }

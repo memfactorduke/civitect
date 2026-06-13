@@ -54,7 +54,6 @@ export {
   inputCommodityOf,
   outputCommodityOf,
   reconcileLost,
-  recountRoles,
   type Shipment,
   trucksFor,
 } from "./economy/chain";
@@ -230,6 +229,7 @@ export {
   pollutionAt,
   pollutionField,
   type RoadOp,
+  recomputeFreight,
   runTick,
   type SegRecord,
   SIM_SPEEDS,

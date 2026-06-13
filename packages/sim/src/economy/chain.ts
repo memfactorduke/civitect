@@ -57,7 +57,7 @@ export interface Shipment {
   arriveTick: number;
 }
 
-/** Canonical chain state on the world (+ derived spawn-balance counters). */
+/** Canonical chain state on the world. All fields are hashed and saved (v9). */
 export interface ChainState {
   /** Dispatch order — stable, canonical. */
   shipments: Shipment[];
@@ -66,9 +66,6 @@ export interface ChainState {
   readonly imported: Uint32Array;
   readonly exported: Uint32Array;
   readonly lost: Uint32Array;
-  /** DERIVED (rebuilt on load, never hashed): spawn-time chain balancing. */
-  processedCount: number;
-  goodsCount: number;
 }
 
 export function createChain(): ChainState {
@@ -79,44 +76,33 @@ export function createChain(): ChainState {
     imported: new Uint32Array(COMMODITIES),
     exported: new Uint32Array(COMMODITIES),
     lost: new Uint32Array(COMMODITIES),
-    processedCount: 0,
-    goodsCount: 0,
   };
-}
-
-/** Rebuild the derived spawn-balance counters from rows (load path). */
-export function recountRoles(chain: ChainState, b: Buildings): void {
-  chain.processedCount = 0;
-  chain.goodsCount = 0;
-  for (const i of aliveByTile(b)) {
-    if (b.chainRole[i] === ChainRole.processed) {
-      chain.processedCount++;
-    } else if (b.chainRole[i] === ChainRole.goods) {
-      chain.goodsCount++;
-    }
-  }
 }
 
 /**
  * Role for a NEWLY SPAWNED industrial building (GDD §8): a resource tile
- * makes a raw extractor of that resource — specialized industry never
- * sites off-resource (the board's rejection guarantee, held as a spawn
- * invariant); plain land balances the processed/goods split (scarcer side
- * wins; tie → processed, the upstream tier).
+ * makes a raw extractor of that resource — specialized industry never sites
+ * off-resource (the board's rejection guarantee, held as a spawn invariant).
+ *
+ * The processed/goods split is a DETERMINISTIC FUNCTION OF THE TILE (a
+ * Knuth-multiplicative hash parity), NOT a running counter: a counter would
+ * drift above the true count on mid-day demolition, and a load (which can
+ * only recount the survivors) would then assign the next spawn a different
+ * role — a save/load hash divergence (found by adversarial review). Keying
+ * on the canonical tile makes live and loaded worlds agree forever, ~50/50
+ * across the map with no state to keep.
  */
 export function chainRoleForSpawn(
-  chain: ChainState,
   resourceAtTile: number,
+  tileIdx: number,
 ): (typeof ChainRole)[keyof typeof ChainRole] {
   if (resourceAtTile >= 1 && resourceAtTile <= 4) {
     return resourceAtTile as (typeof ChainRole)[keyof typeof ChainRole];
   }
-  if (chain.processedCount <= chain.goodsCount) {
-    chain.processedCount++;
-    return ChainRole.processed;
-  }
-  chain.goodsCount++;
-  return ChainRole.goods;
+  // Low bit of the multiplicative hash — construction-history-free, balanced.
+  return ((Math.imul(tileIdx, 2654435761) >>> 31) & 1) === 0
+    ? ChainRole.processed
+    : ChainRole.goods;
 }
 
 function isWorking(b: Buildings, i: number): boolean {
@@ -307,10 +293,9 @@ function transitTicks(distCost: number): number {
 export function chainHourlyPass(chain: ChainState, inputs: DispatchInputs): void {
   const b = inputs.buildings;
   const { mapWidth, tick } = inputs;
-
-  // ── reconcile demolished stock to `lost` first, so the identity holds at
-  //    this hour boundary regardless of what was bulldozed/burned/abandoned ──
-  reconcileLost(chain, b);
+  // NOTE: demolished-cargo reconciliation runs at the END of the tick (see
+  // runTick), AFTER every demolish site including the fire ruin-clear, so the
+  // identity holds at the hour boundary even for a producer burned this tick.
 
   // ── arrivals (and the lost-cargo book for dead endpoints) ──
   if (chain.shipments.length > 0) {

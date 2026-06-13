@@ -57,7 +57,7 @@ import {
   chainHourlyPass,
   createChain,
   edgeAnchors,
-  recountRoles,
+  reconcileLost,
   trucksFor,
 } from "./economy/chain";
 import {
@@ -1164,6 +1164,40 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
   }
 }
 
+/** A per-call cached nearest-TWIN-node resolver (the chain + freight share it). */
+function twinNodeResolver(world: World): (tile: number) => number {
+  const twin = world.traffic.twin;
+  const cache = new Map<number, number>();
+  return (tile: number): number => {
+    const hit = cache.get(tile);
+    if (hit !== undefined) {
+      return hit;
+    }
+    const n = nearestNode(twin, tile, world.mapWidth);
+    cache.set(tile, n);
+    return n;
+  };
+}
+
+/**
+ * Rebuild the DERIVED freight load from the canonical in-flight shipments and
+ * fold it into the traffic cost field. Called each hourly solve AND once on
+ * load (save-codec) — freightVolumes is never saved, so a loaded world must
+ * re-derive it BEFORE its first hourly chain pass, or the cost field the
+ * commute solve and the shipment pricing read would differ from the
+ * never-stopped run and the (hashed) arrival ticks would diverge. (Found by
+ * adversarial review; the goldens have a dormant chain and missed it.)
+ */
+export function recomputeFreight(world: World): void {
+  const nodeForTile = twinNodeResolver(world);
+  const freight: FreightTrip[] = world.chain.shipments.map((s) => ({
+    fromTile: s.fromTile,
+    toTile: s.toTile,
+    trucks: trucksFor(s.units),
+  }));
+  applyFreight(world.traffic, freight, world.roads, nodeForTile);
+}
+
 /**
  * Run one tick. `commands` must all be stamped for the current tick — the
  * caller (worker shell / replay) owns routing-by-tick; the sim owns order
@@ -1296,18 +1330,8 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // commute solve that follows (the deferred Phase-3/4 volume injection).
   if (world.tick % TICKS_PER_HOUR === 0) {
     const twin = world.traffic.twin;
-    const nodeCache = new Map<number, number>();
-    const nodeForTile = (tile: number): number => {
-      const hit = nodeCache.get(tile);
-      if (hit !== undefined) {
-        return hit;
-      }
-      const n = nearestNode(twin, tile, world.mapWidth);
-      nodeCache.set(tile, n);
-      return n;
-    };
+    const nodeForTile = twinNodeResolver(world);
     if (world.tick % TICKS_PER_DAY === 0) {
-      recountRoles(world.chain, world.buildings);
       // De-level pressure only bites a city that COULD be supplied (has an
       // outside connection at a map-edge road node); isolated test grids
       // level industry on occupancy alone, as before the chain.
@@ -1327,14 +1351,8 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
         world.fundsCents += cents;
       },
     });
-    // Freight: every in-flight shipment is trucksFor(units) trips; route
-    // them on the twin and fold into the cost field the commute solve reads.
-    const freight: FreightTrip[] = world.chain.shipments.map((s) => ({
-      fromTile: s.fromTile,
-      toTile: s.toTile,
-      trucks: trucksFor(s.units),
-    }));
-    applyFreight(world.traffic, freight, world.roads, nodeForTile);
+    // Freight loads the cost field the commute solve below reads.
+    recomputeFreight(world);
   }
   if (world.tick % TICKS_PER_HOUR === 0 && world.traffic.job === null) {
     const hourOfDay = Math.floor(world.tick / TICKS_PER_HOUR) % 24;
@@ -1533,6 +1551,14 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     (world.flows.immigrants - flowsAtScan.immigrants) -
     (world.flows.deaths - flowsAtScan.deaths) -
     (world.flows.emigrants - flowsAtScan.emigrants);
+
+  // Chain conservation: fold cargo demolished THIS tick (lifecycle, services,
+  // and the fire ruin-clear — all run ABOVE the chain pass) into `lost`, so
+  // the per-commodity identity holds at every hour boundary no matter when in
+  // the tick a stocked producer died. Runs last, after every demolish site.
+  if (world.tick % TICKS_PER_HOUR === 0) {
+    reconcileLost(world.chain, world.buildings);
+  }
 
   world.tick += 1;
   return rejections;

@@ -14,7 +14,6 @@ import {
   chainConservationResidual,
   chainDailyPass,
   chainRoleForSpawn,
-  createChain,
   outputCommodityOf,
 } from "./chain";
 
@@ -55,14 +54,16 @@ function chainTown(seed = 71): World {
 describe("chain conservation (the exact identity, GDD §8)", () => {
   it("produced + imported ≡ consumed + exported + lost + inTransit + stock, per commodity", () => {
     const world = chainTown();
-    // Run a few game-days; check at every hour boundary that the books
-    // balance EXACTLY (reconcile folds any demolished cargo into `lost`).
-    for (let day = 0; day < 4; day++) {
+    // Run ~2 game-weeks; check at every hour boundary that the books balance
+    // EXACTLY. The window crosses fires (ignite → ruin → clear) that destroy
+    // stocked producers mid-tick — end-of-tick reconcile must still fold that
+    // cargo into `lost` (the adversarial-review regression: residual was
+    // [0,0,0,0,6,24] at the fire-clear boundary before reconcile moved last).
+    for (let day = 0; day < 13; day++) {
       for (let t = 0; t < 24; t++) {
         for (let m = 0; m < TICKS_PER_HOUR; m++) {
           runTick(world, []);
         }
-        // World is now on an hour boundary: chainHourlyPass just reconciled.
         const residual = chainConservationResidual(world.chain, world.buildings);
         expect(residual).toEqual([0, 0, 0, 0, 0, 0]);
       }
@@ -137,24 +138,26 @@ describe("starvation de-levels (GDD §6 pressure)", () => {
 });
 
 describe("specialized industry refuses off-resource tiles (the spawn invariant)", () => {
-  it("a raw role appears ONLY on its resource; plain land balances processed/goods", () => {
-    const chain = createChain();
-    // On-resource: the role IS that resource's extractor.
-    expect(chainRoleForSpawn(chain, ResourceKind.ore)).toBe(ChainRole.rawOre);
-    expect(chainRoleForSpawn(chain, ResourceKind.farm)).toBe(ChainRole.rawFarm);
-    expect(chainRoleForSpawn(chain, ResourceKind.forest)).toBe(ChainRole.rawForest);
-    expect(chainRoleForSpawn(chain, ResourceKind.oil)).toBe(ChainRole.rawOil);
-    // Off-resource: NEVER a raw role — only the generic tiers, balanced.
+  it("a raw role appears ONLY on its resource; plain land splits processed/goods by tile", () => {
+    // On-resource: the role IS that resource's extractor (any tile).
+    expect(chainRoleForSpawn(ResourceKind.ore, 100)).toBe(ChainRole.rawOre);
+    expect(chainRoleForSpawn(ResourceKind.farm, 101)).toBe(ChainRole.rawFarm);
+    expect(chainRoleForSpawn(ResourceKind.forest, 102)).toBe(ChainRole.rawForest);
+    expect(chainRoleForSpawn(ResourceKind.oil, 103)).toBe(ChainRole.rawOil);
+    // Off-resource over distinct tiles: NEVER a raw role; both tiers appear,
+    // and the assignment is a PURE function of the tile (no running counter —
+    // so it can't drift between a live world and a loaded one).
     const roles: number[] = [];
-    for (let i = 0; i < 200; i++) {
-      roles.push(chainRoleForSpawn(chain, ResourceKind.none));
-    }
-    for (const r of roles) {
+    for (let tile = 0; tile < 400; tile++) {
+      const r = chainRoleForSpawn(ResourceKind.none, tile);
       expect(r === ChainRole.processed || r === ChainRole.goods).toBe(true);
+      expect(chainRoleForSpawn(ResourceKind.none, tile)).toBe(r); // deterministic
+      roles.push(r);
     }
     const processed = roles.filter((r) => r === ChainRole.processed).length;
     const goods = roles.filter((r) => r === ChainRole.goods).length;
-    expect(Math.abs(processed - goods)).toBeLessThanOrEqual(1); // alternating balance
+    expect(processed).toBeGreaterThan(120); // both tiers well-represented
+    expect(goods).toBeGreaterThan(120);
   });
 
   it("a producer's output commodity matches its role (the books' commodity axis)", () => {
