@@ -153,6 +153,17 @@ describe("map files (.civmap)", () => {
         budgetsPermille: new Uint16Array(9).fill(1000),
         groundPollution: new Uint8Array(0),
       },
+      economy: {
+        taxRatesPermille: new Uint16Array(6).fill(90),
+        loans: [],
+        monthAccumCents: new Array(13).fill(0),
+        lastMonthCents: new Array(13).fill(0),
+        milestoneIndex: 0,
+        achievements: new Uint8Array(8),
+        uniquesMask: 0,
+        difficulty: 1,
+        receivership: 0,
+      },
       pins: [],
       worldCore: {
         speed: 1,

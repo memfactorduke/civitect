@@ -30,6 +30,7 @@ import { migrateSectionsV3toV4 } from "./migrations/v3_v4";
 import { migrateSectionsV4toV5 } from "./migrations/v4_v5";
 import { migrateSectionsV5toV6 } from "./migrations/v5_v6";
 import { migrateSectionsV6toV7 } from "./migrations/v6_v7";
+import { migrateSectionsV7toV8 } from "./migrations/v7_v8";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -51,6 +52,7 @@ export const SectionId = {
   /** v7 (Phase 4): service budgets + persistent ground pollution (GDD §7/§10). */
   services: 13,
 } as const;
+// NOTE: economy uses the RESERVED id 6 from TDD §10's original section list.
 export type SectionId = (typeof SectionId)[keyof typeof SectionId];
 
 export type SaveHeader = ContainerHeader;
@@ -104,6 +106,36 @@ export interface ServicesSave {
   /** Permille of base, one per ServiceId in id order — always 9 entries. */
   readonly budgetsPermille: Uint16Array;
   readonly groundPollution: Uint8Array;
+}
+
+/** One loan (GDD §8: 3 tiers, monthly interest). All money integer cents. */
+export interface LoanSave {
+  readonly principalCents: number;
+  readonly monthlyPaymentCents: number;
+  readonly monthsLeft: number;
+}
+
+/**
+ * Persistent economy state (v8, GDD §8/§13): tax rates per zone, active
+ * loans, monthly report accumulators (current month + last month's lines
+ * for MoM deltas), and progression (milestone/achievements/uniques/
+ * difficulty/receivership). Fixed 13 report-line kinds (ReportLineKind).
+ */
+export interface EconomySave {
+  /** Permille per ZoneKind 1–6, in zone order — always 6 entries. */
+  readonly taxRatesPermille: Uint16Array;
+  readonly loans: readonly LoanSave[];
+  /** Current month's accumulating cents per ReportLineKind (13 entries). */
+  readonly monthAccumCents: readonly number[];
+  /** Last closed month's lines (13 entries) — the MoM delta base. */
+  readonly lastMonthCents: readonly number[];
+  readonly milestoneIndex: number;
+  /** 64-bit achievement bitset as 8 bytes. */
+  readonly achievements: Uint8Array;
+  readonly uniquesMask: number;
+  /** 0 relaxed, 1 mayor, 2 ironclad. */
+  readonly difficulty: number;
+  readonly receivership: number;
 }
 
 /** A pinned cim persona ref: building TILE (stable across saves) + slot. */
@@ -161,6 +193,8 @@ export interface CivSave {
   readonly traffic: TrafficSave;
   /** Service budgets + ground pollution (v7, GDD §7/§10). */
   readonly services: ServicesSave;
+  /** Tax/loan/report/progression state (v8, GDD §8/§13). */
+  readonly economy: EconomySave;
   /** Pinned cims (GDD §17.5), sorted by (tileIdx, slot). */
   readonly pins: readonly CimPinSave[];
   /** Commands since the snapshot, in applied (tick, seq) order. */
@@ -268,6 +302,77 @@ function decodeBuildings(bytes: Uint8Array): BuildingRow[] {
 }
 
 const SERVICE_COUNT = 9;
+const ZONE_COUNT = 6;
+const REPORT_KINDS = 13;
+const MAX_LOANS = 3;
+
+/** Layout shared with migrateSectionsV7toV8's injected section — keep in sync. */
+function encodeEconomy(economy: EconomySave): Uint8Array {
+  const w = new ByteWriter();
+  for (let z = 0; z < ZONE_COUNT; z++) {
+    w.u16(economy.taxRatesPermille[z] as number);
+  }
+  w.u8(economy.loans.length);
+  for (const loan of economy.loans) {
+    w.i64(loan.principalCents).i64(loan.monthlyPaymentCents).u16(loan.monthsLeft);
+  }
+  for (let k = 0; k < REPORT_KINDS; k++) {
+    w.i64(economy.monthAccumCents[k] as number);
+  }
+  for (let k = 0; k < REPORT_KINDS; k++) {
+    w.i64(economy.lastMonthCents[k] as number);
+  }
+  w.u8(economy.milestoneIndex);
+  for (let b = 0; b < 8; b++) {
+    w.u8(economy.achievements[b] as number);
+  }
+  w.u32(economy.uniquesMask).u8(economy.difficulty).u8(economy.receivership);
+  return w.finish();
+}
+
+function decodeEconomy(bytes: Uint8Array): EconomySave {
+  const r = new ByteReader(bytes);
+  const taxRatesPermille = new Uint16Array(ZONE_COUNT);
+  for (let z = 0; z < ZONE_COUNT; z++) {
+    taxRatesPermille[z] = r.u16();
+  }
+  const loanCount = r.u8();
+  if (loanCount > MAX_LOANS) {
+    throw new DecodeError(`economy carries ${loanCount} loans, max ${MAX_LOANS}`);
+  }
+  const loans: LoanSave[] = [];
+  for (let l = 0; l < loanCount; l++) {
+    loans.push({ principalCents: r.i64(), monthlyPaymentCents: r.i64(), monthsLeft: r.u16() });
+  }
+  const monthAccumCents: number[] = [];
+  for (let k = 0; k < REPORT_KINDS; k++) {
+    monthAccumCents.push(r.i64());
+  }
+  const lastMonthCents: number[] = [];
+  for (let k = 0; k < REPORT_KINDS; k++) {
+    lastMonthCents.push(r.i64());
+  }
+  const milestoneIndex = r.u8();
+  const achievements = new Uint8Array(8);
+  for (let b = 0; b < 8; b++) {
+    achievements[b] = r.u8();
+  }
+  const uniquesMask = r.u32();
+  const difficulty = r.u8();
+  const receivership = r.u8();
+  r.expectEnd();
+  return {
+    taxRatesPermille,
+    loans,
+    monthAccumCents,
+    lastMonthCents,
+    milestoneIndex,
+    achievements,
+    uniquesMask,
+    difficulty,
+    receivership,
+  };
+}
 
 /** Layout shared with migrateSectionsV6toV7's injected section — keep in sync. */
 function encodeServices(services: ServicesSave): Uint8Array {
@@ -464,6 +569,14 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
       `ground pollution covers ${save.services.groundPollution.length} tiles, map has ${tiles}`,
     );
   }
+  if (
+    save.economy.taxRatesPermille.length !== ZONE_COUNT ||
+    save.economy.monthAccumCents.length !== REPORT_KINDS ||
+    save.economy.lastMonthCents.length !== REPORT_KINDS ||
+    save.economy.achievements.length !== 8
+  ) {
+    throw new EncodeError("economy section arrays have wrong lengths");
+  }
   return encodeContainer({ ...save.header, formatVersion: SAVE_FORMAT_VERSION }, [
     { id: SectionId.terrain, raw: terrainWriter.finish() },
     { id: SectionId.roads, raw: encodeRoads(save.roads) },
@@ -472,6 +585,7 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
     { id: SectionId.worldCore, raw: encodeWorldCore(save.worldCore) },
     { id: SectionId.traffic, raw: encodeTraffic(save.traffic) },
     { id: SectionId.services, raw: encodeServices(save.services) },
+    { id: SectionId.economy, raw: encodeEconomy(save.economy) },
     { id: SectionId.agentPins, raw: encodePins(save.pins) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
@@ -512,6 +626,9 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
       services: SectionId.services,
     });
   }
+  if (header.formatVersion <= 7) {
+    sections = migrateSectionsV7toV8(sections, { economy: SectionId.economy });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
   const roadsRaw = sections.get(SectionId.roads);
@@ -520,6 +637,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   const worldCoreRaw = sections.get(SectionId.worldCore);
   const trafficRaw = sections.get(SectionId.traffic);
   const servicesRaw = sections.get(SectionId.services);
+  const economyRaw = sections.get(SectionId.economy);
   const pinsRaw = sections.get(SectionId.agentPins);
   const commandTailRaw = sections.get(SectionId.commandTail);
   if (
@@ -530,11 +648,12 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     worldCoreRaw === undefined ||
     trafficRaw === undefined ||
     servicesRaw === undefined ||
+    economyRaw === undefined ||
     pinsRaw === undefined ||
     commandTailRaw === undefined
   ) {
     throw new DecodeError(
-      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, AGENTPINS, COMMANDTAIL",
+      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, ECONOMY, AGENTPINS, COMMANDTAIL",
     );
   }
   const buildings = decodeBuildings(buildingsRaw);
@@ -575,6 +694,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     worldCore,
     traffic,
     services,
+    economy: decodeEconomy(economyRaw),
     pins: decodePins(pinsRaw),
     commandTail: decodeCommandTail(commandTailRaw),
   };

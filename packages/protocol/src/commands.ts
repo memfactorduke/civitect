@@ -30,6 +30,10 @@ export const CommandType = {
   unpinCim: 12,
   /** Service budget slider (GDD §7, Phase 4) — scales capacity + coverage. */
   setServiceBudget: 13,
+  /** Phase 5 economy (GDD §8): per-zone tax rate, loans (3 tiers). */
+  setTaxRate: 14,
+  takeLoan: 15,
+  repayLoan: 16,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -150,6 +154,13 @@ const SERVICE_IDS: ReadonlySet<number> = new Set(SERVICE_ID_LIST);
 export const SERVICE_BUDGET_MIN_PERMILLE = 500;
 export const SERVICE_BUDGET_MAX_PERMILLE = 1500;
 
+/** Tax rate domain, permille (GDD §8: 1–29%, default 9%). */
+export const TAX_MIN_PERMILLE = 10;
+export const TAX_MAX_PERMILLE = 290;
+export const TAX_DEFAULT_PERMILLE = 90;
+/** Loan tiers (GDD §8: 3 tiers; terms are sim policy, task 2). */
+export const LOAN_TIERS = 3;
+
 const ROAD_CLASSES: ReadonlySet<number> = new Set([1, 2, 3, 4, 11, 12, 13, 14]);
 
 export interface BuildRoadCommand extends CommandBase {
@@ -231,6 +242,24 @@ export interface SetServiceBudgetCommand extends CommandBase {
   readonly permille: number;
 }
 
+/** Per-zone tax rate (GDD §8): permille, 10–290. */
+export interface SetTaxRateCommand extends CommandBase {
+  readonly type: typeof CommandType.setTaxRate;
+  readonly zone: ZoneKind;
+  readonly permille: number;
+}
+
+export interface TakeLoanCommand extends CommandBase {
+  readonly type: typeof CommandType.takeLoan;
+  /** 1–3 (GDD §8 three tiers). */
+  readonly tier: number;
+}
+
+export interface RepayLoanCommand extends CommandBase {
+  readonly type: typeof CommandType.repayLoan;
+  readonly tier: number;
+}
+
 export type Command =
   | SelectTileCommand
   | SetSpeedCommand
@@ -244,7 +273,10 @@ export type Command =
   | PlaceBuildingCommand
   | PinCimCommand
   | UnpinCimCommand
-  | SetServiceBudgetCommand;
+  | SetServiceBudgetCommand
+  | SetTaxRateCommand
+  | TakeLoanCommand
+  | RepayLoanCommand;
 
 export const RejectionReason = {
   outOfBounds: 1,
@@ -307,6 +339,13 @@ export function encodeCommandBody(w: ByteWriter, cmd: Command): void {
       break;
     case CommandType.setServiceBudget:
       w.u8(cmd.service).u16(cmd.permille);
+      break;
+    case CommandType.setTaxRate:
+      w.u8(cmd.zone).u16(cmd.permille);
+      break;
+    case CommandType.takeLoan:
+    case CommandType.repayLoan:
+      w.u8(cmd.tier);
       break;
   }
 }
@@ -423,6 +462,32 @@ export function decodeCommandBody(r: ByteReader): Command {
         type: CommandType.setServiceBudget,
         service: service as ServiceId,
         permille,
+      };
+    }
+    case CommandType.setTaxRate: {
+      const zone = r.u8();
+      const permille = r.u16();
+      if (!ZONE_KINDS.has(zone)) {
+        throw new DecodeError(`unknown ZoneKind ${zone}`);
+      }
+      if (permille < TAX_MIN_PERMILLE || permille > TAX_MAX_PERMILLE) {
+        throw new DecodeError(
+          `tax rate ${permille}‰ outside [${TAX_MIN_PERMILLE}, ${TAX_MAX_PERMILLE}]`,
+        );
+      }
+      return { seq, tick, type: CommandType.setTaxRate, zone: zone as ZoneKind, permille };
+    }
+    case CommandType.takeLoan:
+    case CommandType.repayLoan: {
+      const tier = r.u8();
+      if (tier < 1 || tier > LOAN_TIERS) {
+        throw new DecodeError(`loan tier ${tier} outside [1, ${LOAN_TIERS}]`);
+      }
+      return {
+        seq,
+        tick,
+        type: type === CommandType.takeLoan ? CommandType.takeLoan : CommandType.repayLoan,
+        tier,
       };
     }
     default:

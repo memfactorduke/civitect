@@ -80,24 +80,24 @@ describe("message envelope", () => {
   // the tripwire; the property tests above can't see layout drift because
   // both sides drift together.
 
-  it("pins the selectTile command wire layout (v11 stamp; body unchanged since v1)", () => {
+  it("pins the selectTile command wire layout (v12 stamp; body unchanged since v1)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.command,
       body: { seq: 1, tick: 2, type: CommandType.selectTile, x: 3, y: 4 },
     });
     expect(toHex(bytes)).toBe(
-      ["0b00", "01", "12000000", "01000000", "0200000000000000", "0100", "0300", "0400"].join(""),
+      ["0c00", "01", "12000000", "01000000", "0200000000000000", "0100", "0300", "0400"].join(""),
     );
   });
 
-  it("pins the saveResponse wire layout (v11 stamp; body unchanged since v2)", () => {
+  it("pins the saveResponse wire layout (v12 stamp; body unchanged since v2)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.saveResponse,
       body: { slot: 2, civ: Uint8Array.of(0xca, 0xfe) },
     });
     expect(toHex(bytes)).toBe(
       [
-        "0b00", // protocol version
+        "0c00", // protocol version
         "07", // MessageKind.saveResponse
         "07000000", // body length 7
         "02", // slot
@@ -107,14 +107,14 @@ describe("message envelope", () => {
     );
   });
 
-  it("pins the loadResponse wire layout (v11 stamp; body unchanged since v2)", () => {
+  it("pins the loadResponse wire layout (v12 stamp; body unchanged since v2)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.loadResponse,
       body: { ok: false, tick: 7, detail: "bad" },
     });
     expect(toHex(bytes)).toBe(
       [
-        "0b00", // protocol version
+        "0c00", // protocol version
         "09", // MessageKind.loadResponse
         "0e000000", // body length 14
         "00", // ok = false
@@ -125,7 +125,7 @@ describe("message envelope", () => {
     );
   });
 
-  it("pins the buildRoad command wire layout (v11 stamp; body unchanged since v3)", () => {
+  it("pins the buildRoad command wire layout (v12 stamp; body unchanged since v3)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.command,
       body: {
@@ -141,7 +141,7 @@ describe("message envelope", () => {
     });
     expect(toHex(bytes)).toBe(
       [
-        "0b00", // protocol version
+        "0c00", // protocol version
         "01", // MessageKind.command
         "17000000", // body length 23
         "01000000", // seq
@@ -156,7 +156,7 @@ describe("message envelope", () => {
     );
   });
 
-  it("pins the snapshot wire layout (v11 stamp; agent rider contract since v8)", () => {
+  it("pins the snapshot wire layout (v12 stamp; agent rider contract since v8)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.snapshot,
       body: {
@@ -180,13 +180,15 @@ describe("message envelope", () => {
         coverageService: 1,
         coverageVersion: 5,
         coverage: Uint8Array.of(0, 128, 255),
+        report: null,
+        milestone: null,
       },
     });
     expect(toHex(bytes)).toBe(
       [
-        "0b00", // protocol version
+        "0c00", // protocol version
         "03", // MessageKind.snapshot
-        "98000000", // body length 152
+        "9a000000", // body length 154
         "01", // SnapshotKind.keyframe
         "0000000000000000", // tick
         "01", // speed
@@ -235,18 +237,20 @@ describe("message envelope", () => {
         "00", // coverage 0
         "80", // coverage 128
         "ff", // coverage 255
+        "00", // no monthly report (v12)
+        "00", // no milestone block (v12)
       ].join(""),
     );
   });
 
-  it("pins the viewportHint wire layout (v11 stamp; body unchanged since v9)", () => {
+  it("pins the viewportHint wire layout (v12 stamp; body unchanged since v9)", () => {
     const bytes = encodeMessage({
       kind: MessageKind.viewportHint,
       body: { x0: 1, y0: 2, x1: 30, y1: 40 },
     });
     expect(toHex(bytes)).toBe(
       [
-        "0b00", // protocol version
+        "0c00", // protocol version
         "0a", // MessageKind.viewportHint
         "08000000", // body length 8
         "0100", // x0
@@ -264,7 +268,7 @@ describe("message envelope", () => {
     });
     expect(toHex(bytes)).toBe(
       [
-        "0b00", // protocol version
+        "0c00", // protocol version
         "01", // MessageKind.command
         "11000000", // body length 17
         "09000000", // seq
@@ -283,7 +287,7 @@ describe("message envelope", () => {
     });
     expect(toHex(bytes)).toBe(
       [
-        "0b00", // protocol version
+        "0c00", // protocol version
         "0b", // MessageKind.overlayRequest
         "01000000", // body length 1
         "08", // ServiceId.garbage

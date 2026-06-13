@@ -69,3 +69,28 @@ describe("setServiceBudget decode validation (v11, GDD §7 domain)", () => {
     expect(() => decodeCommandBody(new ByteReader(body(1, 1501)))).toThrow(DecodeError);
   });
 });
+
+describe("economy command decode validation (v12, GDD §8 domains)", () => {
+  it("setTaxRate accepts the corners and rejects outside 1–29%", () => {
+    const body = (zone: number, permille: number) =>
+      new ByteWriter().u32(1).u64(0).u16(14).u8(zone).u16(permille).finish();
+    expect(decodeCommandBody(new ByteReader(body(1, 10)))).toMatchObject({ zone: 1, permille: 10 });
+    expect(decodeCommandBody(new ByteReader(body(6, 290)))).toMatchObject({
+      zone: 6,
+      permille: 290,
+    });
+    expect(() => decodeCommandBody(new ByteReader(body(0, 90)))).toThrow(DecodeError);
+    expect(() => decodeCommandBody(new ByteReader(body(7, 90)))).toThrow(DecodeError);
+    expect(() => decodeCommandBody(new ByteReader(body(1, 9)))).toThrow(DecodeError);
+    expect(() => decodeCommandBody(new ByteReader(body(1, 291)))).toThrow(DecodeError);
+  });
+
+  it("loan commands reject tiers outside 1–3", () => {
+    const body = (type: number, tier: number) =>
+      new ByteWriter().u32(1).u64(0).u16(type).u8(tier).finish();
+    expect(decodeCommandBody(new ByteReader(body(15, 1)))).toMatchObject({ tier: 1 });
+    expect(decodeCommandBody(new ByteReader(body(16, 3)))).toMatchObject({ tier: 3 });
+    expect(() => decodeCommandBody(new ByteReader(body(15, 0)))).toThrow(DecodeError);
+    expect(() => decodeCommandBody(new ByteReader(body(16, 4)))).toThrow(DecodeError);
+  });
+});

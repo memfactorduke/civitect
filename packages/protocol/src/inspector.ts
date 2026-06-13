@@ -28,6 +28,8 @@ export interface TileInfo {
   readonly elevationTerrace: number;
   /** u8 zone kind. 0 = unzoned until Phase 2. */
   readonly zoneKind: number;
+  /** u8 land value sample (v12, GDD §6) — the tax-base field. */
+  readonly landValue: number;
 }
 
 /** Road inspector payload (GDD §9.5) for the edge covering a tile target. */
@@ -101,7 +103,10 @@ export function encodeInspectorResponseBody(w: ByteWriter, res: InspectorRespons
   } else {
     w.u8(1);
     w.u32(res.tile.tileIdx);
-    w.u8(res.tile.terrainKind).u8(res.tile.elevationTerrace).u8(res.tile.zoneKind);
+    w.u8(res.tile.terrainKind)
+      .u8(res.tile.elevationTerrace)
+      .u8(res.tile.zoneKind)
+      .u8(res.tile.landValue);
   }
   if (res.road === null) {
     w.u8(0);
@@ -152,6 +157,7 @@ export function decodeInspectorResponseBody(r: ByteReader): InspectorResponse {
       terrainKind: r.u8(),
       elevationTerrace: r.u8(),
       zoneKind: r.u8(),
+      landValue: r.u8(),
     };
   }
   const hasRoad = r.u8();

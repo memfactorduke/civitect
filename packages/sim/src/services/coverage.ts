@@ -73,21 +73,96 @@ export function anchorNode(
   return -1;
 }
 
+/** A Dijkstra source: a node entered with an initial offset cost. */
+export interface AnchorSource {
+  readonly node: number;
+  readonly offset: number;
+}
+
 /**
- * Min network distance per node over all anchors: one dijkstraTree per
- * anchor, folded by min. Anchors per service are few (stations), and
- * fields are cached on the version fence, so per-anchor trees beat the
- * virtual-source construction this graph type can't express (no
- * zero-cost edges).
+ * Anchor a tile to the network as SOURCES: a node within reach enters at
+ * offset 0; otherwise the nearest road tile within reach contributes its
+ * covering edge's BOTH endpoints, each offset by the interpolated cost
+ * along the edge — a station mid-block on a long edge covers from where
+ * it actually stands (found by the land-value directional test: a park
+ * 6 tiles from the nearest intersection covered nothing).
  */
-function nodeDistances(g: RoadGraph, anchors: readonly number[]): Uint32Array {
+export function anchorSources(
+  g: RoadGraph,
+  tileIdx: number,
+  mapWidth: number,
+  mapHeight: number,
+  reach = ANCHOR_REACH,
+): AnchorSource[] {
+  const direct = anchorNode(g, tileIdx, mapWidth, mapHeight, reach);
+  if (direct !== -1) {
+    return [{ node: direct, offset: 0 }];
+  }
+  // Nearest road tile within reach (ring scan, coordinate-deterministic),
+  // then its covering edge in canonical slot order.
+  const x = tileIdx % mapWidth;
+  const y = Math.floor(tileIdx / mapWidth);
+  for (let radius = 1; radius <= reach; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) {
+          continue;
+        }
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= mapWidth || ny >= mapHeight) {
+          continue;
+        }
+        for (let e = 0; e < g.edgeCount; e++) {
+          if (g.edgeAlive[e] !== 1) {
+            continue;
+          }
+          const a = g.edgeA[e] as number;
+          const b = g.edgeB[e] as number;
+          const walk = supercoverTiles(
+            g.nodeX[a] as number,
+            g.nodeY[a] as number,
+            g.nodeX[b] as number,
+            g.nodeY[b] as number,
+          );
+          const steps = walk.length - 1;
+          for (let i = 0; i < walk.length; i++) {
+            const t = walk[i] as { x: number; y: number };
+            if (t.x !== nx || t.y !== ny) {
+              continue;
+            }
+            const cost = edgeCost(g, e);
+            return [
+              { node: a, offset: steps === 0 ? 0 : Math.floor((cost * i) / steps) },
+              { node: b, offset: steps === 0 ? 0 : Math.floor((cost * (steps - i)) / steps) },
+            ];
+          }
+        }
+      }
+    }
+  }
+  return [];
+}
+
+/**
+ * Min network distance per node over all sources: one dijkstraTree per
+ * source node, folded by min with the source's offset. Sources per
+ * service are few (stations), and fields are cached on the version
+ * fence, so per-source trees beat the virtual-source construction this
+ * graph type can't express (no zero-cost edges).
+ */
+function nodeDistances(g: RoadGraph, sources: readonly AnchorSource[]): Uint32Array {
   const dist = new Uint32Array(g.nodeCount).fill(INF);
-  for (const a of anchors) {
-    const tree = dijkstraTree(g, a);
+  for (const src of sources) {
+    const tree = dijkstraTree(g, src.node);
     for (let n = 0; n < g.nodeCount; n++) {
       const d = tree.dist[n] as number;
-      if (d < (dist[n] as number)) {
-        dist[n] = d;
+      if (d === INF) {
+        continue;
+      }
+      const total = d + src.offset;
+      if (total < (dist[n] as number)) {
+        dist[n] = total;
       }
     }
   }
@@ -145,14 +220,14 @@ export function interpolateEdgeDistances(
   return { dist: roadDist, via };
 }
 
-/** Multi-anchor road-tile distances (free-flow) — the coverage substrate. */
+/** Multi-source road-tile distances (free-flow) — the coverage substrate. */
 export function roadTileDistances(
   g: RoadGraph,
-  anchors: readonly number[],
+  sources: readonly AnchorSource[],
   mapWidth: number,
   mapHeight: number,
 ): Uint32Array {
-  return interpolateEdgeDistances(g, nodeDistances(g, anchors), mapWidth, mapHeight).dist;
+  return interpolateEdgeDistances(g, nodeDistances(g, sources), mapWidth, mapHeight).dist;
 }
 
 /** Min road-tile distance within the reach window of one tile. */
@@ -243,10 +318,10 @@ export interface ServiceFieldInputs {
 function stationsOf(
   service: ServiceId,
   inputs: ServiceFieldInputs,
-): { anchors: Map<number, number[]> } {
+): { anchors: Map<number, AnchorSource[]> } {
   const { buildings, roads, budgetsPermille, mapWidth, mapHeight } = inputs;
   const budget = budgetsPermille[SERVICE_ID_LIST.indexOf(service)] as number;
-  const anchors = new Map<number, number[]>(); // radius → anchor nodes
+  const anchors = new Map<number, AnchorSource[]>(); // radius → sources
   for (let i = 0; i < buildings.count; i++) {
     if (buildings.alive[i] !== 1) {
       continue;
@@ -255,16 +330,16 @@ function stationsOf(
     if (spec === null || spec.service !== service) {
       continue;
     }
-    const anchor = anchorNode(roads, buildings.tileIdx[i] as number, mapWidth, mapHeight);
-    if (anchor === -1) {
+    const sources = anchorSources(roads, buildings.tileIdx[i] as number, mapWidth, mapHeight);
+    if (sources.length === 0) {
       continue; // off-network station covers nothing (pillar 2)
     }
     const radius = scaledRadius(spec, budget);
     const list = anchors.get(radius);
     if (list === undefined) {
-      anchors.set(radius, [anchor]);
+      anchors.set(radius, [...sources]);
     } else {
-      list.push(anchor);
+      list.push(...sources);
     }
   }
   return { anchors };

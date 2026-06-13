@@ -18,6 +18,7 @@ import {
   createAgentPool,
   createBuildings,
   createCoverageCache,
+  createLandValueCache,
   createPollutionCache,
   createRoadGraph,
   emptyFireFlows,
@@ -98,6 +99,19 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
     services: {
       budgetsPermille: Uint16Array.from(world.services.budgetsPermille),
       groundPollution: Uint8Array.from(world.groundPollution),
+    },
+    // Defaults until the money cycle gives the world real economy state
+    // to persist (board phase-5 task 2) — the #58 interface-first pattern.
+    economy: {
+      taxRatesPermille: new Uint16Array(6).fill(90),
+      loans: [],
+      monthAccumCents: new Array(13).fill(0),
+      lastMonthCents: new Array(13).fill(0),
+      milestoneIndex: 0,
+      achievements: new Uint8Array(8),
+      uniquesMask: 0,
+      difficulty: 1,
+      receivership: 0,
     },
     pins: world.pins.map((p) => ({ tileIdx: p.tileIdx, slot: p.slot })),
     worldCore: {
@@ -218,6 +232,7 @@ export function civToWorld(save: CivSave): World {
     serviceFlows: emptyServiceFlows(),
     pollutionCache: createPollutionCache(),
     fireFlows: emptyFireFlows(),
+    landValueCache: createLandValueCache(),
     agents: createAgentPool(save.header.seed),
     viewport: null,
     rng,

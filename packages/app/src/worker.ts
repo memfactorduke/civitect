@@ -35,6 +35,7 @@ import {
   createWorld,
   edgeAtTile,
   edgeCost,
+  landValueAtTile,
   pollutionAt,
   runTick,
   scaledCapacity,
@@ -218,6 +219,7 @@ ctx.onmessage = (event: MessageEvent<unknown>) => {
           terrainKind: 0, // terrain kind table joins with its phase
           elevationTerrace: 0,
           zoneKind: world.terrain.layers.zone[tileIdx] ?? 0,
+          landValue: landValueAtTile(world, tileIdx),
         };
         const e = edgeAtTile(world, tileIdx);
         if (e !== -1) {

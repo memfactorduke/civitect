@@ -110,6 +110,16 @@ export {
   SPREAD_AFTER_HOURS,
 } from "./services/fire";
 export {
+  computeLandValueField,
+  createLandValueCache,
+  LAND_VALUE_BASE,
+  type LandValueCache,
+  type LandValueInputs,
+  LV_WATER_VIEW,
+  landValueAt,
+  landValueFor,
+} from "./services/landvalue";
+export {
   BASE_SICK_PERMILLE,
   CORPSES_PER_HEARSE_PER_DAY,
   EDUCATION_DAYS,
@@ -176,6 +186,8 @@ export {
   createWorld,
   edgeAtTile,
   IntersectionControl,
+  landValueAtTile,
+  landValueField,
   pollutionAt,
   pollutionField,
   type RoadOp,

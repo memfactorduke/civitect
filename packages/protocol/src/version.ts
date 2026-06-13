@@ -16,4 +16,7 @@
 // v11: Phase 4 services interface — service BuildingKinds, setServiceBudget
 // command, overlayRequest message + snapshot coverage block, inspector
 // building/environment payloads (GDD §7/§10/§15).
-export const PROTOCOL_VERSION = 11;
+// v12: Phase 5 economy interface — overlay ids 10–14 (land value +
+// pollutions), tax/loan commands, snapshot monthly-report + milestone
+// blocks, tile landValue (GDD §6/§8/§13).
+export const PROTOCOL_VERSION = 12;

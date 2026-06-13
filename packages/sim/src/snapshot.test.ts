@@ -35,6 +35,8 @@ describe("toSnapshot", () => {
       coverageService: 0, // no overlay until the services core (phase-4 task 2)
       coverageVersion: 0,
       coverage: null,
+      report: null, // economy blocks fill with phase-5 tasks 2/4
+      milestone: null,
     });
   });
 
