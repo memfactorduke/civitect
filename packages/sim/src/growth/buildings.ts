@@ -62,6 +62,16 @@ export interface Buildings {
   corpses: Uint16Array;
   /** 0 = not burning; burn progress in fire steps (board task 5). */
   fireTicks: Uint8Array;
+  /**
+   * Phase 5 chain state (canonical, hashed, save v9). chainRole is set at
+   * SPAWN (ChainRole values; the processed/goods split balances counts at
+   * spawn time and is never re-derived). Stocks count commodity units in
+   * the role's implied input/output commodity; retail (C) holds goods in
+   * stockIn.
+   */
+  chainRole: Uint8Array;
+  stockIn: Uint16Array;
+  stockOut: Uint16Array;
   alive: Uint8Array;
   nextFree: Uint32Array;
   cohorts: Uint16Array; // capacity × COHORT_BLOCK
@@ -88,6 +98,9 @@ export function createBuildings(): Buildings {
     sick: new Uint16Array(INITIAL),
     corpses: new Uint16Array(INITIAL),
     fireTicks: new Uint8Array(INITIAL),
+    chainRole: new Uint8Array(INITIAL),
+    stockIn: new Uint16Array(INITIAL),
+    stockOut: new Uint16Array(INITIAL),
     alive: new Uint8Array(INITIAL),
     nextFree: new Uint32Array(INITIAL).fill(NO_INDEX),
     cohorts: new Uint16Array(INITIAL * COHORT_BLOCK),
@@ -111,6 +124,9 @@ function grow(b: Buildings): void {
   b.sick = copy(b.sick, new Uint16Array(cap));
   b.corpses = copy(b.corpses, new Uint16Array(cap));
   b.fireTicks = copy(b.fireTicks, new Uint8Array(cap));
+  b.chainRole = copy(b.chainRole, new Uint8Array(cap));
+  b.stockIn = copy(b.stockIn, new Uint16Array(cap));
+  b.stockOut = copy(b.stockOut, new Uint16Array(cap));
   b.alive = copy(b.alive, new Uint8Array(cap));
   const nf = new Uint32Array(cap).fill(NO_INDEX);
   nf.set(b.nextFree);
@@ -141,6 +157,9 @@ export function spawnBuilding(b: Buildings, tileIdx: number, kind: number): numb
   b.sick[index] = 0;
   b.corpses[index] = 0;
   b.fireTicks[index] = 0;
+  b.chainRole[index] = 0;
+  b.stockIn[index] = 0;
+  b.stockOut[index] = 0;
   b.alive[index] = 1;
   b.cohorts.fill(0, index * COHORT_BLOCK, (index + 1) * COHORT_BLOCK);
   b.byTile.set(tileIdx, index);

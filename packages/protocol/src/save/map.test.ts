@@ -165,6 +165,14 @@ describe("map files (.civmap)", () => {
         receivership: 0,
         bailoutUsed: 0,
       },
+      chain: {
+        shipments: [],
+        produced: new Uint32Array(6),
+        consumed: new Uint32Array(6),
+        imported: new Uint32Array(6),
+        exported: new Uint32Array(6),
+        lost: new Uint32Array(6),
+      },
       pins: [],
       worldCore: {
         speed: 1,

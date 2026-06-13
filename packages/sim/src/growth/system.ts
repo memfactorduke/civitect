@@ -6,6 +6,7 @@
  * only randomness (ADR-005 stream discipline).
  */
 import { ZoneKind } from "@civitect/protocol";
+import { type ChainState, chainRoleForSpawn } from "../economy/chain";
 import type { Pcg32 } from "../rng";
 import type { Buildings } from "./buildings";
 import {
@@ -109,6 +110,11 @@ export interface GrowthContext {
   readonly flows: GrowthFlows;
   /** Tax rates (GDD §8 demand pressure); omitted = pre-economy default. */
   readonly taxRatesPermille?: Uint16Array;
+  /** Terrain resource at a tile (ResourceKind); omitted = pre-chain (no resources). */
+  readonly resourceAt?: (tileIdx: number) => number;
+  /** Chain balance state; omitted = pre-chain. A spawned I building takes a
+   *  chain role here (raw on its resource, else processed/goods balanced). */
+  readonly chain?: ChainState;
 }
 
 /** Per-tick growth slice: spawn buildings on demand, move people in. */
@@ -143,7 +149,13 @@ export function growthSlice(
     }
     // Spawn probability ∝ demand [TUNE]: permille roll per visit.
     if (ctx.rng.nextBounded(1000) < Math.min(400, sectorDemand)) {
-      spawnBuilding(b, tileIdx, zone);
+      const idx = spawnBuilding(b, tileIdx, zone);
+      // Industry takes a chain role at spawn (GDD §8): a resource tile makes
+      // a raw extractor of that resource (specialized industry NEVER sites
+      // off-resource); plain land balances the processed/goods split.
+      if (zone === ZoneKind.industrial && ctx.chain !== undefined) {
+        b.chainRole[idx] = chainRoleForSpawn(ctx.chain, ctx.resourceAt?.(tileIdx) ?? 0);
+      }
     }
   }
 

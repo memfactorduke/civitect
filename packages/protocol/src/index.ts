@@ -27,6 +27,13 @@ export {
   encodeEntityRef,
 } from "./cause";
 export {
+  ChainRole,
+  COMMODITY_COUNT,
+  Commodity,
+  ResourceKind,
+  ShipmentEndpoint,
+} from "./chain";
+export {
   BRIDGE_CLASS_OFFSET,
   BuildingKind,
   type BuildRoadCommand,
@@ -87,6 +94,7 @@ export {
 } from "./inspector";
 export {
   type BuildingRow,
+  type ChainSave,
   type CimPinSave,
   type CivSave,
   decodeCiv,
@@ -99,6 +107,7 @@ export {
   type SaveHeader,
   SectionId,
   type ServicesSave,
+  type ShipmentRow,
   type TrafficJobSave,
   type TrafficSave,
   type WorldCore,

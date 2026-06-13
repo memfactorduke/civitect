@@ -40,6 +40,25 @@ export {
   taxBaseCents,
 } from "./economy/budget";
 export {
+  type ChainState,
+  COMMODITIES,
+  chainConservationResidual,
+  chainDailyPass,
+  chainHourlyPass,
+  chainInTransit,
+  chainRoleForSpawn,
+  chainStock,
+  createChain,
+  type DispatchInputs,
+  edgeAnchors,
+  inputCommodityOf,
+  outputCommodityOf,
+  reconcileLost,
+  recountRoles,
+  type Shipment,
+  trucksFor,
+} from "./economy/chain";
+export {
   adultsOf,
   BuildingStatus,
   type Buildings,
@@ -185,7 +204,9 @@ export {
 export { toSnapshot } from "./snapshot";
 export { bprCost, CELL_TILES, type Cell } from "./traffic/assignment";
 export {
+  applyFreight,
   createTraffic,
+  type FreightTrip,
   FULL_SOLVE_HOUR,
   FULL_SOLVE_PASSES,
   MSA_K_CAP,
