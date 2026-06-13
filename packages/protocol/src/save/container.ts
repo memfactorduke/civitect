@@ -18,7 +18,9 @@ export const SAVE_MAGIC = "CIVT";
 // v7: SERVICES (default budgets + zero pollution injection) and BUILDINGS
 // rows grow stock/sick/corpses/fireTicks (zero-fill — Phase 4 services).
 // v8: ECONOMY (default-taxes/no-loans injection — Phase 5 money cycle).
-export const SAVE_FORMAT_VERSION = 8;
+// v9: SHIPMENTS (empty-queue/zero-ledger injection) and BUILDINGS rows grow
+// chainRole/stockIn/stockOut (zero-fill — Phase 5 goods chain).
+export const SAVE_FORMAT_VERSION = 9;
 
 export interface ContainerHeader {
   readonly formatVersion: number;

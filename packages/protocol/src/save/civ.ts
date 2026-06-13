@@ -31,6 +31,7 @@ import { migrateSectionsV4toV5 } from "./migrations/v4_v5";
 import { migrateSectionsV5toV6 } from "./migrations/v5_v6";
 import { migrateSectionsV6toV7 } from "./migrations/v6_v7";
 import { migrateSectionsV7toV8 } from "./migrations/v7_v8";
+import { migrateSectionsV8toV9 } from "./migrations/v8_v9";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -51,6 +52,8 @@ export const SectionId = {
   traffic: 12,
   /** v7 (Phase 4): service budgets + persistent ground pollution (GDD §7/§10). */
   services: 13,
+  /** v9 (Phase 5 task 3): in-flight freight + chain ledger counters (GDD §8). */
+  shipments: 14,
 } as const;
 // NOTE: economy uses the RESERVED id 6 from TDD §10's original section list.
 export type SectionId = (typeof SectionId)[keyof typeof SectionId];
@@ -93,6 +96,16 @@ export interface BuildingRow {
   readonly corpses: number;
   /** 0 = not burning; otherwise burn progress in fire-slice steps. */
   readonly fireTicks: number;
+  /**
+   * v9 chain fields (Phase 5 task 3). chainRole is CANONICAL, set at
+   * spawn (ChainRole values — the processed/goods split is a spawn-time
+   * choice, not re-derivable); stocks are commodity units implied by the
+   * role (stockIn for consumers, stockOut for producers; C holds goods
+   * in stockIn).
+   */
+  readonly chainRole: number;
+  readonly stockIn: number;
+  readonly stockOut: number;
 }
 
 /**
@@ -197,6 +210,8 @@ export interface CivSave {
   readonly services: ServicesSave;
   /** Tax/loan/report/progression state (v8, GDD §8/§13). */
   readonly economy: EconomySave;
+  /** In-flight freight + chain ledger counters (v9, GDD §8). */
+  readonly chain: ChainSave;
   /** Pinned cims (GDD §17.5), sorted by (tileIdx, slot). */
   readonly pins: readonly CimPinSave[];
   /** Commands since the snapshot, in applied (tick, seq) order. */
@@ -276,7 +291,10 @@ function encodeBuildings(rows: readonly BuildingRow[]): Uint8Array {
       .u32(row.stock)
       .u16(row.sick)
       .u16(row.corpses)
-      .u8(row.fireTicks);
+      .u8(row.fireTicks)
+      .u8(row.chainRole)
+      .u16(row.stockIn)
+      .u16(row.stockOut);
   }
   return w.finish();
 }
@@ -297,6 +315,9 @@ function decodeBuildings(bytes: Uint8Array): BuildingRow[] {
       sick: r.u16(),
       corpses: r.u16(),
       fireTicks: r.u8(),
+      chainRole: r.u8(),
+      stockIn: r.u16(),
+      stockOut: r.u16(),
     });
   }
   r.expectEnd();
@@ -307,6 +328,41 @@ const SERVICE_COUNT = 9;
 const ZONE_COUNT = 6;
 const REPORT_KINDS = 13;
 const MAX_LOANS = 3;
+const COMMODITY_KINDS = 6;
+
+/**
+ * One in-flight freight shipment (v9). Endpoints are TILES (the AGENTPINS
+ * lesson: tile indices survive save/load; graph node indices do not) —
+ * kind 0 = building tile, kind 1 = map-edge anchor tile. Arrival was
+ * computed from CONGESTED travel time at dispatch and is canonical.
+ */
+export interface ShipmentRow {
+  readonly fromKind: number;
+  readonly fromTile: number;
+  readonly toKind: number;
+  readonly toTile: number;
+  /** Commodity values 1–6 (chain.ts). */
+  readonly commodity: number;
+  readonly units: number;
+  readonly dispatchTick: number;
+  readonly arriveTick: number;
+}
+
+/**
+ * Chain ledger (v9): the conservation identity's books. Per commodity
+ * (index = Commodity − 1): produced ≡ consumed + exported − imported +
+ * Δstock + inTransit + lost, EXACT — `lost` absorbs demolition of
+ * endpoints mid-flight so the identity never goes approximate.
+ * u32 counters hold ~20 game-years at metro scale [TUNE: revisit pre-1.0].
+ */
+export interface ChainSave {
+  readonly shipments: readonly ShipmentRow[];
+  readonly produced: Uint32Array;
+  readonly consumed: Uint32Array;
+  readonly imported: Uint32Array;
+  readonly exported: Uint32Array;
+  readonly lost: Uint32Array;
+}
 
 /** Layout shared with migrateSectionsV7toV8's injected section — keep in sync. */
 function encodeEconomy(economy: EconomySave): Uint8Array {
@@ -379,6 +435,65 @@ function decodeEconomy(bytes: Uint8Array): EconomySave {
     receivership,
     bailoutUsed,
   };
+}
+
+function encodeChain(chain: ChainSave): Uint8Array {
+  const w = new ByteWriter();
+  w.u32(chain.shipments.length);
+  for (const s of chain.shipments) {
+    w.u8(s.fromKind)
+      .u32(s.fromTile)
+      .u8(s.toKind)
+      .u32(s.toTile)
+      .u8(s.commodity)
+      .u16(s.units)
+      .u32(s.dispatchTick)
+      .u32(s.arriveTick);
+  }
+  for (const ledger of [
+    chain.produced,
+    chain.consumed,
+    chain.imported,
+    chain.exported,
+    chain.lost,
+  ]) {
+    for (let c = 0; c < COMMODITY_KINDS; c++) {
+      w.u32(ledger[c] as number);
+    }
+  }
+  return w.finish();
+}
+
+function decodeChain(bytes: Uint8Array): ChainSave {
+  const r = new ByteReader(bytes);
+  const count = r.u32();
+  const shipments: ShipmentRow[] = [];
+  for (let i = 0; i < count; i++) {
+    shipments.push({
+      fromKind: r.u8(),
+      fromTile: r.u32(),
+      toKind: r.u8(),
+      toTile: r.u32(),
+      commodity: r.u8(),
+      units: r.u16(),
+      dispatchTick: r.u32(),
+      arriveTick: r.u32(),
+    });
+  }
+  const ledger = (): Uint32Array => {
+    const a = new Uint32Array(COMMODITY_KINDS);
+    for (let c = 0; c < COMMODITY_KINDS; c++) {
+      a[c] = r.u32();
+    }
+    return a;
+  };
+  const produced = ledger();
+  const consumed = ledger();
+  const imported = ledger();
+  const exported = ledger();
+  const lost = ledger();
+  r.expectEnd();
+  return { shipments, produced, consumed, imported, exported, lost };
 }
 
 /** Layout shared with migrateSectionsV6toV7's injected section — keep in sync. */
@@ -584,6 +699,15 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
   ) {
     throw new EncodeError("economy section arrays have wrong lengths");
   }
+  if (
+    save.chain.produced.length !== COMMODITY_KINDS ||
+    save.chain.consumed.length !== COMMODITY_KINDS ||
+    save.chain.imported.length !== COMMODITY_KINDS ||
+    save.chain.exported.length !== COMMODITY_KINDS ||
+    save.chain.lost.length !== COMMODITY_KINDS
+  ) {
+    throw new EncodeError("chain ledger arrays have wrong lengths");
+  }
   return encodeContainer({ ...save.header, formatVersion: SAVE_FORMAT_VERSION }, [
     { id: SectionId.terrain, raw: terrainWriter.finish() },
     { id: SectionId.roads, raw: encodeRoads(save.roads) },
@@ -593,6 +717,7 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
     { id: SectionId.traffic, raw: encodeTraffic(save.traffic) },
     { id: SectionId.services, raw: encodeServices(save.services) },
     { id: SectionId.economy, raw: encodeEconomy(save.economy) },
+    { id: SectionId.shipments, raw: encodeChain(save.chain) },
     { id: SectionId.agentPins, raw: encodePins(save.pins) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
@@ -636,6 +761,12 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   if (header.formatVersion <= 7) {
     sections = migrateSectionsV7toV8(sections, { economy: SectionId.economy });
   }
+  if (header.formatVersion <= 8) {
+    sections = migrateSectionsV8toV9(sections, {
+      buildings: SectionId.buildings,
+      shipments: SectionId.shipments,
+    });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
   const roadsRaw = sections.get(SectionId.roads);
@@ -645,6 +776,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   const trafficRaw = sections.get(SectionId.traffic);
   const servicesRaw = sections.get(SectionId.services);
   const economyRaw = sections.get(SectionId.economy);
+  const chainRaw = sections.get(SectionId.shipments);
   const pinsRaw = sections.get(SectionId.agentPins);
   const commandTailRaw = sections.get(SectionId.commandTail);
   if (
@@ -656,11 +788,12 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     trafficRaw === undefined ||
     servicesRaw === undefined ||
     economyRaw === undefined ||
+    chainRaw === undefined ||
     pinsRaw === undefined ||
     commandTailRaw === undefined
   ) {
     throw new DecodeError(
-      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, ECONOMY, AGENTPINS, COMMANDTAIL",
+      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, ECONOMY, SHIPMENTS, AGENTPINS, COMMANDTAIL",
     );
   }
   const buildings = decodeBuildings(buildingsRaw);
@@ -702,6 +835,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     traffic,
     services,
     economy: decodeEconomy(economyRaw),
+    chain: decodeChain(chainRaw),
     pins: decodePins(pinsRaw),
     commandTail: decodeCommandTail(commandTailRaw),
   };

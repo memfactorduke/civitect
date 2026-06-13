@@ -27,6 +27,7 @@ import {
   type Pcg32State,
   RNG_STREAM_NAMES,
   type RoadClass,
+  recomputeFreight,
   spawnBuilding,
   trafficFromSave,
   trafficToSave,
@@ -64,6 +65,9 @@ function buildingRows(world: World): { rows: BuildingRow[]; cohorts: Uint16Array
       sick: b.sick[i] as number,
       corpses: b.corpses[i] as number,
       fireTicks: b.fireTicks[i] as number,
+      chainRole: b.chainRole[i] as number,
+      stockIn: b.stockIn[i] as number,
+      stockOut: b.stockOut[i] as number,
     };
   });
   return { rows, cohorts };
@@ -112,6 +116,14 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
       receivership: world.economy.receivership,
       bailoutUsed: world.economy.bailoutUsed,
     },
+    chain: {
+      shipments: world.chain.shipments.map((s) => ({ ...s })),
+      produced: Uint32Array.from(world.chain.produced),
+      consumed: Uint32Array.from(world.chain.consumed),
+      imported: Uint32Array.from(world.chain.imported),
+      exported: Uint32Array.from(world.chain.exported),
+      lost: Uint32Array.from(world.chain.lost),
+    },
     pins: world.pins.map((p) => ({ tileIdx: p.tileIdx, slot: p.slot })),
     worldCore: {
       speed: world.speed,
@@ -138,6 +150,9 @@ function rebuildBuildings(save: CivSave): World["buildings"] {
     b.sick[i] = row.sick;
     b.corpses[i] = row.corpses;
     b.fireTicks[i] = row.fireTicks;
+    b.chainRole[i] = row.chainRole;
+    b.stockIn[i] = row.stockIn;
+    b.stockOut[i] = row.stockOut;
     b.cohorts.set(
       save.cohorts.subarray(at * COHORT_BLOCK, (at + 1) * COHORT_BLOCK),
       i * COHORT_BLOCK,
@@ -190,7 +205,7 @@ export function civToWorld(save: CivSave): World {
   // Canonical segments rebuild deterministically (sorted order); undo/redo
   // stacks are session-local — loading starts them fresh.
   const roads = rebuildRoads(save.roads);
-  return {
+  const world: World = {
     seed: save.header.seed,
     tick: save.header.tick,
     speed: core.speed,
@@ -244,9 +259,23 @@ export function civToWorld(save: CivSave): World {
       receivership: save.economy.receivership,
       bailoutUsed: save.economy.bailoutUsed,
     },
+    chain: {
+      shipments: save.chain.shipments.map((s) => ({ ...s })),
+      produced: Uint32Array.from(save.chain.produced),
+      consumed: Uint32Array.from(save.chain.consumed),
+      imported: Uint32Array.from(save.chain.imported),
+      exported: Uint32Array.from(save.chain.exported),
+      lost: Uint32Array.from(save.chain.lost),
+    },
     pendingReport: null,
     agents: createAgentPool(save.header.seed),
     viewport: null,
     rng,
   };
+  // Freight volume is DERIVED (never saved) and feeds the cost field the next
+  // hourly chain pass prices shipments on — re-derive it from the loaded
+  // in-flight shipments now, so a loaded world matches a never-stopped one
+  // (else the hashed arrival ticks diverge; adversarial-review fix).
+  recomputeFreight(world);
+  return world;
 }

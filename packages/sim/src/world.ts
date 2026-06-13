@@ -52,6 +52,15 @@ import {
   zoneIndex,
 } from "./economy/budget";
 import {
+  type ChainState,
+  chainDailyPass,
+  chainHourlyPass,
+  createChain,
+  edgeAnchors,
+  reconcileLost,
+  trucksFor,
+} from "./economy/chain";
+import {
   BuildingStatus,
   type Buildings,
   COHORT_BLOCK,
@@ -66,6 +75,7 @@ import {
   type GrowthFlows,
   growthSlice,
   lifecycleSlice,
+  TICKS_PER_DAY,
   TICKS_PER_HOUR,
 } from "./growth/system";
 import { computeUtilities, type UtilityState } from "./growth/utilities";
@@ -82,6 +92,7 @@ import {
   edgeBetween,
   edgesOf,
   isBridgeClass,
+  nearestNode,
   nodeAt,
   type RoadClass,
   type RoadGraph,
@@ -121,7 +132,9 @@ import {
   waterFor,
 } from "./services/pollution";
 import {
+  applyFreight,
   createTraffic,
+  type FreightTrip,
   FULL_SOLVE_HOUR,
   refreshTrafficDerived,
   SolveKind,
@@ -204,6 +217,9 @@ export interface World {
   readonly landValueCache: LandValueCache;
   /** The money cycle (GDD §8) — CANONICAL: hashed and saved (v8 ECONOMY). */
   readonly economy: EconomyState;
+  /** The goods chain (GDD §8) — CANONICAL ledgers + shipments, hashed and
+   *  saved (v9 SHIPMENTS); processed/goods counts are derived (recounted). */
+  chain: ChainState;
   /** Last close's report, drained by toSnapshot (transient, like advisors). */
   pendingReport: MonthlyReport | null;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
@@ -337,6 +353,7 @@ export function createWorld(
     fireFlows: emptyFireFlows(),
     landValueCache: createLandValueCache(),
     economy: createEconomy(),
+    chain: createChain(),
     pendingReport: null,
     agents: createAgentPool(seed),
     viewport: null,
@@ -1147,6 +1164,40 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
   }
 }
 
+/** A per-call cached nearest-TWIN-node resolver (the chain + freight share it). */
+function twinNodeResolver(world: World): (tile: number) => number {
+  const twin = world.traffic.twin;
+  const cache = new Map<number, number>();
+  return (tile: number): number => {
+    const hit = cache.get(tile);
+    if (hit !== undefined) {
+      return hit;
+    }
+    const n = nearestNode(twin, tile, world.mapWidth);
+    cache.set(tile, n);
+    return n;
+  };
+}
+
+/**
+ * Rebuild the DERIVED freight load from the canonical in-flight shipments and
+ * fold it into the traffic cost field. Called each hourly solve AND once on
+ * load (save-codec) — freightVolumes is never saved, so a loaded world must
+ * re-derive it BEFORE its first hourly chain pass, or the cost field the
+ * commute solve and the shipment pricing read would differ from the
+ * never-stopped run and the (hashed) arrival ticks would diverge. (Found by
+ * adversarial review; the goldens have a dormant chain and missed it.)
+ */
+export function recomputeFreight(world: World): void {
+  const nodeForTile = twinNodeResolver(world);
+  const freight: FreightTrip[] = world.chain.shipments.map((s) => ({
+    fromTile: s.fromTile,
+    toTile: s.toTile,
+    trucks: trucksFor(s.units),
+  }));
+  applyFreight(world.traffic, freight, world.roads, nodeForTile);
+}
+
 /**
  * Run one tick. `commands` must all be stamped for the current tick — the
  * caller (worker shell / replay) owns routing-by-tick; the sim owns order
@@ -1187,6 +1238,8 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     rng: world.rng.growth,
     flows: world.flows,
     taxRatesPermille: world.economy.taxRatesPermille,
+    resourceAt: (tileIdx: number) => world.terrain.layers.resource[tileIdx] as number,
+    chain: world.chain,
   };
   // buildings(growth/decay, staggered 1/60th per tick) — rng.growth.
   // ONE aggregate scan per tick (the balance gate's year-long replay made
@@ -1269,6 +1322,37 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // restart (it would break build∘undo ≡ identity; note in TDD §6.3).
   if (world.traffic.graphVersion !== world.roads.version) {
     refreshTrafficDerived(world.traffic, world.roads);
+  }
+  // goods chain (GDD §8, board task 3) — runs on the hour, on the canonical
+  // TWIN so its money/arrival decisions reproduce after load. Daily
+  // produce/transform/sell at midnight first (new stock can ship the same
+  // hour), then arrivals + dispatch, then freight loads the network for the
+  // commute solve that follows (the deferred Phase-3/4 volume injection).
+  if (world.tick % TICKS_PER_HOUR === 0) {
+    const twin = world.traffic.twin;
+    const nodeForTile = twinNodeResolver(world);
+    if (world.tick % TICKS_PER_DAY === 0) {
+      // De-level pressure only bites a city that COULD be supplied (has an
+      // outside connection at a map-edge road node); isolated test grids
+      // level industry on occupancy alone, as before the chain.
+      const chainActive = edgeAnchors(twin, world.mapWidth, world.mapHeight).length > 0;
+      chainDailyPass(world.chain, world.buildings, chainActive);
+    }
+    chainHourlyPass(world.chain, {
+      buildings: world.buildings,
+      graph: twin,
+      mapWidth: world.mapWidth,
+      mapHeight: world.mapHeight,
+      tick: world.tick,
+      costField: world.traffic.twinCosts,
+      nodeForTile,
+      economy: world.economy,
+      moveFunds: (cents) => {
+        world.fundsCents += cents;
+      },
+    });
+    // Freight loads the cost field the commute solve below reads.
+    recomputeFreight(world);
   }
   if (world.tick % TICKS_PER_HOUR === 0 && world.traffic.job === null) {
     const hourOfDay = Math.floor(world.tick / TICKS_PER_HOUR) % 24;
@@ -1468,6 +1552,14 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     (world.flows.deaths - flowsAtScan.deaths) -
     (world.flows.emigrants - flowsAtScan.emigrants);
 
+  // Chain conservation: fold cargo demolished THIS tick (lifecycle, services,
+  // and the fire ruin-clear — all run ABOVE the chain pass) into `lost`, so
+  // the per-commodity identity holds at every hour boundary no matter when in
+  // the tick a stocked producer died. Runs last, after every demolish site.
+  if (world.tick % TICKS_PER_HOUR === 0) {
+    reconcileLost(world.chain, world.buildings);
+  }
+
   world.tick += 1;
   return rejections;
 }
@@ -1593,7 +1685,11 @@ export function stateHash(world: World): string {
       .u32(world.buildings.stock[i] as number)
       .u16(world.buildings.sick[i] as number)
       .u16(world.buildings.corpses[i] as number)
-      .u8(world.buildings.fireTicks[i] as number);
+      .u8(world.buildings.fireTicks[i] as number)
+      // Phase 5 chain fields (appended with the v9 layout bless).
+      .u8(world.buildings.chainRole[i] as number)
+      .u16(world.buildings.stockIn[i] as number)
+      .u16(world.buildings.stockOut[i] as number);
     const base = i * COHORT_BLOCK;
     for (let c = 0; c < COHORT_BLOCK; c++) {
       w.u16(world.buildings.cohorts[base + c] as number);
@@ -1662,5 +1758,31 @@ export function stateHash(world: World): string {
     .u8(world.economy.difficulty)
     .u8(world.economy.receivership)
     .u8(world.economy.bailoutUsed);
+  // Chain joined with Phase 5 task 3 (the freight bless). Shipments in their
+  // canonical dispatch order; per-commodity ledgers. The processed/goods
+  // COUNTS are derived (recounted on load) and deliberately NOT hashed; the
+  // freight volumes are derived too. Building chain fields are hashed above.
+  w.u32(world.chain.shipments.length);
+  for (const s of world.chain.shipments) {
+    w.u8(s.fromKind)
+      .u32(s.fromTile)
+      .u8(s.toKind)
+      .u32(s.toTile)
+      .u8(s.commodity)
+      .u16(s.units)
+      .u32(s.dispatchTick)
+      .u32(s.arriveTick);
+  }
+  for (const ledger of [
+    world.chain.produced,
+    world.chain.consumed,
+    world.chain.imported,
+    world.chain.exported,
+    world.chain.lost,
+  ]) {
+    for (let c = 0; c < 6; c++) {
+      w.u32(ledger[c] as number);
+    }
+  }
   return fnv1a64(w.finish());
 }

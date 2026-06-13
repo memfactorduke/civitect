@@ -36,10 +36,11 @@ import {
   canonicalEdgeOrder,
   canonicalGraph,
   createRoadGraph,
+  otherEnd,
   type RoadClass,
   type RoadGraph,
 } from "../roads/graph";
-import { edgeCost } from "../roads/pathfind";
+import { dijkstraTree, edgeCost } from "../roads/pathfind";
 import {
   assignOriginCell,
   bprCost,
@@ -115,10 +116,28 @@ export interface TrafficCore {
   twinCosts: Uint32Array;
   /** Path-cache key for the current twin cost field. */
   costHash: string;
-  /** Per-LIVE-slot mirror of canonVolumes (advisor, overlay, tests). */
+  /** Per-LIVE-slot mirror of canonVolumes + freight (advisor, overlay, tests). */
   volumes: Uint32Array;
   /** Per-LIVE-slot congested costs (inspector/overlay surface). */
   congestedCost: Uint32Array;
+  // ── freight (Phase 5 task 3): DERIVED from chain shipments, never hashed
+  //    or saved (recomputed each hourly solve + on load). Keyed by canonical
+  //    edge key like canonVolumes, so it survives the twin rebuild; routed
+  //    on the TWIN (construction-history-free) so the commute costs it feeds
+  //    reproduce after load. ───────────────────────────────────────────────
+  /** Per canonical edge: trucks currently traversing it (all-day load). */
+  freightVolumes: Map<string, number>;
+  /** Freight conservation ledger this solve: generated ≡ assigned + unroutable. */
+  freightGenerated: number;
+  freightAssigned: number;
+  freightUnroutable: number;
+}
+
+/** One freight movement to route on the network (trucks = OD volume unit). */
+export interface FreightTrip {
+  readonly fromTile: number;
+  readonly toTile: number;
+  readonly trucks: number;
 }
 
 /** Canonical edge identity — matches canonicalEdgeOrder's normalization. */
@@ -135,7 +154,13 @@ function edgeKey(g: RoadGraph, e: number): string {
   return `${ax},${ay},${bx},${by},${g.edgeClass[e]}`;
 }
 
-/** Re-derive cost fields + mirrors from canonical volumes (twin reused). */
+/**
+ * Re-derive cost fields + mirrors from canonical volumes PLUS freight (twin
+ * reused). Freight (Phase 5) adds to the BPR input and the live mirror so
+ * trucks congest the road the same as commuters do — but it stays out of
+ * canonVolumes (the hashed/saved commute state), so it's hash-invisible and
+ * recomputed on load (GDD §9 [LOCKED]: freight loads the network all day).
+ */
 function retimeTraffic(core: TrafficCore, g: RoadGraph): void {
   const twin = core.twin;
   core.twinCosts = new Uint32Array(twin.edgeCount);
@@ -144,11 +169,8 @@ function retimeTraffic(core: TrafficCore, g: RoadGraph): void {
     if (key === null) {
       continue;
     }
-    core.twinCosts[e] = bprCost(
-      edgeCost(twin, e),
-      core.canonVolumes.get(key) ?? 0,
-      twin.edgeCapacity_[e] as number,
-    );
+    const load = (core.canonVolumes.get(key) ?? 0) + (core.freightVolumes.get(key) ?? 0);
+    core.twinCosts[e] = bprCost(edgeCost(twin, e), load, twin.edgeCapacity_[e] as number);
   }
   core.costHash = costFieldHash(twin, core.twinCosts);
   core.volumes = new Uint32Array(g.edgeCount);
@@ -157,10 +179,76 @@ function retimeTraffic(core: TrafficCore, g: RoadGraph): void {
     if (g.edgeAlive[e] !== 1) {
       continue;
     }
-    const v = core.canonVolumes.get(edgeKey(g, e)) ?? 0;
+    const key = edgeKey(g, e);
+    const v = (core.canonVolumes.get(key) ?? 0) + (core.freightVolumes.get(key) ?? 0);
     core.volumes[e] = v;
     core.congestedCost[e] = bprCost(edgeCost(g, e), v, g.edgeCapacity_[e] as number);
   }
+}
+
+/**
+ * Route the current freight movements on the TWIN and refresh the derived
+ * cost field to include them (Phase 5 task 3 — the deferred volume
+ * injection). Grouped by origin twin-node: one shortest-path tree per
+ * distinct origin over the freight-inclusive cost field, trucks accumulated
+ * along each destination's path by canonical edge key. The freight ledger
+ * conserves: generated ≡ assigned + unroutable (no walking — trucks always
+ * drive). Endpoints map to the nearest alive twin node (Chebyshev, lowest
+ * index tie-break — deterministic, construction-history-free).
+ */
+export function applyFreight(
+  core: TrafficCore,
+  freight: readonly FreightTrip[],
+  g: RoadGraph,
+  nodeForTile: (tile: number) => number,
+): void {
+  const twin = core.twin;
+  const byOrigin = new Map<number, { to: number; trucks: number }[]>();
+  let generated = 0;
+  let unroutable = 0;
+  for (const f of freight) {
+    generated += f.trucks;
+    const from = nodeForTile(f.fromTile);
+    const to = nodeForTile(f.toTile);
+    if (from === -1 || to === -1) {
+      unroutable += f.trucks;
+      continue;
+    }
+    let dests = byOrigin.get(from);
+    if (dests === undefined) {
+      dests = [];
+      byOrigin.set(from, dests);
+    }
+    dests.push({ to, trucks: f.trucks });
+  }
+
+  const freightVolumes = new Map<string, number>();
+  let assigned = 0;
+  for (const from of [...byOrigin.keys()].sort((a, b) => a - b)) {
+    const dests = byOrigin.get(from) as { to: number; trucks: number }[];
+    const tree = dijkstraTree(twin, from, (e) => core.twinCosts[e] as number);
+    for (const { to, trucks } of dests) {
+      if ((tree.dist[to] as number) === 0xffffffff) {
+        unroutable += trucks;
+        continue;
+      }
+      assigned += trucks;
+      let node = to;
+      while (node !== from) {
+        const e = tree.cameFromEdge[node] as number;
+        const key = core.twinSlotKeys[e] ?? null;
+        if (key !== null) {
+          freightVolumes.set(key, (freightVolumes.get(key) ?? 0) + trucks);
+        }
+        node = otherEnd(twin, e, node);
+      }
+    }
+  }
+  core.freightVolumes = freightVolumes;
+  core.freightGenerated = generated;
+  core.freightAssigned = assigned;
+  core.freightUnroutable = unroutable;
+  retimeTraffic(core, g);
 }
 
 /**
@@ -218,6 +306,10 @@ export function createTraffic(g: RoadGraph): TrafficCore {
     costHash: "",
     volumes: new Uint32Array(0),
     congestedCost: new Uint32Array(0),
+    freightVolumes: new Map(),
+    freightGenerated: 0,
+    freightAssigned: 0,
+    freightUnroutable: 0,
   };
   refreshTrafficDerived(core, g);
   return core;
@@ -389,6 +481,11 @@ export function trafficFromSave(saved: TrafficSave, g: RoadGraph): TrafficCore {
     costHash: "",
     volumes: new Uint32Array(0),
     congestedCost: new Uint32Array(0),
+    // Freight is derived — recomputed at the first hourly solve after load.
+    freightVolumes: new Map(),
+    freightGenerated: 0,
+    freightAssigned: 0,
+    freightUnroutable: 0,
   };
   refreshTrafficDerived(core, g);
   if (saved.job !== null) {

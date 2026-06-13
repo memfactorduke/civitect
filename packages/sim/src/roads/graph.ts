@@ -327,6 +327,33 @@ export function otherEnd(g: RoadGraph, edge: number, node: number): number {
   return g.edgeA[edge] === node ? (g.edgeB[edge] as number) : (g.edgeA[edge] as number);
 }
 
+/**
+ * Nearest alive node to a tile by Chebyshev distance, lowest node index on
+ * ties, or -1 if the graph has no alive node. Deterministic w.r.t. node
+ * order — callers must pass a construction-history-free graph (the canonical
+ * twin) when the result feeds hashed state (Phase 5 freight + chain routing).
+ */
+export function nearestNode(g: RoadGraph, tile: number, mapWidth: number): number {
+  const tx = tile % mapWidth;
+  const ty = Math.floor(tile / mapWidth);
+  let best = -1;
+  let bestD = 0x7fffffff;
+  for (let n = 0; n < g.nodeCount; n++) {
+    if (g.nodeAlive[n] !== 1) {
+      continue;
+    }
+    const d = Math.max(
+      Math.abs((g.nodeX[n] as number) - tx),
+      Math.abs((g.nodeY[n] as number) - ty),
+    );
+    if (d < bestD) {
+      bestD = d;
+      best = n;
+    }
+  }
+  return best;
+}
+
 export interface CanonicalEdge {
   readonly ax: number;
   readonly ay: number;

@@ -43,6 +43,46 @@ describe("save → load → state-hash-equal (TDD §10)", () => {
     expect(stateHash(restored)).toBe(stateHash(world));
   });
 
+  it("an ACTIVE chain (freight in flight) resumes identically across the load (GDD §8)", async () => {
+    // Border roads → outside connections; R/I/C so the chain dispatches real
+    // freight whose arrival ticks (hashed) were priced on the FREIGHT-loaded
+    // cost field. freightVolumes is derived (not saved): the load must
+    // re-derive it before the next hourly pass or pricing — and the hash —
+    // diverges. This is the adversarial-review regression; it FAILS without
+    // recomputeFreight() in civToWorld.
+    let seq = 0;
+    const cmd = (tick: number, c: object) => ({ seq: seq++, tick, ...c }) as unknown;
+    const log = [
+      cmd(0, { type: CommandType.buildRoad, ax: 0, ay: 8, bx: 63, by: 8, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 0, ay: 32, bx: 63, by: 32, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 8, ay: 0, bx: 8, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 32, ay: 0, bx: 32, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 56, ay: 0, bx: 56, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.placeBuilding, x: 33, y: 9, building: 1 }), // power
+      cmd(0, { type: CommandType.placeBuilding, x: 35, y: 9, building: 2 }), // water
+      cmd(0, { type: CommandType.zoneRect, x0: 10, y0: 10, x1: 30, y1: 30, zone: 1 }), // R
+      cmd(0, { type: CommandType.zoneRect, x0: 34, y0: 10, x1: 54, y1: 30, zone: 5 }), // I
+      cmd(0, { type: CommandType.zoneRect, x0: 10, y0: 34, x1: 30, y1: 54, zone: 3 }), // C
+    ] as Parameters<typeof replay>[1];
+    // Five game-days in: industry has spawned, reordered, and trucks are en
+    // route — save mid-flight (the tick is an hour boundary).
+    const { world } = replay(BOOT.seed, log, 7200, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+      startingFundsCents: 100_000_000_00,
+    });
+    expect(world.chain.shipments.length).toBeGreaterThan(0); // freight is live
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(stateHash(world)); // identical at the boundary
+    // Continue both across several hour boundaries (where freight prices new
+    // shipments): they must stay bit-identical.
+    for (let i = 0; i < 200; i++) {
+      runTick(world, []);
+      runTick(restored, []);
+    }
+    expect(stateHash(restored)).toBe(stateHash(world));
+  });
+
   it("preserves the command tail through the container", async () => {
     const { world } = replay(BOOT.seed, [], 10, {
       mapWidth: BOOT.mapWidth,
