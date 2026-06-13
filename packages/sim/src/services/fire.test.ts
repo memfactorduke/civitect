@@ -33,6 +33,9 @@ function cmdRunner(world: World): (c: object) => void {
  */
 function corridorCity(): World {
   const world = createWorld(4242);
+  // The Phase 5 money cycle prices construction; the fire scenarios are
+  // about dispatch, not budgets — fund the public works up front.
+  world.fundsCents = 1_000_000_00;
   const cmd = cmdRunner(world);
   cmd({ type: CommandType.buildRoad, ax: 4, ay: 20, bx: 24, by: 20, roadClass: 1 });
   cmd({ type: CommandType.buildRoad, ax: 24, ay: 20, bx: 44, by: 20, roadClass: 1 }); // bottleneck

@@ -163,6 +163,7 @@ describe("map files (.civmap)", () => {
         uniquesMask: 0,
         difficulty: 1,
         receivership: 0,
+        bailoutUsed: 0,
       },
       pins: [],
       worldCore: {

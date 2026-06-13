@@ -136,6 +136,8 @@ export interface EconomySave {
   /** 0 relaxed, 1 mayor, 2 ironclad. */
   readonly difficulty: number;
   readonly receivership: number;
+  /** The one-time bailout (GDD §2) has been offered/taken. */
+  readonly bailoutUsed: number;
 }
 
 /** A pinned cim persona ref: building TILE (stable across saves) + slot. */
@@ -326,7 +328,10 @@ function encodeEconomy(economy: EconomySave): Uint8Array {
   for (let b = 0; b < 8; b++) {
     w.u8(economy.achievements[b] as number);
   }
-  w.u32(economy.uniquesMask).u8(economy.difficulty).u8(economy.receivership);
+  w.u32(economy.uniquesMask)
+    .u8(economy.difficulty)
+    .u8(economy.receivership)
+    .u8(economy.bailoutUsed);
   return w.finish();
 }
 
@@ -360,6 +365,7 @@ function decodeEconomy(bytes: Uint8Array): EconomySave {
   const uniquesMask = r.u32();
   const difficulty = r.u8();
   const receivership = r.u8();
+  const bailoutUsed = r.u8();
   r.expectEnd();
   return {
     taxRatesPermille,
@@ -371,6 +377,7 @@ function decodeEconomy(bytes: Uint8Array): EconomySave {
     uniquesMask,
     difficulty,
     receivership,
+    bailoutUsed,
   };
 }
 

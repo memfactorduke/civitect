@@ -31,6 +31,9 @@ describe("balance bands (ADR-013 §3)", () => {
       scenario.mapHeight,
       scenarioTerrain(scenario),
     );
+    if (scenario.startingFundsCents !== undefined) {
+      world.fundsCents = scenario.startingFundsCents;
+    }
     const log = [...scenario.commands].sort((a, b) =>
       a.tick === b.tick ? a.seq - b.seq : a.tick - b.tick,
     );

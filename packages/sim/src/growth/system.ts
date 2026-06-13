@@ -107,6 +107,8 @@ export interface GrowthContext {
   readonly mapTiles: number;
   readonly rng: Pcg32;
   readonly flows: GrowthFlows;
+  /** Tax rates (GDD §8 demand pressure); omitted = pre-economy default. */
+  readonly taxRatesPermille?: Uint16Array;
 }
 
 /** Per-tick growth slice: spawn buildings on demand, move people in. */
@@ -116,7 +118,7 @@ export function growthSlice(
   agg = aggregates(ctx.buildings),
 ): void {
   const b = ctx.buildings;
-  const demand = computeDemand(agg);
+  const demand = computeDemand(agg, ctx.taxRatesPermille);
   const slice = tick % GROWTH_SLICES;
 
   // 1. Spawn pass over this tick's share of tiles.

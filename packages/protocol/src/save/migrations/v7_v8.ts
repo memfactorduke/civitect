@@ -30,6 +30,7 @@ export function migrateSectionsV7toV8(
   w.u32(0); // uniquesMask
   w.u8(1); // difficulty: Mayor
   w.u8(0); // receivership: no
+  w.u8(0); // bailout not yet used
   const migrated = new Map(sections);
   migrated.set(ids.economy, w.finish());
   return migrated;

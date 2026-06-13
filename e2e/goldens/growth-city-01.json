@@ -4,6 +4,7 @@
   "mapWidth": 64,
   "mapHeight": 64,
   "untilTick": 131400,
+  "startingFundsCents": 20000000,
   "terrainRects": [],
   "commands": [
     {

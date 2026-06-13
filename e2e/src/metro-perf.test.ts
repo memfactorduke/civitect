@@ -21,6 +21,11 @@ const SEED = 4242;
 
 function buildMetro() {
   const world = createWorld(SEED, MAP, MAP);
+  // CONSTRUCTED scenario (perf is the metric, not provenance): the avenue
+  // grid costs ~$1.9M at class-2 rates, which no Mayor treasury covers —
+  // fund the public works up front or every road silently rejects and the
+  // agent pool has no edges to ride (caught when the money cycle landed).
+  world.fundsCents = 5_000_000_00;
   let seq = 0;
   const road = (ax: number, ay: number, bx: number, by: number) =>
     runTick(world, [

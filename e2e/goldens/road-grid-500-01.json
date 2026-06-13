@@ -4,6 +4,7 @@
   "mapWidth": 512,
   "mapHeight": 512,
   "untilTick": 43800,
+  "startingFundsCents": 200000000,
   "commands": [
     {
       "seq": 0,
