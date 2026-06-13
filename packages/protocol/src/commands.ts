@@ -290,6 +290,8 @@ export const RejectionReason = {
   invalidSegment: 6,
   nothingToUndo: 7,
   nothingToRedo: 8,
+  /** Command needs a milestone unlock the city hasn't reached (GDD §13). */
+  notUnlocked: 9,
 } as const;
 export type RejectionReason = (typeof RejectionReason)[keyof typeof RejectionReason];
 

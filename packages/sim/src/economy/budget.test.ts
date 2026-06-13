@@ -86,6 +86,7 @@ describe("the monthly close (GDD §8/§12)", () => {
     // command paths, not just the close itself (the take/repay handlers
     // once moved cash without lines — this test is why they can't).
     const world = taxTown();
+    world.economy.milestoneIndex = 1; // loans unlock at the first milestone (GDD §13)
     const cmd = cmdRunner(world);
     // Harness headroom BEFORE the measured window: month 3's early repay
     // needs the full remaining principal on hand or it would reject.
@@ -155,6 +156,7 @@ describe("the monthly close (GDD §8/§12)", () => {
 
   it("loans debit monthly and terminate; early repay clears the slot", () => {
     const world = createWorld(99);
+    world.economy.milestoneIndex = 1; // loans unlock at the first milestone (GDD §13)
     const cmd = cmdRunner(world);
     const t1 = LOAN_TERMS[0] as (typeof LOAN_TERMS)[number];
     const before = world.fundsCents;

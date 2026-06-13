@@ -7,6 +7,7 @@ import {
   SnapshotKind,
 } from "@civitect/protocol";
 import { describe, expect, it } from "vitest";
+import { Unlock } from "./economy/progression";
 import { toSnapshot } from "./snapshot";
 import { createWorld, runTick } from "./world";
 
@@ -35,8 +36,10 @@ describe("toSnapshot", () => {
       coverageService: 0, // no overlay until the services core (phase-4 task 2)
       coverageVersion: 0,
       coverage: null,
-      report: null, // economy blocks fill with phase-5 tasks 2/4
-      milestone: null,
+      report: null, // the monthly report rides only the close tick (task 2)
+      // Progression block (task 4): a founding world is at milestone 0, the
+      // next gate is 240 pop, and only the budget panel is unlocked.
+      milestone: { index: 0, populationTarget: 240, unlockedMask: Unlock.budgetPanel },
     });
   });
 

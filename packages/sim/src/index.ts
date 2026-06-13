@@ -58,6 +58,25 @@ export {
   trucksFor,
 } from "./economy/chain";
 export {
+  Achievement,
+  type AchievementCounters,
+  advanceMilestones,
+  checkAchievements,
+  Difficulty,
+  demandSensitivityPermille,
+  hasAchievement,
+  isUnlocked,
+  loanInterestScalePermille,
+  MILESTONE_POPULATIONS,
+  nextMilestonePopulation,
+  setAchievement,
+  TOURIST_SPEND_CENTS,
+  tourismArrivals,
+  tourismAttractiveness,
+  Unlock,
+  unlockedMask,
+} from "./economy/progression";
+export {
   adultsOf,
   BuildingStatus,
   type Buildings,

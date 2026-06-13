@@ -9,6 +9,7 @@
 import {
   type AdvisorEvent,
   AdvisorSeverity,
+  BuildingKind,
   ByteWriter,
   type Command,
   type CommandRejection,
@@ -60,6 +61,19 @@ import {
   reconcileLost,
   trucksFor,
 } from "./economy/chain";
+import {
+  Achievement,
+  type AchievementCounters,
+  advanceMilestones,
+  checkAchievements,
+  isUnlocked,
+  loanInterestScalePermille,
+  setAchievement,
+  TOURIST_SPEND_CENTS,
+  tourismArrivals,
+  tourismAttractiveness,
+  Unlock,
+} from "./economy/progression";
 import {
   BuildingStatus,
   type Buildings,
@@ -1004,6 +1018,11 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
     case CommandType.zoneRect:
     case CommandType.dezoneRect: {
       const zone = cmd.type === CommandType.zoneRect ? cmd.zone : ZoneKind.none;
+      // NOTE: high density is an UNLOCK BIT the UI gates its tool on (GDD §13),
+      // but the sim does NOT hard-reject high-density zoning in v1 — enforcing
+      // it would rewrite every pre-progression scenario that zones R/C-high at
+      // founding. Loans are the sim-enforced gate (see takeLoan). [TUNE: make
+      // high-density a hard gate once the scenario corpus expects it.]
       const x0 = Math.min(cmd.x0, cmd.x1);
       const y0 = Math.min(cmd.y0, cmd.y1);
       const x1 = Math.max(cmd.x0, cmd.x1);
@@ -1096,6 +1115,11 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       return null;
     }
     case CommandType.takeLoan: {
+      // Loans are milestone-gated (GDD §13): the budget panel comes first,
+      // loans unlock at the first population milestone.
+      if (!isUnlocked(world.economy, Unlock.loans)) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.notUnlocked };
+      }
       const terms = LOAN_TERMS[cmd.tier - 1];
       if (
         terms === undefined ||
@@ -1104,9 +1128,14 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       ) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
       }
+      // Interest scales with difficulty (Relaxed easy, Ironclad dear): a
+      // dearer payment over the same term, same principal up front.
+      const scaledPayment = Math.floor(
+        (monthlyPaymentCents(terms) * loanInterestScalePermille(world.economy.difficulty)) / 1000,
+      );
       world.economy.loans.push({
         principalCents: terms.principalCents,
-        monthlyPaymentCents: monthlyPaymentCents(terms),
+        monthlyPaymentCents: scaledPayment,
         monthsLeft: terms.months,
       });
       world.fundsCents += terms.principalCents;
@@ -1115,6 +1144,7 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       // loanPrincipal line, so Σ lines ≡ funds delta holds with loans
       // moving mid-month (the conservation property exercises this).
       accumulate(world.economy, ReportLineKind.loanPrincipal, terms.principalCents);
+      setAchievement(world.economy, Achievement.firstLoan); // remembers "ever borrowed"
       return null;
     }
     case CommandType.repayLoan: {
@@ -1162,6 +1192,17 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       return null;
     }
   }
+}
+
+/** Population count of set bits in a u32 (uniques mask → unique count). */
+function popcount32(n: number): number {
+  let v = n >>> 0;
+  let count = 0;
+  while (v !== 0) {
+    count += v & 1;
+    v >>>= 1;
+  }
+  return count;
 }
 
 /** A per-call cached nearest-TWIN-node resolver (the chain + freight share it). */
@@ -1551,6 +1592,66 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     (world.flows.immigrants - flowsAtScan.immigrants) -
     (world.flows.deaths - flowsAtScan.deaths) -
     (world.flows.emigrants - flowsAtScan.emigrants);
+
+  // progression(daily) — GDD §13: milestones advance on population (monotone,
+  // never skips), tourism brings off-map spend, achievements trip once. All
+  // canonical functions of city counters → replays + save/loads exactly.
+  if (world.tick > 0 && world.tick % TICKS_PER_DAY === 0) {
+    for (const ms of advanceMilestones(world.economy, world.population)) {
+      emitAdvisor(world, AdvisorSeverity.info, "advisor.milestone", "cause.milestoneReached", [
+        {
+          subject: { kind: EntityKind.system, id: ms },
+          labelKey: "cause.populationGrowth",
+          weightPermille: 1000,
+        },
+      ]);
+    }
+    // Tourism: attractiveness (parks + uniques − crime[0 until Phase 6]) →
+    // arrivals via an outside connection → daily spend at Commercial.
+    let parks = 0;
+    for (let i = 0; i < world.buildings.count; i++) {
+      if (world.buildings.alive[i] !== 1) {
+        continue;
+      }
+      const k = world.buildings.kind[i] as number;
+      if (
+        k === PLOPPABLE_KIND_OFFSET + BuildingKind.parkSmall ||
+        k === PLOPPABLE_KIND_OFFSET + BuildingKind.plaza
+      ) {
+        parks++;
+      }
+    }
+    const uniques = popcount32(world.economy.uniquesMask);
+    const hasOutside = edgeAnchors(world.traffic.twin, world.mapWidth, world.mapHeight).length > 0;
+    const arrivals = tourismArrivals(
+      tourismAttractiveness(parks, uniques, 0),
+      hasOutside,
+      world.economy.difficulty,
+    );
+    if (arrivals > 0) {
+      const revenue = arrivals * TOURIST_SPEND_CENTS;
+      world.fundsCents += revenue;
+      accumulate(world.economy, ReportLineKind.tourism, revenue);
+    }
+    const counters: AchievementCounters = {
+      population: world.population,
+      loansActive: world.economy.loans.length,
+      fundsCents: world.fundsCents,
+      parks,
+      industrial: agg.countI,
+      tourismArrivals: arrivals,
+      bailoutUsed: world.economy.bailoutUsed,
+    };
+    for (const bit of checkAchievements(world.economy, counters)) {
+      emitAdvisor(world, AdvisorSeverity.info, "advisor.achievement", "cause.achievementEarned", [
+        {
+          subject: { kind: EntityKind.system, id: bit },
+          labelKey: "cause.cityMilestone",
+          weightPermille: 1000,
+        },
+      ]);
+    }
+  }
 
   // Chain conservation: fold cargo demolished THIS tick (lifecycle, services,
   // and the fire ruin-clear — all run ABOVE the chain pass) into `lost`, so

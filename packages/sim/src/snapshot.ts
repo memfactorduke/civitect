@@ -10,6 +10,7 @@ import {
   type Snapshot,
   SnapshotKind,
 } from "@civitect/protocol";
+import { nextMilestonePopulation, unlockedMask } from "./economy/progression";
 import { canonicalEdgeOrder, canonicalGraph } from "./roads/graph";
 import { serviceCoverage, type World } from "./world";
 
@@ -93,8 +94,13 @@ export function toSnapshot(
     // Drained like advisor events: the close's report rides exactly one
     // snapshot (the UI keeps it until the next close replaces it).
     report: drainReport(world),
-    // Milestone block fills with progression (board phase-5 task 4).
-    milestone: null,
+    // Milestone block (GDD §13): current index, the next population gate, and
+    // the derived unlock mask the UI gates its panels/tools on.
+    milestone: {
+      index: world.economy.milestoneIndex,
+      populationTarget: nextMilestonePopulation(world.economy.milestoneIndex),
+      unlockedMask: unlockedMask(world.economy.milestoneIndex),
+    },
   };
 }
 
