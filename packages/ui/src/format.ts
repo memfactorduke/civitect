@@ -20,3 +20,9 @@ export function formatFundsCents(fundsCents: number): string {
 export function formatCount(n: number): string {
   return count.format(n);
 }
+
+/** Signed whole-currency for report lines (income +, expense −). */
+export function formatSignedCents(cents: number): string {
+  const sign = cents < 0 ? "−" : "+";
+  return `${sign}${usd.format(Math.abs(Math.trunc(cents / 100)))}`;
+}

@@ -20,7 +20,14 @@ export function Hud(props: { readonly store: UiStore }): ReactNode {
         <output data-testid="hud-population">{formatCount(population)}</output>
       </span>
       <span>
-        {t("hud.funds")}: <output data-testid="hud-funds">{formatFundsCents(fundsCents)}</output>
+        {t("hud.funds")}:{" "}
+        <output
+          data-testid="hud-funds"
+          data-debt={fundsCents < 0 ? "true" : "false"}
+          style={{ color: fundsCents < 0 ? "#c0392b" : undefined }}
+        >
+          {formatFundsCents(fundsCents)}
+        </output>
       </span>
       <span>
         {t("hud.tick")}: <output data-testid="hud-tick">{tick}</output>
