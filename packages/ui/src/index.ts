@@ -8,15 +8,19 @@
  */
 
 export { AdvisorFeed } from "./AdvisorFeed";
+export { BankruptcyDialog } from "./BankruptcyDialog";
 export { BudgetPanel } from "./BudgetPanel";
 export { BuildingInspector } from "./BuildingInspector";
 export { DemandPanel } from "./DemandPanel";
 export { type CommandIntent, type DispatchFn, DispatchProvider, useDispatch } from "./dispatch";
-export { formatCount, formatFundsCents } from "./format";
+export { formatCount, formatFundsCents, formatSignedCents } from "./format";
 export { Hud } from "./Hud";
 export { type I18nKey, t } from "./i18n";
+export { MilestoneToast } from "./MilestoneToast";
 export { Overlay } from "./Overlay";
 export { OverlayPicker } from "./OverlayPicker";
+export { ReportPanel } from "./ReportPanel";
 export { RoadInspector } from "./RoadInspector";
 export { SpeedControls } from "./SpeedControls";
 export { createUiStore, type UiState, type UiStore, useUiStore } from "./store";
+export { TaxLoanPanel } from "./TaxLoanPanel";

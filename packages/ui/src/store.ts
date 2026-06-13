@@ -12,6 +12,8 @@ import {
   type DemandBlock,
   type EnvironInfo,
   type InspectorResponse,
+  type MilestoneBlock,
+  type MonthlyReport,
   type RoadInfo,
   type Snapshot,
   SnapshotKind,
@@ -34,6 +36,11 @@ export interface UiState {
   /** Building + environment payloads for the selected tile (v11). */
   readonly buildingInfo: BuildingInfo | null;
   readonly environInfo: EnvironInfo | null;
+  /** Latest monthly report — RIDES one snapshot (the close tick), then we
+   *  keep showing it until the next close replaces it (GDD §12/§13). */
+  readonly report: MonthlyReport | null;
+  /** Milestone progression block — present on every snapshot (task 4). */
+  readonly milestone: MilestoneBlock | null;
   applySnapshot(snapshot: Snapshot): void;
   applyInspectorResponse(response: InspectorResponse): void;
 }
@@ -52,6 +59,8 @@ export function createUiStore(): UiStore {
     roadInfo: null,
     buildingInfo: null,
     environInfo: null,
+    report: null,
+    milestone: null,
     applySnapshot(snapshot: Snapshot): void {
       // Keyframes are authoritative resets (scene load / save-load rewind,
       // TDD §7) and apply even to an older tick; stale DELTAS lose.
@@ -67,6 +76,10 @@ export function createUiStore(): UiStore {
         // Feed semantics: snapshots carry only NEW events; accumulate.
         advisorEvents: [...snapshot.advisorEvents, ...get().advisorEvents].slice(0, 20),
         demand: snapshot.demand,
+        // The report rides only the close tick — keep the last one until the
+        // next close; the milestone block is on every snapshot.
+        report: snapshot.report ?? get().report,
+        milestone: snapshot.milestone,
       });
     },
     applyInspectorResponse(response: InspectorResponse): void {

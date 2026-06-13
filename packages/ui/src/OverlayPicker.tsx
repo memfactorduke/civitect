@@ -3,9 +3,18 @@
  * the HUD). Selection is PRESENTATION state — it travels as an
  * overlayRequest message (the viewportHint pattern), never as a command.
  */
-import { SERVICE_ID_LIST } from "@civitect/protocol";
+import { OverlayId, SERVICE_ID_LIST } from "@civitect/protocol";
 import { type ReactNode, useState } from "react";
-import { t } from "./i18n";
+import { type I18nKey, t } from "./i18n";
+
+/** Field overlays (task 1's generalized ids 10–14): land value + pollutions. */
+const FIELD_OVERLAYS = [
+  OverlayId.landValue,
+  OverlayId.airPollution,
+  OverlayId.groundPollution,
+  OverlayId.noise,
+  OverlayId.waterPollution,
+] as const;
 
 export function OverlayPicker(props: { readonly onSelect: (service: number) => void }): ReactNode {
   const [active, setActive] = useState(0);
@@ -32,6 +41,17 @@ export function OverlayPicker(props: { readonly onSelect: (service: number) => v
           onClick={() => pick(service)}
         >
           {t(`budget.service.${service}` as Parameters<typeof t>[0])}
+        </button>
+      ))}
+      {FIELD_OVERLAYS.map((id) => (
+        <button
+          type="button"
+          key={id}
+          data-testid={`overlay-pick-${id}`}
+          aria-pressed={active === id}
+          onClick={() => pick(id)}
+        >
+          {t(`overlay.${id}` as I18nKey)}
         </button>
       ))}
     </nav>
