@@ -53,6 +53,15 @@ jobs:
       - name: Balance simulations (ADR-013 §3 bands)
         run: pnpm gate:balance
 
+      # Per-PR archetype bands at 2 game-years (board phase-5 task 6). The full
+      # 5×20-game-year exit criterion is the weekly/dispatchable run
+      # (.github/workflows/weekly.yml, GAME_YEARS=20). [TUNE: split into
+      # parallel vitest files to cut the sequential ~9-min wall.]
+      - name: Archetype balance harness (ADR-013 §3, 2-year bands)
+        run: pnpm gate:archetypes
+        env:
+          GAME_YEARS: "2"
+
       - name: Perf gate (TDD §2 / §12.4)
         run: pnpm gate:perf
 

@@ -28,6 +28,27 @@ jobs:
       - name: Cross-check (browsers must reproduce the committed hashes)
         run: pnpm e2e:cross-check
 
+  # The Phase 5 exit criterion (board task 6, GDD §17): the five archetypes
+  # held inside their balance bands across the FULL 20-game-year horizon —
+  # structurally a weekly/dispatchable run (~2.5–3 h wall, ADR-013 §3's
+  # CI-budget note), not per-PR. The per-PR CI runs the same harness at 2 years.
+  archetype-exit-criteria:
+    name: Archetype bands — 20 game-years (Phase 5 exit criterion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 5 archetypes × 20 game-years inside bands
+        run: pnpm gate:archetypes
+        env:
+          GAME_YEARS: "20"
+
   device-perf-traces:
     name: Device perf traces (STUB — ROADMAP Phase 1)
     runs-on: ubuntu-latest
