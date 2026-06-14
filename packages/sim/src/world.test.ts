@@ -147,20 +147,22 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   // block + starting funds (P5 task 2 — THE funds bless), the chain block +
   // per-building chainRole/stockIn/stockOut (P5 task 3 — the freight bless;
   // empty worlds append zeroed chain state, so these move with no behavior
-  // change — freight/de-level are dormant without industry or anchors).
+  // change — freight/de-level are dormant without industry or anchors), the
+  // district block + ordinance mask (P6 task 1 — empty worlds append a zeroed
+  // districts block, again no behavior change).
 
   it("fresh world, seed 1234", () => {
-    expect(stateHash(createWorld(1234))).toBe("208e1a6dd4a992d1");
+    expect(stateHash(createWorld(1234))).toBe("2049565035105689");
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("38d040ce9f04eb9c");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("1ca07338702f1dbc");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("197a6fddd10d56d6");
+    expect(stateHash(world)).toBe("dd0e2cd2ba97d9a6");
   });
 });
 

@@ -124,6 +124,14 @@ export function worldToCiv(world: World, commandTail: CivSave["commandTail"]): C
       exported: Uint32Array.from(world.chain.exported),
       lost: Uint32Array.from(world.chain.lost),
     },
+    districts: {
+      districts: world.districts.rows.map((r) => ({
+        name: r.name,
+        policyMask: r.policyMask,
+        taxOverridePermille: Uint16Array.from(r.taxOverridePermille),
+      })),
+      ordinanceMask: world.districts.ordinanceMask,
+    },
     pins: world.pins.map((p) => ({ tileIdx: p.tileIdx, slot: p.slot })),
     worldCore: {
       speed: world.speed,
@@ -266,6 +274,14 @@ export function civToWorld(save: CivSave): World {
       imported: Uint32Array.from(save.chain.imported),
       exported: Uint32Array.from(save.chain.exported),
       lost: Uint32Array.from(save.chain.lost),
+    },
+    districts: {
+      rows: save.districts.districts.map((r) => ({
+        name: r.name,
+        policyMask: r.policyMask,
+        taxOverridePermille: Uint16Array.from(r.taxOverridePermille),
+      })),
+      ordinanceMask: save.districts.ordinanceMask,
     },
     pendingReport: null,
     agents: createAgentPool(save.header.seed),

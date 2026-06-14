@@ -17,7 +17,9 @@ import {
   type DemandBlock,
   EntityKind,
   flatTerrain,
+  MAX_DISTRICTS,
   type MonthlyReport,
+  POLICY_BITS,
   RejectionReason,
   ReportLineKind,
   SERVICE_BUDGET_MAX_PERMILLE,
@@ -36,6 +38,7 @@ import {
   updateAgents,
   type Viewport,
 } from "./agents/pool";
+import { createDistricts, type DistrictState, ensureDistrict } from "./districts/districts";
 import {
   accumulate,
   accumulateClose,
@@ -234,6 +237,9 @@ export interface World {
   /** The goods chain (GDD §8) — CANONICAL ledgers + shipments, hashed and
    *  saved (v9 SHIPMENTS); processed/goods counts are derived (recounted). */
   chain: ChainState;
+  /** Districts (GDD §11) — per-district metadata, CANONICAL (v10 DISTRICTS);
+   *  the per-tile paint rides the terrain district layer. */
+  districts: DistrictState;
   /** Last close's report, drained by toSnapshot (transient, like advisors). */
   pendingReport: MonthlyReport | null;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
@@ -368,6 +374,7 @@ export function createWorld(
     landValueCache: createLandValueCache(),
     economy: createEconomy(),
     chain: createChain(),
+    districts: createDistricts(),
     pendingReport: null,
     agents: createAgentPool(seed),
     viewport: null,
@@ -1161,6 +1168,58 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.economy.loans.splice(cmd.tier - 1, 1);
       return null;
     }
+    case CommandType.paintDistrict: {
+      // Paint the district id over the rect (the canonical per-tile layer);
+      // ensure its metadata row exists. Aggregation/effects land in task 2/3.
+      if (cmd.districtId > MAX_DISTRICTS) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      const x0 = Math.min(cmd.x0, cmd.x1);
+      const y0 = Math.min(cmd.y0, cmd.y1);
+      const x1 = Math.max(cmd.x0, cmd.x1);
+      const y1 = Math.max(cmd.y0, cmd.y1);
+      if (!inBounds(world, x0, y0) || !inBounds(world, x1, y1)) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.outOfBounds };
+      }
+      if (cmd.districtId > 0) {
+        ensureDistrict(world.districts, cmd.districtId);
+      }
+      const layer = world.terrain.layers.district;
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          layer[y * world.mapWidth + x] = cmd.districtId;
+        }
+      }
+      return null;
+    }
+    case CommandType.nameDistrict: {
+      if (cmd.districtId < 1 || cmd.districtId > MAX_DISTRICTS) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      ensureDistrict(world.districts, cmd.districtId);
+      (world.districts.rows[cmd.districtId - 1] as { name: string }).name = cmd.name;
+      return null;
+    }
+    case CommandType.setPolicy: {
+      if (cmd.districtId < 1 || cmd.districtId > MAX_DISTRICTS || cmd.policy >= POLICY_BITS) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      ensureDistrict(world.districts, cmd.districtId);
+      const row = world.districts.rows[cmd.districtId - 1] as { policyMask: number };
+      const bit = 1 << cmd.policy;
+      row.policyMask = cmd.on ? row.policyMask | bit : row.policyMask & ~bit;
+      return null;
+    }
+    case CommandType.setOrdinance: {
+      if (cmd.ordinance >= POLICY_BITS) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      const bit = 1 << cmd.ordinance;
+      world.districts.ordinanceMask = cmd.on
+        ? world.districts.ordinanceMask | bit
+        : world.districts.ordinanceMask & ~bit;
+      return null;
+    }
     case CommandType.placeBuilding: {
       if (!inBounds(world, cmd.x, cmd.y)) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.outOfBounds };
@@ -1883,6 +1942,15 @@ export function stateHash(world: World): string {
   ]) {
     for (let c = 0; c < 6; c++) {
       w.u32(ledger[c] as number);
+    }
+  }
+  // Districts joined with Phase 6 task 1. Per-tile paint is already hashed via
+  // the terrain district layer; this is the per-district metadata + ordinance.
+  w.u32(world.districts.ordinanceMask).u16(world.districts.rows.length);
+  for (const row of world.districts.rows) {
+    w.str(row.name).u32(row.policyMask);
+    for (let z = 0; z < 6; z++) {
+      w.u16(row.taxOverridePermille[z] as number);
     }
   }
   return fnv1a64(w.finish());

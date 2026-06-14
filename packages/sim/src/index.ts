@@ -22,6 +22,13 @@ export {
   type Viewport,
 } from "./agents/pool";
 export {
+  createDistricts,
+  type District,
+  type DistrictState,
+  ensureDistrict,
+  hasPolicy,
+} from "./districts/districts";
+export {
   accumulate,
   BAILOUT_TERMS,
   createEconomy,

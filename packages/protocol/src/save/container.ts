@@ -20,7 +20,9 @@ export const SAVE_MAGIC = "CIVT";
 // v8: ECONOMY (default-taxes/no-loans injection — Phase 5 money cycle).
 // v9: SHIPMENTS (empty-queue/zero-ledger injection) and BUILDINGS rows grow
 // chainRole/stockIn/stockOut (zero-fill — Phase 5 goods chain).
-export const SAVE_FORMAT_VERSION = 9;
+// v10: DISTRICTS (empty-list / zero-ordinance injection — Phase 6 districts;
+// the per-tile district paint already rides TERRAIN layer 4).
+export const SAVE_FORMAT_VERSION = 10;
 
 export interface ContainerHeader {
   readonly formatVersion: number;

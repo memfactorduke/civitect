@@ -32,6 +32,7 @@ import { migrateSectionsV5toV6 } from "./migrations/v5_v6";
 import { migrateSectionsV6toV7 } from "./migrations/v6_v7";
 import { migrateSectionsV7toV8 } from "./migrations/v7_v8";
 import { migrateSectionsV8toV9 } from "./migrations/v8_v9";
+import { migrateSectionsV9toV10 } from "./migrations/v9_v10";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -212,6 +213,8 @@ export interface CivSave {
   readonly economy: EconomySave;
   /** In-flight freight + chain ledger counters (v9, GDD §8). */
   readonly chain: ChainSave;
+  /** Per-district metadata + city ordinances (v10, GDD §11). */
+  readonly districts: DistrictsSave;
   /** Pinned cims (GDD §17.5), sorted by (tileIdx, slot). */
   readonly pins: readonly CimPinSave[];
   /** Commands since the snapshot, in applied (tick, seq) order. */
@@ -364,6 +367,23 @@ export interface ChainSave {
   readonly lost: Uint32Array;
 }
 
+/** One district's metadata (v10). The per-TILE district id lives in TERRAIN
+ *  layer 4; this is the per-district state policies/overrides hang off.
+ *  districts[i] describes district id (i+1); index 0 = district 1. */
+export interface DistrictRow {
+  readonly name: string;
+  /** Policy bits set for this district (GDD §11; effects land with task 3). */
+  readonly policyMask: number;
+  /** Per-zone tax override permille (0 = inherit the city rate). */
+  readonly taxOverridePermille: Uint16Array;
+}
+
+export interface DistrictsSave {
+  readonly districts: readonly DistrictRow[];
+  /** City-wide ordinance bits (the policy subset that applies globally). */
+  readonly ordinanceMask: number;
+}
+
 /** Layout shared with migrateSectionsV7toV8's injected section — keep in sync. */
 function encodeEconomy(economy: EconomySave): Uint8Array {
   const w = new ByteWriter();
@@ -494,6 +514,38 @@ function decodeChain(bytes: Uint8Array): ChainSave {
   const lost = ledger();
   r.expectEnd();
   return { shipments, produced, consumed, imported, exported, lost };
+}
+
+/** Layout shared with migrateSectionsV9toV10's injected section — keep in sync. */
+function encodeDistricts(d: DistrictsSave): Uint8Array {
+  const w = new ByteWriter();
+  w.u32(d.ordinanceMask);
+  w.u16(d.districts.length);
+  for (const row of d.districts) {
+    w.str(row.name).u32(row.policyMask);
+    for (let z = 0; z < ZONE_COUNT; z++) {
+      w.u16(row.taxOverridePermille[z] as number);
+    }
+  }
+  return w.finish();
+}
+
+function decodeDistricts(bytes: Uint8Array): DistrictsSave {
+  const r = new ByteReader(bytes);
+  const ordinanceMask = r.u32();
+  const count = r.u16();
+  const districts: DistrictRow[] = [];
+  for (let i = 0; i < count; i++) {
+    const name = r.str();
+    const policyMask = r.u32();
+    const taxOverridePermille = new Uint16Array(ZONE_COUNT);
+    for (let z = 0; z < ZONE_COUNT; z++) {
+      taxOverridePermille[z] = r.u16();
+    }
+    districts.push({ name, policyMask, taxOverridePermille });
+  }
+  r.expectEnd();
+  return { districts, ordinanceMask };
 }
 
 /** Layout shared with migrateSectionsV6toV7's injected section — keep in sync. */
@@ -718,6 +770,7 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
     { id: SectionId.services, raw: encodeServices(save.services) },
     { id: SectionId.economy, raw: encodeEconomy(save.economy) },
     { id: SectionId.shipments, raw: encodeChain(save.chain) },
+    { id: SectionId.policies, raw: encodeDistricts(save.districts) },
     { id: SectionId.agentPins, raw: encodePins(save.pins) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
@@ -767,6 +820,9 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
       shipments: SectionId.shipments,
     });
   }
+  if (header.formatVersion <= 9) {
+    sections = migrateSectionsV9toV10(sections, { districts: SectionId.policies });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
   const roadsRaw = sections.get(SectionId.roads);
@@ -777,6 +833,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   const servicesRaw = sections.get(SectionId.services);
   const economyRaw = sections.get(SectionId.economy);
   const chainRaw = sections.get(SectionId.shipments);
+  const districtsRaw = sections.get(SectionId.policies);
   const pinsRaw = sections.get(SectionId.agentPins);
   const commandTailRaw = sections.get(SectionId.commandTail);
   if (
@@ -789,11 +846,12 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     servicesRaw === undefined ||
     economyRaw === undefined ||
     chainRaw === undefined ||
+    districtsRaw === undefined ||
     pinsRaw === undefined ||
     commandTailRaw === undefined
   ) {
     throw new DecodeError(
-      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, ECONOMY, SHIPMENTS, AGENTPINS, COMMANDTAIL",
+      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, ECONOMY, SHIPMENTS, DISTRICTS, AGENTPINS, COMMANDTAIL",
     );
   }
   const buildings = decodeBuildings(buildingsRaw);
@@ -836,6 +894,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     services,
     economy: decodeEconomy(economyRaw),
     chain: decodeChain(chainRaw),
+    districts: decodeDistricts(districtsRaw),
     pins: decodePins(pinsRaw),
     commandTail: decodeCommandTail(commandTailRaw),
   };
