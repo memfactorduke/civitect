@@ -173,6 +173,7 @@ describe("map files (.civmap)", () => {
         exported: new Uint32Array(6),
         lost: new Uint32Array(6),
       },
+      districts: { districts: [], ordinanceMask: 0 },
       pins: [],
       worldCore: {
         speed: 1,

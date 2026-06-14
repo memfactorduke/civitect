@@ -34,6 +34,12 @@ export const CommandType = {
   setTaxRate: 14,
   takeLoan: 15,
   repayLoan: 16,
+  /** Phase 6 districts (GDD §11): paint a district id over a rect, name it,
+   *  toggle a per-district policy bit, toggle a city-wide ordinance bit. */
+  paintDistrict: 17,
+  nameDistrict: 18,
+  setPolicy: 19,
+  setOrdinance: 20,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -260,6 +266,43 @@ export interface RepayLoanCommand extends CommandBase {
   readonly tier: number;
 }
 
+/** Districts are identified by a small id painted into the terrain district
+ *  layer (0 = none, 1–63 a district). [LOCKED: max 63 districts at 1.0.] */
+export const MAX_DISTRICTS = 63;
+/** Policy bits per district + ordinance bits city-wide (GDD §11, ~22 levers). */
+export const POLICY_BITS = 32;
+
+export interface PaintDistrictCommand extends CommandBase {
+  readonly type: typeof CommandType.paintDistrict;
+  readonly x0: number;
+  readonly y0: number;
+  readonly x1: number;
+  readonly y1: number;
+  /** 0 clears the district; 1–63 paints that district id. */
+  readonly districtId: number;
+}
+
+export interface NameDistrictCommand extends CommandBase {
+  readonly type: typeof CommandType.nameDistrict;
+  readonly districtId: number;
+  readonly name: string;
+}
+
+export interface SetPolicyCommand extends CommandBase {
+  readonly type: typeof CommandType.setPolicy;
+  readonly districtId: number;
+  /** Policy bit index 0–31 (Policy enum). */
+  readonly policy: number;
+  readonly on: number;
+}
+
+export interface SetOrdinanceCommand extends CommandBase {
+  readonly type: typeof CommandType.setOrdinance;
+  /** Ordinance bit index 0–31 (the city-wide policy subset). */
+  readonly ordinance: number;
+  readonly on: number;
+}
+
 export type Command =
   | SelectTileCommand
   | SetSpeedCommand
@@ -276,7 +319,11 @@ export type Command =
   | SetServiceBudgetCommand
   | SetTaxRateCommand
   | TakeLoanCommand
-  | RepayLoanCommand;
+  | RepayLoanCommand
+  | PaintDistrictCommand
+  | NameDistrictCommand
+  | SetPolicyCommand
+  | SetOrdinanceCommand;
 
 export const RejectionReason = {
   outOfBounds: 1,
@@ -348,6 +395,18 @@ export function encodeCommandBody(w: ByteWriter, cmd: Command): void {
     case CommandType.takeLoan:
     case CommandType.repayLoan:
       w.u8(cmd.tier);
+      break;
+    case CommandType.paintDistrict:
+      w.u16(cmd.x0).u16(cmd.y0).u16(cmd.x1).u16(cmd.y1).u8(cmd.districtId);
+      break;
+    case CommandType.nameDistrict:
+      w.u8(cmd.districtId).str(cmd.name);
+      break;
+    case CommandType.setPolicy:
+      w.u8(cmd.districtId).u8(cmd.policy).u8(cmd.on);
+      break;
+    case CommandType.setOrdinance:
+      w.u8(cmd.ordinance).u8(cmd.on);
       break;
   }
 }
@@ -491,6 +550,39 @@ export function decodeCommandBody(r: ByteReader): Command {
         type: type === CommandType.takeLoan ? CommandType.takeLoan : CommandType.repayLoan,
         tier,
       };
+    }
+    case CommandType.paintDistrict: {
+      const x0 = r.u16();
+      const y0 = r.u16();
+      const x1 = r.u16();
+      const y1 = r.u16();
+      const districtId = r.u8();
+      if (districtId > MAX_DISTRICTS) {
+        throw new DecodeError(`districtId ${districtId} exceeds ${MAX_DISTRICTS}`);
+      }
+      return { seq, tick, type: CommandType.paintDistrict, x0, y0, x1, y1, districtId };
+    }
+    case CommandType.nameDistrict: {
+      const districtId = r.u8();
+      const name = r.str();
+      return { seq, tick, type: CommandType.nameDistrict, districtId, name };
+    }
+    case CommandType.setPolicy: {
+      const districtId = r.u8();
+      const policy = r.u8();
+      const on = r.u8();
+      if (policy >= POLICY_BITS) {
+        throw new DecodeError(`policy bit ${policy} exceeds ${POLICY_BITS}`);
+      }
+      return { seq, tick, type: CommandType.setPolicy, districtId, policy, on };
+    }
+    case CommandType.setOrdinance: {
+      const ordinance = r.u8();
+      const on = r.u8();
+      if (ordinance >= POLICY_BITS) {
+        throw new DecodeError(`ordinance bit ${ordinance} exceeds ${POLICY_BITS}`);
+      }
+      return { seq, tick, type: CommandType.setOrdinance, ordinance, on };
     }
     default:
       throw new DecodeError(`unknown CommandType ${type}`);
