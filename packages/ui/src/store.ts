@@ -28,6 +28,10 @@ export interface UiState {
   readonly population: number;
   readonly fundsCents: number;
   readonly selectedTile: TileCoord | null;
+  /** Snapshot-derived counts for lightweight panels; renderer still owns the full lists. */
+  readonly roadCount: number;
+  readonly buildingCount: number;
+  readonly zonedTileCount: number;
   /** Rolling advisor feed (latest first, capped) — events ACCUMULATE. */
   readonly advisorEvents: readonly AdvisorEvent[];
   readonly demand: DemandBlock;
@@ -47,6 +51,16 @@ export interface UiState {
 
 export type UiStore = StoreApi<UiState>;
 
+function countNonZero(cells: Uint16Array): number {
+  let count = 0;
+  for (const cell of cells) {
+    if (cell !== 0) {
+      count++;
+    }
+  }
+  return count;
+}
+
 export function createUiStore(): UiStore {
   return createStore<UiState>()((set, get) => ({
     tick: -1,
@@ -54,6 +68,9 @@ export function createUiStore(): UiStore {
     population: 0,
     fundsCents: 0,
     selectedTile: null,
+    roadCount: 0,
+    buildingCount: 0,
+    zonedTileCount: 0,
     advisorEvents: [],
     demand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
     roadInfo: null,
@@ -67,18 +84,34 @@ export function createUiStore(): UiStore {
       if (snapshot.kind !== SnapshotKind.keyframe && snapshot.tick < get().tick) {
         return;
       }
+      const current = get();
+      const isKeyframe = snapshot.kind === SnapshotKind.keyframe;
       set({
         tick: snapshot.tick,
         speed: snapshot.speed,
         population: snapshot.hud.population,
         fundsCents: snapshot.hud.fundsCents,
         selectedTile: snapshot.selectedTile,
+        roadCount:
+          snapshot.roads === null ? (isKeyframe ? 0 : current.roadCount) : snapshot.roads.length,
+        buildingCount:
+          snapshot.buildings === null
+            ? isKeyframe
+              ? 0
+              : current.buildingCount
+            : snapshot.buildings.length,
+        zonedTileCount:
+          snapshot.zones === null
+            ? isKeyframe
+              ? 0
+              : current.zonedTileCount
+            : countNonZero(snapshot.zones),
         // Feed semantics: snapshots carry only NEW events; accumulate.
-        advisorEvents: [...snapshot.advisorEvents, ...get().advisorEvents].slice(0, 20),
+        advisorEvents: [...snapshot.advisorEvents, ...current.advisorEvents].slice(0, 20),
         demand: snapshot.demand,
         // The report rides only the close tick — keep the last one until the
         // next close; the milestone block is on every snapshot.
-        report: snapshot.report ?? get().report,
+        report: snapshot.report ?? current.report,
         milestone: snapshot.milestone,
       });
     },

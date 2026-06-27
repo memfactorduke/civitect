@@ -12,6 +12,7 @@ import { DemandPanel } from "./DemandPanel";
 import { type DispatchFn, DispatchProvider } from "./dispatch";
 import { Hud } from "./Hud";
 import { MilestoneToast } from "./MilestoneToast";
+import { OnboardingGoals } from "./OnboardingGoals";
 import { OverlayPicker } from "./OverlayPicker";
 import { ReportPanel } from "./ReportPanel";
 import { RoadInspector } from "./RoadInspector";
@@ -30,6 +31,7 @@ export function Overlay(props: {
       <Hud store={props.store} />
       <SpeedControls store={props.store} />
       <MilestoneToast store={props.store} />
+      <OnboardingGoals store={props.store} />
       <DemandPanel store={props.store} />
       <BudgetPanel />
       <TaxLoanPanel store={props.store} />
