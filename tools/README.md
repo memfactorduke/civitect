@@ -12,3 +12,8 @@ Planned residents (each arrives with the phase that needs it):
 | Balance dashboard | TDD §13 | Phase 2 |
 | Map generator | TDD §13 | Phase 1 |
 | Replay theater | TDD §13 | Phase 3+ |
+
+Implemented tools:
+
+- `sim-inspector/`: read-only `.civmap`/`.civ` artifact summaries through the
+  protocol codecs.
