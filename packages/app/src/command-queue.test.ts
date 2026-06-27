@@ -32,4 +32,18 @@ describe("command queue (main-thread side of TDD §7)", () => {
     queue.dispatch({ type: CommandType.setSpeed, speed: 0 });
     expect(transferred).toHaveLength(1);
   });
+
+  it("keeps a bounded recent-command history for crash reports", () => {
+    const queue = createCommandQueue(() => undefined, { historyLimit: 2 });
+
+    queue.dispatch({ type: CommandType.setSpeed, speed: 1 });
+    queue.dispatch({ type: CommandType.selectTile, x: 3, y: 4 });
+    queue.dispatch({ type: CommandType.setSpeed, speed: 9 });
+
+    expect(queue.recent()).toEqual([
+      { seq: 1, tick: 0, type: CommandType.selectTile, x: 3, y: 4 },
+      { seq: 2, tick: 0, type: CommandType.setSpeed, speed: 9 },
+    ]);
+    expect(queue.count()).toBe(3);
+  });
 });

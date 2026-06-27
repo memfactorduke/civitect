@@ -45,6 +45,7 @@ import {
 } from "@civitect/sim";
 import { BOOT } from "./boot-config";
 import { civToWorld, worldToCiv } from "./save-codec";
+import { CRASH_SAVE_SLOT } from "./worker-crash";
 
 const ctx = globalThis as unknown as {
   onmessage: ((event: MessageEvent<unknown>) => void) | null;
@@ -54,6 +55,7 @@ const ctx = globalThis as unknown as {
 const TICK_MS = 100; // 10 Hz (ADR-005)
 
 let world = createWorld(BOOT.seed, BOOT.mapWidth, BOOT.mapHeight);
+let simulationPausedByCrash = false;
 
 /**
  * Authoritative session command log, in applied (re-stamped) form — the
@@ -167,6 +169,7 @@ async function handleLoadRequest(civ: Uint8Array): Promise<void> {
     const save = await decodeCiv(civ); // checksum + version-header validation (TDD §10)
     world = civToWorld(save);
     commandLog = [];
+    simulationPausedByCrash = false;
     post(
       encodeMessage({
         kind: MessageKind.loadResponse,
@@ -188,138 +191,180 @@ async function handleLoadRequest(civ: Uint8Array): Promise<void> {
   }
 }
 
+async function postCrashQuarantine(error: unknown): Promise<void> {
+  if (simulationPausedByCrash) {
+    return;
+  }
+  simulationPausedByCrash = true;
+  world.speed = 0;
+  console.error("[sim] paused after unhandled worker exception:", error);
+  try {
+    const captured = worldToCiv(world, commandLog.slice(-200));
+    const civ = await encodeCiv(captured);
+    post(encodeMessage({ kind: MessageKind.saveResponse, body: { slot: CRASH_SAVE_SLOT, civ } }));
+  } catch (saveError) {
+    console.error("[sim] crash quarantine save failed:", saveError);
+    post(
+      encodeMessage({
+        kind: MessageKind.saveResponse,
+        body: { slot: CRASH_SAVE_SLOT, civ: new Uint8Array(0) },
+      }),
+    );
+  }
+}
+
 ctx.onmessage = (event: MessageEvent<unknown>) => {
-  const data = event.data;
-  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
-  const message = decodeMessage(bytes);
-  switch (message.kind) {
-    case MessageKind.command: {
-      // Re-stamp to the tick this command actually applies on (see header).
-      const command = { ...message.body, tick: world.tick } as Command;
-      commandLog.push(command);
-      applyBatch([command]);
-      postSnapshot(SnapshotKind.delta);
-      break;
+  try {
+    const data = event.data;
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
+    const message = decodeMessage(bytes);
+    if (
+      simulationPausedByCrash &&
+      message.kind !== MessageKind.loadRequest &&
+      message.kind !== MessageKind.saveRequest
+    ) {
+      return;
     }
-    case MessageKind.saveRequest:
-      void handleSaveRequest(message.body.slot);
-      break;
-    case MessageKind.loadRequest:
-      void handleLoadRequest(message.body.civ);
-      break;
-    case MessageKind.inspectorRequest: {
-      const target = message.body.target;
-      let tile = null;
-      let road = null;
-      let building = null;
-      if (target.kind === EntityKind.tile) {
-        const tileIdx = target.id;
-        tile = {
-          tileIdx,
-          terrainKind: 0, // terrain kind table joins with its phase
-          elevationTerrace: 0,
-          zoneKind: world.terrain.layers.zone[tileIdx] ?? 0,
-          landValue: landValueAtTile(world, tileIdx),
-        };
-        const e = edgeAtTile(world, tileIdx);
-        if (e !== -1) {
-          const g = world.roads;
-          const capacity = g.edgeCapacity_[e] as number;
-          const volume = world.traffic.volumes[e] as number;
-          road = {
-            roadClass: g.edgeClass[e] as number,
-            volume,
-            capacity,
-            vcPermille: capacity === 0 ? 0 : Math.min(3000, Math.floor((volume * 1000) / capacity)),
-            freeFlowCost: edgeCost(g, e),
-            congestedCost: world.traffic.congestedCost[e] as number,
-          };
-        }
-        const b = world.buildings.byTile.get(tileIdx);
-        if (b !== undefined && world.buildings.alive[b] === 1) {
-          const kind = world.buildings.kind[b] as number;
-          const spec = specForTableKind(kind);
-          const budget =
-            spec === null
-              ? 1000
-              : (world.services.budgetsPermille[
-                  // SERVICE_ID_LIST is 1..9 in order — index is id-1.
-                  spec.service - 1
-                ] as number);
-          // Effectiveness v1 = coverage at the building's own tile,
-          // permille; the ×capacity-fill factor joins with the service
-          // loops (board task 3).
-          const effectiveness =
-            spec === null
-              ? 0
-              : Math.floor(
-                  ((serviceCoverage(world, spec.service).coverage[tileIdx] as number) * 1000) / 255,
-                );
-          building = {
-            kind,
-            level: world.buildings.level[b] as number,
-            status: world.buildings.status[b] as number,
-            serviceId: spec === null ? 0 : spec.service,
-            capacityTotal: spec === null ? 0 : scaledCapacity(spec, budget),
-            capacityUsed: 0, // queues join with the service loops (task 3)
-            queueLength: 0,
-            effectivenessPermille: effectiveness,
-          };
-        }
+    switch (message.kind) {
+      case MessageKind.command: {
+        // Re-stamp to the tick this command actually applies on (see header).
+        const command = { ...message.body, tick: world.tick } as Command;
+        commandLog.push(command);
+        applyBatch([command]);
+        postSnapshot(SnapshotKind.delta);
+        break;
       }
-      post(
-        encodeMessage({
-          kind: MessageKind.inspectorResponse,
-          body: {
-            requestId: message.body.requestId,
-            tick: world.tick,
-            tile,
-            road,
-            building,
-            environ:
-              tile === null
-                ? null
-                : (() => {
-                    const p = pollutionAt(world, tile.tileIdx);
-                    return {
-                      airPollution: p.air,
-                      groundPollution: p.ground,
-                      noise: p.noise,
-                      waterPollution: p.water,
-                    };
-                  })(),
-          },
-        }),
-      );
-      break;
+      case MessageKind.saveRequest:
+        void handleSaveRequest(message.body.slot);
+        break;
+      case MessageKind.loadRequest:
+        void handleLoadRequest(message.body.civ);
+        break;
+      case MessageKind.inspectorRequest: {
+        const target = message.body.target;
+        let tile = null;
+        let road = null;
+        let building = null;
+        if (target.kind === EntityKind.tile) {
+          const tileIdx = target.id;
+          tile = {
+            tileIdx,
+            terrainKind: 0, // terrain kind table joins with its phase
+            elevationTerrace: 0,
+            zoneKind: world.terrain.layers.zone[tileIdx] ?? 0,
+            landValue: landValueAtTile(world, tileIdx),
+          };
+          const e = edgeAtTile(world, tileIdx);
+          if (e !== -1) {
+            const g = world.roads;
+            const capacity = g.edgeCapacity_[e] as number;
+            const volume = world.traffic.volumes[e] as number;
+            road = {
+              roadClass: g.edgeClass[e] as number,
+              volume,
+              capacity,
+              vcPermille:
+                capacity === 0 ? 0 : Math.min(3000, Math.floor((volume * 1000) / capacity)),
+              freeFlowCost: edgeCost(g, e),
+              congestedCost: world.traffic.congestedCost[e] as number,
+            };
+          }
+          const b = world.buildings.byTile.get(tileIdx);
+          if (b !== undefined && world.buildings.alive[b] === 1) {
+            const kind = world.buildings.kind[b] as number;
+            const spec = specForTableKind(kind);
+            const budget =
+              spec === null
+                ? 1000
+                : (world.services.budgetsPermille[
+                    // SERVICE_ID_LIST is 1..9 in order — index is id-1.
+                    spec.service - 1
+                  ] as number);
+            // Effectiveness v1 = coverage at the building's own tile,
+            // permille; the ×capacity-fill factor joins with the service
+            // loops (board task 3).
+            const effectiveness =
+              spec === null
+                ? 0
+                : Math.floor(
+                    ((serviceCoverage(world, spec.service).coverage[tileIdx] as number) * 1000) /
+                      255,
+                  );
+            building = {
+              kind,
+              level: world.buildings.level[b] as number,
+              status: world.buildings.status[b] as number,
+              serviceId: spec === null ? 0 : spec.service,
+              capacityTotal: spec === null ? 0 : scaledCapacity(spec, budget),
+              capacityUsed: 0, // queues join with the service loops (task 3)
+              queueLength: 0,
+              effectivenessPermille: effectiveness,
+            };
+          }
+        }
+        post(
+          encodeMessage({
+            kind: MessageKind.inspectorResponse,
+            body: {
+              requestId: message.body.requestId,
+              tick: world.tick,
+              tile,
+              road,
+              building,
+              environ:
+                tile === null
+                  ? null
+                  : (() => {
+                      const p = pollutionAt(world, tile.tileIdx);
+                      return {
+                        airPollution: p.air,
+                        groundPollution: p.ground,
+                        noise: p.noise,
+                        waterPollution: p.water,
+                      };
+                    })(),
+            },
+          }),
+        );
+        break;
+      }
+      case MessageKind.viewportHint:
+        // Sampler input ONLY (ADR-002) — by construction it cannot move the
+        // hash: the projection-purity test in sim holds that line.
+        world.viewport = message.body;
+        break;
+      case MessageKind.overlayRequest:
+        // Worker-held presentation state (viewportHint pattern): selects
+        // which coverage layer rides snapshots. Never touches the world —
+        // coverage is derived, so the hash cannot see this.
+        activeOverlay = message.body.service as typeof activeOverlay;
+        lastSentCoverageDigest = -1; // force the next snapshot to carry it
+        postSnapshot(SnapshotKind.delta);
+        break;
+      default:
+        throw new Error(`sim worker received unexpected MessageKind ${message.kind}`);
     }
-    case MessageKind.viewportHint:
-      // Sampler input ONLY (ADR-002) — by construction it cannot move the
-      // hash: the projection-purity test in sim holds that line.
-      world.viewport = message.body;
-      break;
-    case MessageKind.overlayRequest:
-      // Worker-held presentation state (viewportHint pattern): selects
-      // which coverage layer rides snapshots. Never touches the world —
-      // coverage is derived, so the hash cannot see this.
-      activeOverlay = message.body.service as typeof activeOverlay;
-      lastSentCoverageDigest = -1; // force the next snapshot to carry it
-      postSnapshot(SnapshotKind.delta);
-      break;
-    default:
-      throw new Error(`sim worker received unexpected MessageKind ${message.kind}`);
+  } catch (error) {
+    void postCrashQuarantine(error);
   }
 };
 
 setInterval(() => {
-  const ticks = world.speed;
-  if (ticks === 0) {
+  if (simulationPausedByCrash) {
     return;
   }
-  for (let i = 0; i < ticks; i++) {
-    applyBatch([]);
+  try {
+    const ticks = world.speed;
+    if (ticks === 0) {
+      return;
+    }
+    for (let i = 0; i < ticks; i++) {
+      applyBatch([]);
+    }
+    postSnapshot(SnapshotKind.delta);
+  } catch (error) {
+    void postCrashQuarantine(error);
   }
-  postSnapshot(SnapshotKind.delta);
 }, TICK_MS);
 
 // Boot handshake: the first keyframe both proves protocol agreement
