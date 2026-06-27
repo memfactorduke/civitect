@@ -2,8 +2,8 @@
  * World stage (TDD §8, ADR-008): a CHUNKED static terrain layer — one baked
  * container per 32×32-tile chunk, cached as a texture, re-baked only when
  * its chunk is marked dirty — plus the highlight layer driven by display
- * state. Building/agent/overlay layers and LOD-tier behavior arrive with
- * their phases; the chunk architecture is the structural piece.
+ * state. Building/agent/overlay layers are gated by zoom LOD so map-scale
+ * panning stays cheap and readable while near zoom keeps the live scene.
  *
  * Without terrain (Phase 0 boot), chunks bake the placeholder diamond grid;
  * with terrain (map files), they bake flat tile tints (v0 "art" [TUNE]).
@@ -16,9 +16,11 @@
 import type { BuildingView, RoadSegment, TerrainGrid } from "@civitect/protocol";
 import { AGENT_FLOATS, AgentKind } from "@civitect/protocol";
 import { Container, Graphics } from "pixi.js";
+import { LodTier, type LodTier as LodTierValue } from "./camera";
 import { CHUNK_TILES, chunkLayout, chunkTiles, terrainTint } from "./chunks";
 import type { DisplayState } from "./display";
 import { TILE_H, TILE_W, tileCenterToWorld, tileToWorld } from "./iso";
+import { layerVisibilityForLod } from "./lod";
 
 export interface WorldStageOptions {
   readonly mapWidth: number;
@@ -44,6 +46,8 @@ export interface WorldStage {
   setTrafficOverlay(visible: boolean): void;
   /** Toggle the service-coverage overlay (field rides snapshots, GDD §7). */
   setCoverageOverlay(visible: boolean): void;
+  /** Apply zoom-tier layer visibility (ADR-008/TDD §8). */
+  setLodTier(tier: LodTierValue): void;
   /** Chunk count — observability for tests/devtools. */
   readonly chunkCount: number;
 }
@@ -332,6 +336,40 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   const agentLayer = new Graphics();
   root.addChild(agentLayer);
 
+  let currentLodTier: LodTierValue = LodTier.mid;
+  let currentLayerVisibility = layerVisibilityForLod(currentLodTier);
+  let lastAgentBuffer: Float32Array | null = null;
+
+  const drawAgents = (): void => {
+    agentLayer.clear();
+    if (!currentLayerVisibility.agents || lastAgentBuffer === null) {
+      return;
+    }
+    for (let at = 0; at + AGENT_FLOATS <= lastAgentBuffer.length; at += AGENT_FLOATS) {
+      const kind = lastAgentBuffer[at + 1] as number;
+      const { wx, wy } = tileCenterToWorld(
+        lastAgentBuffer[at + 2] as number,
+        lastAgentBuffer[at + 3] as number,
+      );
+      if (kind === AgentKind.car) {
+        agentLayer.rect(wx - 3, wy - 2, 6, 4).fill({ color: 0xffd24a });
+      } else {
+        agentLayer.circle(wx, wy, 1.6).fill({ color: 0x9be4ff });
+      }
+    }
+  };
+
+  const applyLayerVisibility = (): void => {
+    buildingLayer.visible = currentLayerVisibility.buildings;
+    agentLayer.visible = currentLayerVisibility.agents;
+    ghost.visible = currentLayerVisibility.toolGhosts;
+    zoneOverlay.visible = zoneOverlayOn && currentLayerVisibility.dataOverlays;
+    trafficOverlay.visible = trafficOverlayOn && currentLayerVisibility.dataOverlays;
+    coverageOverlay.visible = coverageOverlayOn && currentLayerVisibility.dataOverlays;
+    drawAgents();
+  };
+  applyLayerVisibility();
+
   return {
     root,
     chunkCount: layout.count,
@@ -386,30 +424,19 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     },
     setZoneOverlay(visible: boolean): void {
       zoneOverlayOn = visible;
-      zoneOverlay.visible = visible;
+      zoneOverlay.visible = visible && currentLayerVisibility.dataOverlays;
       if (visible) {
         drawZones();
         drawnZoneVersion = -2; // force redraw pickup on next update
       }
     },
     setAgents(buffer: Float32Array | null): void {
-      agentLayer.clear();
-      if (buffer === null) {
-        return;
-      }
-      for (let at = 0; at + AGENT_FLOATS <= buffer.length; at += AGENT_FLOATS) {
-        const kind = buffer[at + 1] as number;
-        const { wx, wy } = tileCenterToWorld(buffer[at + 2] as number, buffer[at + 3] as number);
-        if (kind === AgentKind.car) {
-          agentLayer.rect(wx - 3, wy - 2, 6, 4).fill({ color: 0xffd24a });
-        } else {
-          agentLayer.circle(wx, wy, 1.6).fill({ color: 0x9be4ff });
-        }
-      }
+      lastAgentBuffer = buffer;
+      drawAgents();
     },
     setTrafficOverlay(visible: boolean): void {
       trafficOverlayOn = visible;
-      trafficOverlay.visible = visible;
+      trafficOverlay.visible = visible && currentLayerVisibility.dataOverlays;
       if (visible) {
         drawTrafficOverlay();
         drawnCongestionVersion = -2; // redraw pickup on next update
@@ -417,13 +444,21 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     },
     setCoverageOverlay(visible: boolean): void {
       coverageOverlayOn = visible;
-      coverageOverlay.visible = visible;
+      coverageOverlay.visible = visible && currentLayerVisibility.dataOverlays;
       if (visible) {
         drawCoverage();
         drawnCoverageVersion = -2; // redraw pickup on next update
       } else {
         coverageOverlay.clear();
       }
+    },
+    setLodTier(tier: LodTierValue): void {
+      if (tier === currentLodTier) {
+        return;
+      }
+      currentLodTier = tier;
+      currentLayerVisibility = layerVisibilityForLod(tier);
+      applyLayerVisibility();
     },
     setGhost(a, b): void {
       ghost.clear();

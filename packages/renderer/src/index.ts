@@ -50,4 +50,5 @@ export {
   type WorldPoint,
   worldToTile,
 } from "./iso";
+export { type LayerVisibility, layerVisibilityForLod } from "./lod";
 export { createWorldStage, type WorldStage, type WorldStageOptions } from "./stage";
