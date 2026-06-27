@@ -14,17 +14,66 @@ import { formatSignedCents } from "./format";
 import { type I18nKey, t } from "./i18n";
 import { type UiStore, useUiStore } from "./store";
 
+interface ReportLedger {
+  readonly incomeCents: number;
+  readonly expenseCents: number;
+  readonly netCents: number;
+  readonly netDeltaCents: number;
+}
+
+function summarizeReport(
+  lines: readonly { readonly amountCents: number; readonly deltaCents: number }[],
+): ReportLedger {
+  let incomeCents = 0;
+  let expenseCents = 0;
+  let netDeltaCents = 0;
+  for (const line of lines) {
+    if (line.amountCents > 0) {
+      incomeCents += line.amountCents;
+    } else {
+      expenseCents += line.amountCents;
+    }
+    netDeltaCents += line.deltaCents;
+  }
+  return {
+    incomeCents,
+    expenseCents,
+    netCents: incomeCents + expenseCents,
+    netDeltaCents,
+  };
+}
+
 export function ReportPanel(props: { readonly store: UiStore }): ReactNode {
   const report = useUiStore(props.store, (s) => s.report);
   if (report === null) {
     return null;
   }
-  const net = report.lines.reduce((sum, line) => sum + line.amountCents, 0);
+  const ledger = summarizeReport(report.lines);
   return (
     <section aria-label={t("report.title")} data-testid="report-panel">
       <h2>
         {t("report.title")} — {t("report.month")} {report.month}
       </h2>
+      <dl data-testid="report-ledger">
+        <div>
+          <dt>{t("report.income")}</dt>
+          <dd data-testid="report-income-total" data-cents={ledger.incomeCents}>
+            {formatSignedCents(ledger.incomeCents)}
+          </dd>
+        </div>
+        <div>
+          <dt>{t("report.expenses")}</dt>
+          <dd data-testid="report-expense-total" data-cents={ledger.expenseCents}>
+            {formatSignedCents(ledger.expenseCents)}
+          </dd>
+        </div>
+        <div>
+          <dt>{t("report.change")}</dt>
+          <dd data-testid="report-net-delta" data-cents={ledger.netDeltaCents}>
+            {formatSignedCents(ledger.netDeltaCents)}
+          </dd>
+        </div>
+      </dl>
       <ul data-testid="report-lines">
         {report.lines.map((line) => (
           <li key={line.kind} data-testid={`report-line-${line.kind}`}>
@@ -38,8 +87,8 @@ export function ReportPanel(props: { readonly store: UiStore }): ReactNode {
           </li>
         ))}
       </ul>
-      <strong data-testid="report-net" data-cents={net}>
-        {t("report.net")} {formatSignedCents(net)}
+      <strong data-testid="report-net" data-cents={ledger.netCents}>
+        {t("report.net")} {formatSignedCents(ledger.netCents)}
       </strong>
     </section>
   );
