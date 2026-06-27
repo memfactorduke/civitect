@@ -1,12 +1,15 @@
-# ADR-013 gate ladder, in its binding order: lint → typecheck → unit → golden-masters → perf.
+# ADR-013 gate ladder, in its binding order: static checks → simulation checks
+# → asset checks → browser smoke.
 # (ADR-007: GitHub Actions, trunk-based; AI-WORKFLOW: CI is the arbiter of done.)
 #
-# Gate status (each remaining stub references the roadmap phase that makes it real):
+# Gate status:
 #   lint / wall / typecheck / unit ... LIVE
-#   golden-masters ................... LIVE (e2e golden corpus, board PR 4)
-#   balance simulations .............. STUB (ROADMAP Phase 2)
-#   perf gate ........................ LIVE (tick p95 vs TDD §2 hard gate, board PR 4)
-#   asset gates ...................... STUB (ROADMAP Phase 0 — board PR 11)
+#   golden-masters ................... LIVE
+#   balance simulations .............. LIVE
+#   archetype balance harness ........ LIVE
+#   perf gate ........................ LIVE
+#   asset gates ...................... LIVE
+#   browser smoke .................... LIVE
 name: CI
 
 on:
