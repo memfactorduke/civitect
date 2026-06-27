@@ -1,5 +1,8 @@
 {
   "name": "@civitect/assets",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "scripts": {
+    "gate": "pnpm --filter @civitect/sprite-intake gate"
+  }
 }
