@@ -17,3 +17,4 @@ export {
   type SaveManager,
   type SaveManagerPorts,
 } from "./save-manager";
+export { createToolPalette, type ToolMode, type ToolPalette } from "./tool-palette";
