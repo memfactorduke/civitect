@@ -212,9 +212,10 @@ The strategy exists so AI agents can verify their own work without a human eyeba
 1. **Golden-master cities:** ~12 scripted cities (seed + command log) replayed headlessly in Node per PR; final state hashes must match committed hashes bit-exactly (determinism + regression in one). Rule changes regenerate goldens via explicit `--bless` with diff report (the balance diff *is* the code review artifact).
 2. **Property tests** (fast-check): conservation laws — population in = out across migrations; money conservation across transactions; trips generated = assigned; no NaN/∞ in any field after 10k random command fuzz.
 3. **Balance simulations:** parameterized scenario runner ("zone R only", "no transit at 100k") with assertion bands (unemployment between X–Y by year 5) — catches "economy explodes" classes of bug. Outputs plots to the balance dashboard for human review.
-4. **Perf gates:** golden-city replay measures tick p95 in CI (normalized machine), fails on budget breach (§2 gates). Render perf: Playwright traces on device profiles weekly.
-5. **Unit/component:** Vitest for sim systems (pure functions — trivially testable by design); React Testing Library for panels; Playwright e2e smoke (boot → build road → zone → save → load → verify).
-6. **Determinism cross-check:** same golden replays run in Chromium/WebKit/Node weekly; hashes must agree (catches engine float/JIT surprises — the §3 rules make this pass; the test keeps us honest).
+4. **Diagnosability gates:** scripted failures (bankruptcy, abandonment, congestion, polluted water) must emit advisor cause chains whose subjects resolve to current world state — this automates the GDD §17 "no opaque failure" promise.
+5. **Perf gates:** golden-city replay measures tick p95 in CI (normalized machine), fails on budget breach (§2 gates). Render perf: Playwright traces on device profiles weekly.
+6. **Unit/component:** Vitest for sim systems (pure functions — trivially testable by design); React Testing Library for panels; Playwright e2e smoke (boot → build road → zone → save → load → verify).
+7. **Determinism cross-check:** same golden replays run in Chromium/WebKit/Node weekly; hashes must agree (catches engine float/JIT surprises — the §3 rules make this pass; the test keeps us honest).
 
 ---
 

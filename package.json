@@ -16,13 +16,14 @@
     "test": "vitest run",
     "gate:golden": "pnpm --filter @civitect/e2e golden",
     "gate:balance": "pnpm --filter @civitect/e2e balance",
+    "gate:diagnostics": "pnpm --filter @civitect/e2e diagnostics",
     "gate:perf": "pnpm --filter @civitect/e2e perf",
     "gate:assets": "pnpm --filter @civitect/sprite-intake gate",
     "gate:archetypes": "pnpm --filter @civitect/e2e archetypes",
     "bless": "pnpm --filter @civitect/e2e bless",
     "e2e:smoke": "pnpm --filter @civitect/e2e smoke",
     "e2e:cross-check": "pnpm --filter @civitect/e2e cross-check",
-    "verify": "pnpm lint && pnpm lint:determinism && pnpm wall && pnpm typecheck && pnpm test && pnpm gate:golden && pnpm gate:balance && pnpm gate:archetypes && pnpm gate:perf && pnpm gate:assets"
+    "verify": "pnpm lint && pnpm lint:determinism && pnpm wall && pnpm typecheck && pnpm test && pnpm gate:golden && pnpm gate:balance && pnpm gate:archetypes && pnpm gate:diagnostics && pnpm gate:perf && pnpm gate:assets"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",

@@ -10,7 +10,8 @@
     "smoke": "playwright test",
     "cross-check": "playwright test --config playwright.cross-check.config.ts",
     "balance": "vitest run --config vitest.balance.config.ts",
-    "archetypes": "vitest run --config vitest.archetypes.config.ts"
+    "archetypes": "vitest run --config vitest.archetypes.config.ts",
+    "diagnostics": "vitest run --config vitest.diagnostics.config.ts"
   },
   "dependencies": {
     "@civitect/protocol": "workspace:*",

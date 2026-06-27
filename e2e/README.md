@@ -10,3 +10,5 @@ Arrives in pieces (docs/board/phase-0.md):
   the <50 ms input→visual budget.
 - **PR 12** — determinism cross-check: same replays in Node/Chromium/WebKit
   must hash-agree (TDD §12.6).
+- **Diagnostics gate** — headless city failures must emit advisor cause chains
+  that resolve to current world subjects (GDD §17.1/§17.4).
