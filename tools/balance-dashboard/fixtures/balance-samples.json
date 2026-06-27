@@ -1,0 +1,54 @@
+{
+  "samples": [
+    {
+      "scenario": "starter-grid",
+      "tick": 0,
+      "metrics": {
+        "population": 0,
+        "fundsCents": 50000000,
+        "unemploymentPermille": 0
+      }
+    },
+    {
+      "scenario": "starter-grid",
+      "tick": 1440,
+      "metrics": {
+        "population": 420,
+        "fundsCents": 48600000,
+        "unemploymentPermille": 180
+      }
+    },
+    {
+      "scenario": "starter-grid",
+      "tick": 2880,
+      "metrics": {
+        "population": 920,
+        "fundsCents": 47150000,
+        "unemploymentPermille": 220
+      }
+    },
+    {
+      "scenario": "overspend",
+      "tick": 0,
+      "metrics": {
+        "population": 240,
+        "fundsCents": 12000000,
+        "monthlyNetCents": -150000
+      }
+    },
+    {
+      "scenario": "overspend",
+      "tick": 2880,
+      "metrics": {
+        "population": 260,
+        "fundsCents": 7500000,
+        "monthlyNetCents": -4500000
+      }
+    }
+  ],
+  "bands": [
+    { "scenario": "starter-grid", "metric": "population", "min": 900 },
+    { "scenario": "starter-grid", "metric": "unemploymentPermille", "max": 300 },
+    { "scenario": "overspend", "metric": "monthlyNetCents", "min": -5000000 }
+  ]
+}

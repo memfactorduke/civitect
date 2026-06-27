@@ -1,0 +1,21 @@
+{
+  "name": "@civitect/balance-dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "report": "vite-node src/cli.ts",
+    "test": "vitest run --root ../.. tools/balance-dashboard/src/index.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vite-node": "^3.0.0",
+    "vitest": "^3.0.0"
+  }
+}
