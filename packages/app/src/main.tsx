@@ -20,12 +20,14 @@ import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
 import { pickTileAt } from "./picking";
 import { createSaveManager } from "./save-manager";
+import { createToolPalette, type ToolMode } from "./tool-palette";
 
 async function main(): Promise<void> {
   const host = document.getElementById("world");
   const overlayHost = document.getElementById("overlay");
-  if (host === null || overlayHost === null) {
-    throw new Error("app page is missing #world / #overlay");
+  const toolPaletteHost = document.getElementById("tool-palette");
+  if (host === null || overlayHost === null || toolPaletteHost === null) {
+    throw new Error("app page is missing #world / #overlay / #tool-palette");
   }
 
   const store = createUiStore();
@@ -113,15 +115,28 @@ async function main(): Promise<void> {
     queue.dispatch(intent);
   };
 
-  // Tool modes (v0, keyboard-switched: R road, B bulldoze, Esc/S select —
-  // toolbar UI rides the next ui-package slice). Select taps on pointerdown
-  // (keeps the <50 ms path hot); road/bulldoze own the drag with a ghost
-  // preview; camera drag-pan only in select mode (wheel zoom always).
-  type Tool = "select" | "road" | "bulldoze";
-  let tool: Tool = "select";
+  // Tool modes (v0). Select taps on pointerdown (keeps the <50 ms path hot);
+  // road/bulldoze own the drag with a ghost preview; camera drag-pan only in
+  // select mode (wheel zoom always).
+  let tool: ToolMode = "select";
   let zoneOverlayOn = false;
   let trafficOverlayOn = false;
   let anchor: { x: number; y: number } | null = null;
+  let toolPalette: ReturnType<typeof createToolPalette> | null = null;
+  const setTool = (next: ToolMode): void => {
+    if (anchor !== null) {
+      anchor = null;
+      renderer.stage.setGhost(null);
+    }
+    tool = next;
+    toolPalette?.setTool(next);
+  };
+  toolPalette = createToolPalette(toolPaletteHost, {
+    initialTool: tool,
+    onSelect: (next) => {
+      setTool(next);
+    },
+  });
 
   const tileAt = (event: PointerEvent): { x: number; y: number } | null => {
     const rect = renderer.app.canvas.getBoundingClientRect();
@@ -185,9 +200,9 @@ async function main(): Promise<void> {
     } else if (event.key === "t") {
       trafficOverlayOn = !trafficOverlayOn;
       renderer.stage.setTrafficOverlay(trafficOverlayOn);
-    } else if (event.key === "r") tool = "road";
-    else if (event.key === "b") tool = "bulldoze";
-    else if (event.key === "s" || event.key === "Escape") tool = "select";
+    } else if (event.key === "r") setTool("road");
+    else if (event.key === "b") setTool("bulldoze");
+    else if (event.key === "s" || event.key === "Escape") setTool("select");
   });
   attachCameraControls(renderer, renderer.app.canvas as unknown as HTMLElement, {
     panEnabled: () => tool === "select",
@@ -261,7 +276,9 @@ async function main(): Promise<void> {
     saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
     loadQuick: () => saveManager.loadQuick(),
     hasQuicksave: () => saveManager.hasQuicksave(),
-    // Tool UIs land per-phase; until then e2e drives intents directly.
+    setTool: (next: ToolMode) => {
+      setTool(next);
+    },
     dispatchIntent: (intent: CommandIntent) => {
       dispatch(intent);
     },

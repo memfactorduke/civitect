@@ -23,6 +23,54 @@
         color: #e8efe9;
         font-family: system-ui, sans-serif;
       }
+      #tool-palette {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        z-index: 3;
+        display: flex;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid rgba(232, 239, 233, 0.22);
+        border-radius: 8px;
+        background: rgba(17, 24, 26, 0.88);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+        color: #e8efe9;
+        font-family: system-ui, sans-serif;
+      }
+      #tool-palette button {
+        display: grid;
+        grid-template-columns: 18px auto;
+        align-items: center;
+        min-width: 78px;
+        height: 36px;
+        gap: 7px;
+        padding: 0 10px;
+        border: 1px solid rgba(232, 239, 233, 0.2);
+        border-radius: 6px;
+        background: rgba(36, 50, 48, 0.95);
+        color: inherit;
+        font: inherit;
+      }
+      #tool-palette button[aria-pressed="true"] {
+        border-color: #f0c66b;
+        background: #2f4f4b;
+        color: #fff6d8;
+      }
+      #tool-palette button:focus-visible {
+        outline: 2px solid #8fd3ff;
+        outline-offset: 2px;
+      }
+      .tool-palette__key {
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+        line-height: 1;
+      }
       /* Panels re-enable hit-testing; the world stays tappable between
          them — so panels must hug their content, never span the canvas
          (a full-width section silently ate the road tool's drags; the
@@ -36,6 +84,7 @@
   </head>
   <body>
     <div id="world"></div>
+    <div id="tool-palette"></div>
     <div id="overlay"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
