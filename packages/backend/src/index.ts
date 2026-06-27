@@ -7,3 +7,11 @@
  * saves). Until then this package only reserves the boundary.
  */
 export const BACKEND_PACKAGE = "@civitect/backend";
+export {
+  decideCitySync,
+  type LocalCitySyncState,
+  type RemoteCitySyncState,
+  type SyncDecision,
+  type SyncDecisionKind,
+  SyncPolicyError,
+} from "./sync-policy";
