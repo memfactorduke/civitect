@@ -20,6 +20,7 @@ import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
 import { pickTileAt } from "./picking";
 import { createSaveManager } from "./save-manager";
+import { createSpeedShortcutController } from "./speed-shortcuts";
 
 async function main(): Promise<void> {
   const host = document.getElementById("world");
@@ -49,6 +50,14 @@ async function main(): Promise<void> {
     },
   });
 
+  const dispatch = (intent: CommandIntent): void => {
+    queue.dispatch(intent);
+  };
+  const speedShortcuts = createSpeedShortcutController(
+    (speed) => dispatch({ type: CommandType.setSpeed, speed }),
+    () => store.getState().speed,
+  );
+
   let lastAgents: Float32Array | null = null;
   worker.onmessage = (event: MessageEvent<unknown>) => {
     const data = event.data;
@@ -73,6 +82,7 @@ async function main(): Promise<void> {
         lastAgents = agents;
         renderer.consume(message.body, agents);
         store.getState().applySnapshot(message.body);
+        speedShortcuts.noteSnapshotSpeed(message.body.speed);
         break;
       }
       case MessageKind.inspectorResponse:
@@ -108,10 +118,6 @@ async function main(): Promise<void> {
       void saveManager.loadQuick();
     }
   });
-
-  const dispatch = (intent: CommandIntent): void => {
-    queue.dispatch(intent);
-  };
 
   // Tool modes (v0, keyboard-switched: R road, B bulldoze, Esc/S select —
   // toolbar UI rides the next ui-package slice). Select taps on pointerdown
@@ -176,6 +182,20 @@ async function main(): Promise<void> {
     }
   });
   window.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (
+      speedShortcuts.handleKey({
+        key: event.key,
+        code: event.code,
+        target: event.target,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+      })
+    ) {
+      event.preventDefault();
+      return;
+    }
     if (event.metaKey || event.ctrlKey) {
       return; // quicksave bindings live below
     }
