@@ -9,6 +9,7 @@
  * contract is enforced.
  */
 import type { LoadResponse, SaveResponse } from "@civitect/protocol";
+import { CRASH_SAVE_SLOT, storeCrashQuarantineSave } from "./worker-crash";
 
 const QUICKSAVE_KEY = "civitect.quicksave";
 
@@ -74,6 +75,10 @@ export function createSaveManager(ports: SaveManagerPorts): SaveManager {
       });
     },
     onSaveResponse(body: SaveResponse): void {
+      if (body.slot === CRASH_SAVE_SLOT) {
+        storeCrashQuarantineSave(localStorage, body.civ);
+        return;
+      }
       if (body.civ.length === 0) {
         pendingSave?.reject(new Error("worker reported a failed save"));
         pendingSave = null;

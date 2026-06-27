@@ -17,3 +17,15 @@ export {
   type SaveManager,
   type SaveManagerPorts,
 } from "./save-manager";
+export {
+  CRASH_QUARANTINE_REPORT_KEY,
+  CRASH_QUARANTINE_SAVE_KEY,
+  CRASH_SAVE_SLOT,
+  type CrashStorage,
+  createWorkerCrashQuarantine,
+  loadCrashQuarantineSave,
+  storeCrashQuarantineSave,
+  type WorkerCrashQuarantine,
+  type WorkerCrashReport,
+  type WorkerCrashSource,
+} from "./worker-crash";

@@ -20,6 +20,11 @@ import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
 import { pickTileAt } from "./picking";
 import { createSaveManager } from "./save-manager";
+import {
+  CRASH_SAVE_SLOT,
+  createWorkerCrashQuarantine,
+  type WorkerCrashSource,
+} from "./worker-crash";
 
 async function main(): Promise<void> {
   const host = document.getElementById("world");
@@ -48,9 +53,33 @@ async function main(): Promise<void> {
       worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
     },
   });
+  const crashQuarantine = createWorkerCrashQuarantine({
+    storage: localStorage,
+    recentCommands: () => queue.recent(),
+  });
+
+  const captureWorkerCrash = (
+    source: WorkerCrashSource,
+    error: unknown,
+    terminateWorker: boolean,
+  ): void => {
+    const report = crashQuarantine.capture(source, error);
+    console.error("[sim] paused due to worker failure; crash report quarantined", report);
+    if (terminateWorker) {
+      worker.terminate();
+    }
+  };
+
+  worker.addEventListener("error", (event: ErrorEvent) => {
+    event.preventDefault();
+    captureWorkerCrash("worker-error", event, true);
+  });
+  worker.addEventListener("messageerror", (event: MessageEvent<unknown>) => {
+    captureWorkerCrash("worker-messageerror", event, true);
+  });
 
   let lastAgents: Float32Array | null = null;
-  worker.onmessage = (event: MessageEvent<unknown>) => {
+  const handleWorkerMessage = (event: MessageEvent<unknown>): void => {
     const data = event.data;
     // Snapshots arrive as { bytes, agents } so the transform rider can ride
     // the same transfer (TDD §7); every other reply is raw envelope bytes.
@@ -63,6 +92,7 @@ async function main(): Promise<void> {
     const message = decodeMessage(bytes); // hard version check at boot (TDD §7)
     switch (message.kind) {
       case MessageKind.snapshot: {
+        crashQuarantine.recordSnapshotTick(message.body.tick);
         const agents = wrapped?.agents ?? null;
         const expected = message.body.agentCount * AGENT_FLOATS;
         if ((agents?.length ?? 0) !== expected) {
@@ -84,6 +114,16 @@ async function main(): Promise<void> {
         console.warn("[sim] rejected command", message.body);
         break;
       case MessageKind.saveResponse:
+        if (message.body.slot === CRASH_SAVE_SLOT) {
+          saveManager.onSaveResponse(message.body);
+          crashQuarantine.recordCrashSaveBytes(message.body.civ.length);
+          captureWorkerCrash(
+            "worker-quarantine-save",
+            new Error("sim worker paused after an internal error and wrote a quarantine save"),
+            false,
+          );
+          break;
+        }
         saveManager.onSaveResponse(message.body);
         break;
       case MessageKind.loadResponse:
@@ -94,6 +134,13 @@ async function main(): Promise<void> {
         break;
       default:
         throw new Error(`main thread received unexpected MessageKind ${message.kind}`);
+    }
+  };
+  worker.onmessage = (event: MessageEvent<unknown>) => {
+    try {
+      handleWorkerMessage(event);
+    } catch (error) {
+      captureWorkerCrash("worker-boundary", error, true);
     }
   };
 
@@ -261,6 +308,10 @@ async function main(): Promise<void> {
     saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
     loadQuick: () => saveManager.loadQuick(),
     hasQuicksave: () => saveManager.hasQuicksave(),
+    crashReport: () => crashQuarantine.latest(),
+    clearCrashReport: () => {
+      crashQuarantine.clear();
+    },
     // Tool UIs land per-phase; until then e2e drives intents directly.
     dispatchIntent: (intent: CommandIntent) => {
       dispatch(intent);
