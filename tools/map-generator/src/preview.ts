@@ -4,10 +4,16 @@
  * catalog UI later — never a gameplay artifact.
  */
 import type { TerrainGrid } from "@civitect/protocol";
+import { ResourceKind } from "@civitect/protocol";
 import { encodePng, type RawImage } from "@civitect/sprite-intake";
 
 const WATER = 0x2b4a66;
-const RESOURCE = 0x8a6f3c;
+const RESOURCE_COLORS: Readonly<Record<number, number>> = {
+  [ResourceKind.ore]: 0x8a6f3c,
+  [ResourceKind.farm]: 0x8aa05d,
+  [ResourceKind.forest]: 0x234f38,
+  [ResourceKind.oil]: 0x342f2a,
+};
 const ELEVATION_RAMP = [0x2e4639, 0x3a5743, 0x49684c, 0x5b7a55, 0x70885c, 0x869a66, 0x9cab72];
 
 export async function renderPreview(terrain: TerrainGrid): Promise<Uint8Array> {
@@ -20,7 +26,7 @@ export async function renderPreview(terrain: TerrainGrid): Promise<Uint8Array> {
       if ((terrain.layers.water[i] as number) !== 0) {
         color = WATER;
       } else if ((terrain.layers.resource[i] as number) !== 0) {
-        color = RESOURCE;
+        color = RESOURCE_COLORS[terrain.layers.resource[i] as number] ?? 0x8a6f3c;
       } else {
         const e = Math.min(ELEVATION_RAMP.length - 1, terrain.layers.elevation[i] as number);
         color = ELEVATION_RAMP[e] as number;
