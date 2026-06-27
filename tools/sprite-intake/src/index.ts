@@ -19,9 +19,18 @@ export {
 } from "./palette";
 export { decodePng, encodePng, type RawImage } from "./png";
 export {
+  type AuditIssue,
+  type AuditStatus,
+  auditSpriteSidecars,
+  formatAuditSummary,
+  type SpriteAudit,
+  type SpriteAuditSummary,
+} from "./report";
+export {
   expectedCanvasWidth,
   maxCanvasHeight,
   type SpriteIssue,
   type SpriteReport,
+  validateParsedSprite,
   validateSprite,
 } from "./validate";

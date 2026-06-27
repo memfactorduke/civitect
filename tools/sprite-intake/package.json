@@ -10,7 +10,8 @@
     }
   },
   "scripts": {
-    "gate": "vitest run --config vitest.gate.config.ts"
+    "gate": "vitest run --config vitest.gate.config.ts",
+    "report": "vite-node src/report-cli.ts"
   },
   "dependencies": {
     "@civitect/protocol": "workspace:*"
@@ -18,6 +19,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "fast-check": "^3.23.2",
+    "vite-node": "^3.2.4",
     "vitest": "^3.0.0"
   }
 }
