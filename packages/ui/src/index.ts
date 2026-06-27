@@ -12,6 +12,13 @@ export { BankruptcyDialog } from "./BankruptcyDialog";
 export { BudgetPanel } from "./BudgetPanel";
 export { BuildingInspector } from "./BuildingInspector";
 export { DemandPanel } from "./DemandPanel";
+export {
+  type DistrictPolicyOption,
+  DistrictPolicyPanel,
+  type DistrictPolicyPanelProps,
+  type DistrictPolicyViewModel,
+  type DistrictStatsViewModel,
+} from "./DistrictPolicyPanel";
 export { type CommandIntent, type DispatchFn, DispatchProvider, useDispatch } from "./dispatch";
 export { formatCount, formatFundsCents, formatSignedCents } from "./format";
 export { Hud } from "./Hud";
