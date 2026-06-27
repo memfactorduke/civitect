@@ -4,16 +4,9 @@
  * the e2e resolves those refs against live world state (exit criterion 2).
  */
 import type { ReactNode } from "react";
+import { CauseChainView } from "./CauseChainView";
 import { t } from "./i18n";
 import { type UiStore, useUiStore } from "./store";
-
-const KIND_NAMES: Readonly<Record<number, string>> = {
-  1: "tile",
-  2: "building",
-  3: "edge",
-  4: "agent",
-  5: "system",
-};
 
 export function AdvisorFeed(props: { readonly store: UiStore }): ReactNode {
   const events = useUiStore(props.store, (s) => s.advisorEvents);
@@ -42,19 +35,7 @@ export function AdvisorFeed(props: { readonly store: UiStore }): ReactNode {
             <span>{event.messageKey}</span>
             {count > 1 && <strong data-testid="advisor-count">×{count}</strong>}
             <em>{event.cause.summaryKey}</em>
-            <ul>
-              {event.cause.links.map((link) => (
-                <li
-                  key={`${link.subject.kind}:${link.subject.id}:${link.labelKey}`}
-                  data-testid="cause-link"
-                  data-subject-kind={KIND_NAMES[link.subject.kind] ?? link.subject.kind}
-                  data-subject-id={link.subject.id}
-                >
-                  {link.labelKey} → {KIND_NAMES[link.subject.kind] ?? "?"}#{link.subject.id} (
-                  {link.weightPermille}‰)
-                </li>
-              ))}
-            </ul>
+            <CauseChainView chain={event.cause} compact />
           </li>
         ))}
       </ul>

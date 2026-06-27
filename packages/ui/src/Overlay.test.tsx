@@ -5,7 +5,7 @@
  * way the app shell will feed it — via applySnapshot with protocol objects.
  */
 import { type Snapshot, SnapshotKind } from "@civitect/protocol";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import * as fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import type { CommandIntent } from "./dispatch";
@@ -139,11 +139,12 @@ describe("DemandPanel (exit criterion 3: factors sum to displayed demand)", () =
         (factors) => {
           cleanup();
           const store = createUiStore();
+          const factorAt = (index: number): number => factors[index] ?? 0;
           const demand = {
-            r: factors[0]! + factors[1]! + factors[2]!,
-            c: factors[3]! + factors[4]! + factors[5]!,
-            i: factors[6]! + factors[7]! + factors[8]!,
-            o: factors[9]! + factors[10]! + factors[11]!,
+            r: factorAt(0) + factorAt(1) + factorAt(2),
+            c: factorAt(3) + factorAt(4) + factorAt(5),
+            i: factorAt(6) + factorAt(7) + factorAt(8),
+            o: factorAt(9) + factorAt(10) + factorAt(11),
             factors,
           };
           render(<Overlay store={store} dispatch={() => {}} />);
@@ -200,7 +201,7 @@ describe("AdvisorFeed (cause chains rendered with resolvable refs)", () => {
         }),
       );
     });
-    const link = screen.getByTestId("cause-link");
+    const link = within(screen.getByTestId("advisor-feed")).getByTestId("cause-link");
     expect(link.getAttribute("data-subject-kind")).toBe("building");
     expect(link.getAttribute("data-subject-id")).toBe("1234");
   });
