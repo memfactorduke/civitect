@@ -23,6 +23,47 @@
         color: #e8efe9;
         font-family: system-ui, sans-serif;
       }
+      #save-controls {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 3;
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 8px;
+        align-items: center;
+        padding: 8px;
+        border: 1px solid rgba(232, 239, 233, 0.22);
+        border-radius: 8px;
+        background: rgba(17, 24, 26, 0.88);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+        color: #e8efe9;
+        font-family: system-ui, sans-serif;
+      }
+      #save-controls button {
+        min-width: 64px;
+        height: 34px;
+        padding: 0 12px;
+        border: 1px solid rgba(232, 239, 233, 0.2);
+        border-radius: 6px;
+        background: rgba(36, 50, 48, 0.95);
+        color: inherit;
+        font: inherit;
+      }
+      #save-controls button:disabled {
+        opacity: 0.48;
+      }
+      #save-controls button:focus-visible {
+        outline: 2px solid #8fd3ff;
+        outline-offset: 2px;
+      }
+      #save-controls output {
+        grid-column: 1 / -1;
+        min-height: 18px;
+        color: #cddbd2;
+        font-size: 12px;
+        text-align: right;
+      }
       /* Panels re-enable hit-testing; the world stays tappable between
          them — so panels must hug their content, never span the canvas
          (a full-width section silently ate the road tool's drags; the
@@ -36,6 +77,7 @@
   </head>
   <body>
     <div id="world"></div>
+    <div id="save-controls"></div>
     <div id="overlay"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
