@@ -203,6 +203,10 @@ describe("AdvisorFeed (cause chains rendered with resolvable refs)", () => {
     const link = screen.getByTestId("cause-link");
     expect(link.getAttribute("data-subject-kind")).toBe("building");
     expect(link.getAttribute("data-subject-id")).toBe("1234");
+    expect(screen.getByTestId("advisor-message").textContent).toBe("Abandoned buildings");
+    expect(screen.getByTestId("advisor-summary").textContent).toBe("Utility failure");
+    expect(link.textContent).toContain("No utilities");
+    expect(link.textContent).toContain("100%");
   });
 
   it("accumulates events across snapshots (feed, not last-frame)", () => {
@@ -219,6 +223,50 @@ describe("AdvisorFeed (cause chains rendered with resolvable refs)", () => {
       store.getState().applySnapshot(snapshot({ tick: 2, advisorEvents: [event(2)] }));
     });
     expect(store.getState().advisorEvents.map((e) => e.id)).toEqual([2, 1]);
+  });
+
+  it("sorts grouped causes by severity first, then latest tick", () => {
+    const store = createUiStore();
+    render(<Overlay store={store} dispatch={() => {}} />);
+    const event = (
+      id: number,
+      severity: Snapshot["advisorEvents"][number]["severity"],
+      messageKey: string,
+      summaryKey: string,
+    ): Snapshot["advisorEvents"][number] => ({
+      id,
+      tick: id,
+      severity,
+      messageKey,
+      cause: { summaryKey, links: [] },
+    });
+    act(() => {
+      store.getState().applySnapshot(
+        snapshot({
+          tick: 10,
+          advisorEvents: [
+            event(1, 1, "advisor.milestone", "cause.milestoneReached"),
+            event(6, 2, "advisor.garbage", "cause.noGarbageService"),
+            event(3, 3, "advisor.fireSpreading", "cause.truckLate"),
+            event(9, 2, "advisor.waterCrisis", "cause.pollutedIntake"),
+          ],
+        }),
+      );
+    });
+    expect(
+      screen.getAllByTestId("advisor-event").map((row) => row.getAttribute("data-message-key")),
+    ).toEqual([
+      "advisor.fireSpreading",
+      "advisor.waterCrisis",
+      "advisor.garbage",
+      "advisor.milestone",
+    ]);
+    expect(screen.getAllByTestId("advisor-severity").map((row) => row.textContent)).toEqual([
+      "Alert",
+      "Warning",
+      "Warning",
+      "Info",
+    ]);
   });
 });
 
@@ -260,6 +308,8 @@ describe("advisor feed groups by cause (GDD §15 [LOCKED])", () => {
     const rows = screen.getAllByTestId("advisor-event");
     expect(rows.length).toBe(1);
     expect(screen.getByTestId("advisor-count").textContent).toBe("×3");
+    expect(rows[0]?.getAttribute("data-latest-tick")).toBe("3");
+    expect(rows[0]?.getAttribute("data-severity")).toBe("2");
   });
 });
 
