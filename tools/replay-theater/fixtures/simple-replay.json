@@ -1,0 +1,54 @@
+{
+  "name": "simple-replay",
+  "seed": 20260627,
+  "mapWidth": 32,
+  "mapHeight": 32,
+  "untilTick": 80,
+  "startingFundsCents": 500000000,
+  "terrainRects": [
+    {
+      "layer": "water",
+      "x0": 0,
+      "y0": 0,
+      "x1": 1,
+      "y1": 31,
+      "value": 1
+    }
+  ],
+  "commands": [
+    {
+      "seq": 1,
+      "tick": 0,
+      "type": "buildRoad",
+      "ax": 4,
+      "ay": 8,
+      "bx": 12,
+      "by": 8,
+      "roadClass": 1
+    },
+    {
+      "seq": 2,
+      "tick": 1,
+      "type": "zoneRect",
+      "x0": 4,
+      "y0": 9,
+      "x1": 10,
+      "y1": 12,
+      "zone": 1
+    },
+    {
+      "seq": 3,
+      "tick": 2,
+      "type": "placeBuilding",
+      "x": 5,
+      "y": 9,
+      "building": 1
+    },
+    {
+      "seq": 4,
+      "tick": 3,
+      "type": "setSpeed",
+      "speed": 3
+    }
+  ]
+}

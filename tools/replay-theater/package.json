@@ -1,0 +1,25 @@
+{
+  "name": "@civitect/replay-theater",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "render": "vite-node --script src/cli.ts",
+    "test": "vitest run --root ../.. tools/replay-theater/src/index.test.ts"
+  },
+  "dependencies": {
+    "@civitect/protocol": "workspace:*",
+    "@civitect/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vite-node": "^3.0.0",
+    "vitest": "^3.0.0"
+  }
+}
