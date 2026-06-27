@@ -2,9 +2,11 @@
  * Archetype balance harness + the Phase 5 exit criteria (board task 6,
  * ADR-013 §3, GDD §17).
  *
- * - Five archetypes hold their balance BANDS over GAME_YEARS game-years
+ * - Six archetypes hold their balance BANDS over GAME_YEARS game-years
  *   (per-PR default 2; the weekly/dispatchable gate sets GAME_YEARS=20 — the
  *   full exit-criterion horizon).
+ * - Traffic pressure (GDD §9/§17.1): the bottleneck archetype must produce
+ *   assigned road trips, at least one saturated edge, and a congestion advisor.
  * - Bankruptcy post-mortem (automatable half of GDD §17.4): a scripted
  *   overspend collapses, and the report + advisor chain NAME the drain.
  * - Progression pacing: a scripted growth city hits every milestone it
@@ -54,16 +56,36 @@ function countZone(world: World, zone: number): number {
   return n;
 }
 
+function saturatedEdgeCount(world: World): number {
+  let n = 0;
+  for (let e = 0; e < world.roads.edgeCount; e++) {
+    if (world.roads.edgeAlive[e] !== 1) {
+      continue;
+    }
+    if ((world.traffic.volumes[e] as number) > (world.roads.edgeCapacity_[e] as number)) {
+      n++;
+    }
+  }
+  return n;
+}
+
 describe(`archetype balance bands — ${GAME_YEARS} game-year(s) (ADR-013 §3)`, () => {
   for (const arch of ARCHETYPES) {
     it(
       `${arch.name} holds its bands`,
       async () => {
+        const seenAdvisors = new Set<string>();
         const world = await run(
           arch.seed,
           arch.commands,
           GAME_YEARS * TICKS_PER_GAME_YEAR,
           arch.startingFundsCents,
+          (w) => {
+            for (const event of w.advisorQueue) {
+              seenAdvisors.add(event.messageKey);
+            }
+            w.advisorQueue.length = 0;
+          },
         );
         const b = arch.bands;
         expect(world.population).toBeGreaterThanOrEqual(b.minPopulation);
@@ -73,6 +95,15 @@ describe(`archetype balance bands — ${GAME_YEARS} game-year(s) (ADR-013 §3)`,
           expect(countZone(world, b.minDominantKind.zone)).toBeGreaterThanOrEqual(
             b.minDominantKind.count,
           );
+        }
+        if (b.minAssignedTrips !== undefined) {
+          expect(world.traffic.assigned).toBeGreaterThanOrEqual(b.minAssignedTrips);
+        }
+        if (b.minSaturatedEdges !== undefined) {
+          expect(saturatedEdgeCount(world)).toBeGreaterThanOrEqual(b.minSaturatedEdges);
+        }
+        if (b.requiredAdvisorKey !== undefined) {
+          expect(seenAdvisors.has(b.requiredAdvisorKey)).toBe(true);
         }
       },
       GAME_YEARS * 200_000,

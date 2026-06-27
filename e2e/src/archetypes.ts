@@ -1,9 +1,9 @@
 /**
- * Archetype scenarios (board phase-5 task 6, ADR-013 §3 / GDD §17): five
+ * Archetype scenarios (board phase-5 task 6, ADR-013 §3 / GDD §17): six
  * deliberately-different cities that stress different corners of the Phase 5
  * economy. Each is built programmatically (a command log over a 64×64 map)
  * rather than as a hand-keyed JSON — the SHAPE is the point, and code keeps
- * the five readable side by side.
+ * the six readable side by side.
  *
  * The per-PR gate runs each a couple of game-years inside balance BANDS; the
  * weekly/dispatchable gate runs the full 20-game-year horizon (the exit
@@ -35,6 +35,12 @@ export interface ArchetypeBands {
   readonly minFundsCents: number;
   /** At least this many of the dominant building kind (0 = unchecked). */
   readonly minDominantKind?: { readonly zone: number; readonly count: number };
+  /** At least this many trips must be assigned to roads by the final solve. */
+  readonly minAssignedTrips?: number;
+  /** At least this many live road edges must end above capacity. */
+  readonly minSaturatedEdges?: number;
+  /** The run must emit this advisor key at least once. */
+  readonly requiredAdvisorKey?: string;
 }
 
 function log(cmds: Cmd[]): { seq: number; tick: number }[] {
@@ -177,10 +183,43 @@ function leanBudget(): Archetype {
   };
 }
 
+/** 6 COMMUTE BOTTLENECK: separated housing/jobs with one cheap street between
+ *  them. This pins the C:S-style pressure loop at city scale: commuters must
+ *  load a corridor, the corridor must saturate, and the advisor layer must name
+ *  the bottleneck instead of leaving the player to guess. */
+function commuteBottleneck(): Archetype {
+  const cmds: Cmd[] = [
+    { type: CommandType.buildRoad, ax: 8, ay: 20, bx: 20, by: 20, roadClass: 1 },
+    { type: CommandType.buildRoad, ax: 20, ay: 20, bx: 44, by: 20, roadClass: 1 },
+    { type: CommandType.buildRoad, ax: 44, ay: 20, bx: 56, by: 20, roadClass: 1 },
+    ...power(10, 21),
+    ...power(52, 21),
+    zone(9, 14, 19, 19, 2),
+    zone(9, 21, 19, 24, 2),
+    zone(45, 17, 55, 19, 4),
+    zone(45, 21, 55, 23, 5),
+  ];
+  return {
+    name: "commute-bottleneck-corridor",
+    seed: 6006,
+    startingFundsCents: 1_000_000_00,
+    commands: log(cmds),
+    bands: {
+      minPopulation: 300,
+      maxPopulation: 90_000,
+      minFundsCents: -15_000_000_00,
+      minAssignedTrips: 100,
+      minSaturatedEdges: 1,
+      requiredAdvisorKey: "advisor.congestion",
+    },
+  };
+}
+
 export const ARCHETYPES: readonly Archetype[] = [
   rSprawl(),
   industryFreight(),
   officeEducation(),
   tourismParks(),
   leanBudget(),
+  commuteBottleneck(),
 ];
