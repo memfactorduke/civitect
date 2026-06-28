@@ -264,7 +264,7 @@ describe("advisor feed groups by cause (GDD §15 [LOCKED])", () => {
 });
 
 describe("building inspector (pillar 1)", () => {
-  it("renders service capacity/effectiveness and the environment block", () => {
+  it("renders service capacity/effectiveness", () => {
     const store = createUiStore();
     render(<Overlay store={store} dispatch={() => {}} />);
     act(() => {
@@ -288,6 +288,55 @@ describe("building inspector (pillar 1)", () => {
     });
     expect(screen.getByTestId("building-capacity").textContent).toBe("4");
     expect(screen.getByTestId("building-effectiveness").textContent).toBe("73%");
+  });
+});
+
+describe("tile inspector (GDD §9.5)", () => {
+  it("renders tile zoning, land value, and environment samples", () => {
+    const store = createUiStore();
+    render(<Overlay store={store} dispatch={() => {}} />);
+    act(() => {
+      store.getState().applyInspectorResponse({
+        requestId: 1,
+        tick: 10,
+        tile: {
+          tileIdx: 279,
+          terrainKind: 0,
+          elevationTerrace: 2,
+          zoneKind: 4,
+          landValue: 186,
+        },
+        road: null,
+        building: null,
+        environ: { airPollution: 12, groundPollution: 3, noise: 40, waterPollution: 0 },
+      });
+    });
+    expect(screen.getByTestId("tile-id").textContent).toBe("279");
+    expect(screen.getByTestId("tile-terrain").textContent).toBe("Grass");
+    expect(screen.getByTestId("tile-zone").textContent).toBe("Commercial (high)");
+    expect(screen.getByTestId("tile-land-value").textContent).toBe("186/255");
     expect(screen.getByTestId("environ-air").textContent).toBe("12");
+  });
+
+  it("clears stale inspector details when the selected tile changes", () => {
+    const store = createUiStore();
+    render(<Overlay store={store} dispatch={() => {}} />);
+    act(() => {
+      store.getState().applySnapshot(snapshot({ tick: 1, selectedTile: { x: 2, y: 3 } }));
+      store.getState().applyInspectorResponse({
+        requestId: 1,
+        tick: 1,
+        tile: { tileIdx: 194, terrainKind: 0, elevationTerrace: 0, zoneKind: 1, landValue: 90 },
+        road: null,
+        building: null,
+        environ: { airPollution: 0, groundPollution: 0, noise: 0, waterPollution: 0 },
+      });
+    });
+    expect(screen.getByTestId("tile-inspector")).toBeDefined();
+
+    act(() => {
+      store.getState().applySnapshot(snapshot({ tick: 2, selectedTile: { x: 5, y: 8 } }));
+    });
+    expect(screen.queryByTestId("tile-inspector")).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ import { RoadInspector } from "./RoadInspector";
 import { SpeedControls } from "./SpeedControls";
 import type { UiStore } from "./store";
 import { TaxLoanPanel } from "./TaxLoanPanel";
+import { TileInspector } from "./TileInspector";
 
 export function Overlay(props: {
   readonly store: UiStore;
@@ -35,6 +36,7 @@ export function Overlay(props: {
       <TaxLoanPanel store={props.store} />
       <ReportPanel store={props.store} />
       {props.onSelectOverlay !== undefined && <OverlayPicker onSelect={props.onSelectOverlay} />}
+      <TileInspector store={props.store} />
       <RoadInspector store={props.store} />
       <BuildingInspector store={props.store} />
       <AdvisorFeed store={props.store} />
