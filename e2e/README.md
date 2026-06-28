@@ -2,6 +2,11 @@
 
 Playwright device-profile runs + the golden-city suite (TDD §1/§12).
 
+`pnpm --filter @civitect/e2e perf:report` prints a slowest-first markdown
+summary for the golden perf corpus. Use
+`pnpm --filter @civitect/e2e perf:report -- --json` for machine-readable output
+when comparing perf runs across branches.
+
 Arrives in pieces (docs/board/phase-0.md):
 
 - **PR 4** — golden harness + first golden `empty-city-01` (1 game-year replay,
