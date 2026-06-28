@@ -20,9 +20,16 @@ interface TapResult {
   readonly hudText: string;
 }
 
+interface CameraState {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+}
+
 declare global {
   interface Window {
     __civitect?: {
+      cameraState(): CameraState;
       displayState(): {
         tick: number;
         highlight: { x: number; y: number } | null;
@@ -102,4 +109,20 @@ test("tap → command → sim → snapshot → highlight, under budget", async (
   // command dispatched per tap.
   const commandCount = await page.evaluate(() => window.__civitect?.commandCount() ?? 0);
   expect(commandCount).toBe(3);
+
+  const beforeCamera = await page.evaluate(() => window.__civitect?.cameraState());
+  expect(beforeCamera).toBeDefined();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowDown");
+  const panned = await page.evaluate(() => window.__civitect?.cameraState());
+  expect(panned?.x).toBeGreaterThan(beforeCamera?.x ?? Number.POSITIVE_INFINITY);
+  expect(panned?.y).toBeGreaterThan(beforeCamera?.y ?? Number.POSITIVE_INFINITY);
+
+  await page.keyboard.press("=");
+  const zoomedIn = await page.evaluate(() => window.__civitect?.cameraState());
+  expect(zoomedIn?.zoom).toBeGreaterThan(panned?.zoom ?? Number.POSITIVE_INFINITY);
+  await page.keyboard.press("-");
+  const zoomedOut = await page.evaluate(() => window.__civitect?.cameraState());
+  expect(zoomedOut?.zoom).toBeLessThan(zoomedIn?.zoom ?? Number.NEGATIVE_INFINITY);
+  expect(await page.evaluate(() => window.__civitect?.commandCount() ?? 0)).toBe(3);
 });

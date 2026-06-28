@@ -21,6 +21,9 @@ import { createCommandQueue } from "./command-queue";
 import { pickTileAt } from "./picking";
 import { createSaveManager } from "./save-manager";
 
+const CAMERA_KEY_PAN_PX = 192;
+const CAMERA_KEY_ZOOM_FACTOR = 1.15;
+
 async function main(): Promise<void> {
   const host = document.getElementById("world");
   const overlayHost = document.getElementById("overlay");
@@ -113,6 +116,46 @@ async function main(): Promise<void> {
     queue.dispatch(intent);
   };
 
+  const isTextEntryTarget = (target: EventTarget | null): boolean =>
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable);
+
+  const panCameraFromKey = (key: string): boolean => {
+    switch (key) {
+      case "ArrowLeft":
+        renderer.panBy(CAMERA_KEY_PAN_PX, 0);
+        return true;
+      case "ArrowRight":
+        renderer.panBy(-CAMERA_KEY_PAN_PX, 0);
+        return true;
+      case "ArrowUp":
+        renderer.panBy(0, CAMERA_KEY_PAN_PX);
+        return true;
+      case "ArrowDown":
+        renderer.panBy(0, -CAMERA_KEY_PAN_PX);
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const zoomCameraFromKey = (key: string): boolean => {
+    const factor =
+      key === "+" || key === "="
+        ? CAMERA_KEY_ZOOM_FACTOR
+        : key === "-" || key === "_"
+          ? 1 / CAMERA_KEY_ZOOM_FACTOR
+          : null;
+    if (factor === null) {
+      return false;
+    }
+    const rect = renderer.app.canvas.getBoundingClientRect();
+    renderer.zoomAt(rect.width / 2, rect.height / 2, factor);
+    return true;
+  };
+
   // Tool modes (v0, keyboard-switched: R road, B bulldoze, Esc/S select —
   // toolbar UI rides the next ui-package slice). Select taps on pointerdown
   // (keeps the <50 ms path hot); road/bulldoze own the drag with a ghost
@@ -176,10 +219,12 @@ async function main(): Promise<void> {
     }
   });
   window.addEventListener("keydown", (event: KeyboardEvent) => {
-    if (event.metaKey || event.ctrlKey) {
-      return; // quicksave bindings live below
+    if (event.metaKey || event.ctrlKey || event.altKey || isTextEntryTarget(event.target)) {
+      return; // quicksave and browser/system chords are handled elsewhere
     }
-    if (event.key === "z") {
+    if (panCameraFromKey(event.key) || zoomCameraFromKey(event.key)) {
+      event.preventDefault();
+    } else if (event.key === "z") {
       zoneOverlayOn = !zoneOverlayOn;
       renderer.stage.setZoneOverlay(zoneOverlayOn);
     } else if (event.key === "t") {
@@ -257,6 +302,14 @@ async function main(): Promise<void> {
   // renderer's display state without reaching into Pixi internals.
   (globalThis as Record<string, unknown>).__civitect = {
     displayState: () => renderer.state(),
+    cameraState: () => ({
+      x: renderer.camera.x,
+      y: renderer.camera.y,
+      zoom: renderer.camera.zoom,
+      renderedX: renderer.camera.renderedX,
+      renderedY: renderer.camera.renderedY,
+      renderedZoom: renderer.camera.renderedZoom,
+    }),
     commandCount: () => queue.count(),
     saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
     loadQuick: () => saveManager.loadQuick(),
