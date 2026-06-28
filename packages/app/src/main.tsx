@@ -73,6 +73,9 @@ async function main(): Promise<void> {
         lastAgents = agents;
         renderer.consume(message.body, agents);
         store.getState().applySnapshot(message.body);
+        void saveManager.maybeSaveAuto(message.body.tick)?.catch((error: unknown) => {
+          console.warn("[save] autosave failed:", error);
+        });
         break;
       }
       case MessageKind.inspectorResponse:
@@ -108,6 +111,25 @@ async function main(): Promise<void> {
       void saveManager.loadQuick();
     }
   });
+
+  const requestLifecycleAutosave = (): void => {
+    const tick = renderer.state().tick;
+    if (tick < 0) {
+      return;
+    }
+    void saveManager.saveAuto(tick).catch((error: unknown) => {
+      if (error instanceof Error && error.message === "a save is already in flight") {
+        return;
+      }
+      console.warn("[save] lifecycle autosave failed:", error);
+    });
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      requestLifecycleAutosave();
+    }
+  });
+  window.addEventListener("pagehide", requestLifecycleAutosave);
 
   const dispatch = (intent: CommandIntent): void => {
     queue.dispatch(intent);
@@ -259,8 +281,12 @@ async function main(): Promise<void> {
     displayState: () => renderer.state(),
     commandCount: () => queue.count(),
     saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
+    saveAuto: () => saveManager.saveAuto(renderer.state().tick).then((bytes) => bytes.length),
     loadQuick: () => saveManager.loadQuick(),
+    loadAuto: () => saveManager.loadLatestAuto(),
     hasQuicksave: () => saveManager.hasQuicksave(),
+    hasAutosave: () => saveManager.hasAutosave(),
+    autosaves: () => saveManager.autosaves(),
     // Tool UIs land per-phase; until then e2e drives intents directly.
     dispatchIntent: (intent: CommandIntent) => {
       dispatch(intent);
