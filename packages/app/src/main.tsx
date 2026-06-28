@@ -118,7 +118,19 @@ async function main(): Promise<void> {
   // (keeps the <50 ms path hot); road/bulldoze own the drag with a ghost
   // preview; camera drag-pan only in select mode (wheel zoom always).
   type Tool = "select" | "road" | "bulldoze";
+  type RoadBuildClass =
+    | typeof RoadClassWire.street
+    | typeof RoadClassWire.avenue
+    | typeof RoadClassWire.highway
+    | typeof RoadClassWire.path;
+  const roadClassByKey: Readonly<Partial<Record<string, RoadBuildClass>>> = {
+    "1": RoadClassWire.street,
+    "2": RoadClassWire.avenue,
+    "3": RoadClassWire.highway,
+    "4": RoadClassWire.path,
+  };
   let tool: Tool = "select";
+  let roadBuildClass: RoadBuildClass = RoadClassWire.street;
   let zoneOverlayOn = false;
   let trafficOverlayOn = false;
   let anchor: { x: number; y: number } | null = null;
@@ -169,7 +181,7 @@ async function main(): Promise<void> {
         ay: start.y,
         bx: end.x,
         by: end.y,
-        roadClass: RoadClassWire.street,
+        roadClass: roadBuildClass,
       });
     } else if (tool === "bulldoze") {
       dispatch({ type: CommandType.bulldozeRoad, ax: start.x, ay: start.y, bx: end.x, by: end.y });
@@ -179,6 +191,7 @@ async function main(): Promise<void> {
     if (event.metaKey || event.ctrlKey) {
       return; // quicksave bindings live below
     }
+    const roadClass = roadClassByKey[event.key];
     if (event.key === "z") {
       zoneOverlayOn = !zoneOverlayOn;
       renderer.stage.setZoneOverlay(zoneOverlayOn);
@@ -188,6 +201,10 @@ async function main(): Promise<void> {
     } else if (event.key === "r") tool = "road";
     else if (event.key === "b") tool = "bulldoze";
     else if (event.key === "s" || event.key === "Escape") tool = "select";
+    else if (roadClass !== undefined) {
+      roadBuildClass = roadClass;
+      tool = "road";
+    }
   });
   attachCameraControls(renderer, renderer.app.canvas as unknown as HTMLElement, {
     panEnabled: () => tool === "select",
@@ -266,6 +283,7 @@ async function main(): Promise<void> {
       dispatch(intent);
     },
     tool: () => tool,
+    roadClass: () => roadBuildClass,
     inspectTile: (tileIdx: number) => {
       inspectTile(tileIdx);
     },
