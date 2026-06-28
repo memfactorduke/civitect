@@ -24,8 +24,9 @@ import { createSaveManager } from "./save-manager";
 async function main(): Promise<void> {
   const host = document.getElementById("world");
   const overlayHost = document.getElementById("overlay");
-  if (host === null || overlayHost === null) {
-    throw new Error("app page is missing #world / #overlay");
+  const buildPreview = document.getElementById("build-preview");
+  if (host === null || overlayHost === null || !(buildPreview instanceof HTMLElement)) {
+    throw new Error("app page is missing #world / #overlay / #build-preview");
   }
 
   const store = createUiStore();
@@ -118,12 +119,89 @@ async function main(): Promise<void> {
   // (keeps the <50 ms path hot); road/bulldoze own the drag with a ghost
   // preview; camera drag-pan only in select mode (wheel zoom always).
   type Tool = "select" | "road" | "bulldoze";
+  type Tile = { x: number; y: number };
   let tool: Tool = "select";
   let zoneOverlayOn = false;
   let trafficOverlayOn = false;
-  let anchor: { x: number; y: number } | null = null;
+  let anchor: Tile | null = null;
 
-  const tileAt = (event: PointerEvent): { x: number; y: number } | null => {
+  const supercoverTileCount = (ax: number, ay: number, bx: number, by: number): number => {
+    const dx = Math.abs(bx - ax);
+    const dy = Math.abs(by - ay);
+    let ix = 0;
+    let iy = 0;
+    let count = 1;
+    while (ix < dx || iy < dy) {
+      const decision = (1 + 2 * ix) * dy - (1 + 2 * iy) * dx;
+      if (decision === 0) {
+        ix++;
+        iy++;
+      } else if (decision < 0) {
+        ix++;
+      } else {
+        iy++;
+      }
+      count++;
+    }
+    return count;
+  };
+
+  const roadCostPerTileCents = (roadClass: RoadClassWire): number => {
+    const baseClass = roadClass > 10 ? roadClass - 10 : roadClass;
+    const base =
+      baseClass === RoadClassWire.avenue
+        ? 250_00
+        : baseClass === RoadClassWire.highway
+          ? 600_00
+          : baseClass === RoadClassWire.path
+            ? 30_00
+            : 100_00;
+    return roadClass > 10 ? base * 3 : base;
+  };
+
+  const roadClassLabel = (roadClass: RoadClassWire): string => {
+    const baseClass = roadClass > 10 ? roadClass - 10 : roadClass;
+    if (baseClass === RoadClassWire.avenue) return "Avenue";
+    if (baseClass === RoadClassWire.highway) return "Highway";
+    if (baseClass === RoadClassWire.path) return "Path";
+    return "Street";
+  };
+
+  const formatCents = (cents: number): string =>
+    `$${Math.floor(cents / 100).toLocaleString("en-US")}`;
+
+  const setBuildPreview = (activeTool: Tool, start: Tile, end: Tile): void => {
+    if (activeTool !== "road" && activeTool !== "bulldoze") {
+      buildPreview.hidden = true;
+      buildPreview.textContent = "";
+      return;
+    }
+    if (start.x === end.x && start.y === end.y) {
+      buildPreview.textContent =
+        activeTool === "road"
+          ? "Street road - drag to choose an endpoint"
+          : "Bulldoze - drag to choose an endpoint";
+      buildPreview.hidden = false;
+      return;
+    }
+    const tiles = supercoverTileCount(start.x, start.y, end.x, end.y);
+    if (activeTool === "road") {
+      const roadClass = RoadClassWire.street;
+      buildPreview.textContent = `${roadClassLabel(roadClass)} road - ${tiles} tiles - ${formatCents(
+        tiles * roadCostPerTileCents(roadClass),
+      )}`;
+    } else {
+      buildPreview.textContent = `Bulldoze - ${tiles} tiles`;
+    }
+    buildPreview.hidden = false;
+  };
+
+  const clearBuildPreview = (): void => {
+    buildPreview.hidden = true;
+    buildPreview.textContent = "";
+  };
+
+  const tileAt = (event: PointerEvent): Tile | null => {
     const rect = renderer.app.canvas.getBoundingClientRect();
     const w = renderer.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
     return pickTileAt(w.wx, w.wy, BOOT.mapWidth, BOOT.mapHeight);
@@ -140,6 +218,7 @@ async function main(): Promise<void> {
     } else {
       anchor = tile;
       renderer.stage.setGhost(anchor, tile);
+      setBuildPreview(tool, anchor, tile);
     }
   });
   renderer.app.canvas.addEventListener("pointermove", (event: PointerEvent) => {
@@ -149,6 +228,7 @@ async function main(): Promise<void> {
     const tile = tileAt(event);
     if (tile !== null) {
       renderer.stage.setGhost(anchor, tile);
+      setBuildPreview(tool, anchor, tile);
     }
   });
   renderer.app.canvas.addEventListener("pointerup", (event: PointerEvent) => {
@@ -158,6 +238,7 @@ async function main(): Promise<void> {
     const start = anchor;
     anchor = null;
     renderer.stage.setGhost(null);
+    clearBuildPreview();
     const end = tileAt(event);
     if (end === null || (end.x === start.x && end.y === start.y)) {
       return; // zero-length drags build nothing
