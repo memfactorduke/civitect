@@ -13,7 +13,10 @@ export { type CommandQueue, createCommandQueue, type PostFn } from "./command-qu
 export { pickTileAt } from "./picking";
 export { civToWorld, SIM_VERSION, worldToCiv } from "./save-codec";
 export {
+  AUTOSAVE_INTERVAL_TICKS,
+  type AutosaveEntry,
   createSaveManager,
   type SaveManager,
+  type SaveManagerOptions,
   type SaveManagerPorts,
 } from "./save-manager";
