@@ -5,9 +5,16 @@
  * Live: PNG codec (gate-internal), 64-swatch palette linter, dimension/
  * anchor/footprint/state validators, the asset CI gate.
  * Follow-up (board 11b, parked on an image-library decision): bg removal,
- * palette snap, 3×→2×/1× fixed-kernel downscale, atlas packing, contact
- * sheets for the taste pass.
+ * palette snap, 3×→2×/1× fixed-kernel downscale, contact sheets for the
+ * taste pass.
  */
+export {
+  type AtlasOptions,
+  type AtlasPlacement,
+  type AtlasResult,
+  type AtlasSprite,
+  packSpriteAtlas,
+} from "./atlas";
 export {
   checkPalette,
   loadMasterPalette,
