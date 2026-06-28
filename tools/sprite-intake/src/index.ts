@@ -9,6 +9,14 @@
  * sheets for the taste pass.
  */
 export {
+  type ContactSheet,
+  type ContactSheetCell,
+  type ContactSheetEntry,
+  type ContactSheetOptions,
+  makeContactSheet,
+  type Rgba,
+} from "./contact-sheet";
+export {
   checkPalette,
   loadMasterPalette,
   PALETTE_MEAN_DISTANCE_MAX,
