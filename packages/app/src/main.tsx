@@ -266,6 +266,7 @@ async function main(): Promise<void> {
       dispatch(intent);
     },
     tool: () => tool,
+    camera: () => ({ ...renderer.camera }),
     inspectTile: (tileIdx: number) => {
       inspectTile(tileIdx);
     },

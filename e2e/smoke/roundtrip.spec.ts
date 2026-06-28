@@ -20,6 +20,15 @@ interface TapResult {
   readonly hudText: string;
 }
 
+interface CameraSnapshot {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+  readonly renderedX: number;
+  readonly renderedY: number;
+  readonly renderedZoom: number;
+}
+
 declare global {
   interface Window {
     __civitect?: {
@@ -28,8 +37,16 @@ declare global {
         highlight: { x: number; y: number } | null;
       };
       commandCount(): number;
+      camera(): CameraSnapshot;
     };
   }
+}
+
+function requireValue<T>(value: T | undefined, label: string): T {
+  if (value === undefined) {
+    throw new Error(`${label} unavailable`);
+  }
+  return value;
 }
 
 test("tap → command → sim → snapshot → highlight, under budget", async ({ page }) => {
@@ -102,4 +119,51 @@ test("tap → command → sim → snapshot → highlight, under budget", async (
   // command dispatched per tap.
   const commandCount = await page.evaluate(() => window.__civitect?.commandCount() ?? 0);
   expect(commandCount).toBe(3);
+});
+
+test("select-mode drag pans the camera and wheel zooms at the canvas", async ({ page }) => {
+  await page.goto("/");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().tick ?? -1), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThanOrEqual(0);
+
+  const canvas = page.locator("#world canvas");
+  const box = await canvas.boundingBox();
+  if (box === null) {
+    throw new Error("no canvas box");
+  }
+  const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  const beforePan = requireValue(
+    await page.evaluate(() => window.__civitect?.camera()),
+    "camera before pan",
+  );
+
+  await page.mouse.move(center.x, center.y);
+  await page.mouse.down();
+  await page.mouse.move(center.x + 160, center.y + 80, { steps: 5 });
+  await page.mouse.up();
+
+  const afterPan = requireValue(
+    await page.evaluate(() => window.__civitect?.camera()),
+    "camera after pan",
+  );
+  expect(Math.hypot(afterPan.x - beforePan.x, afterPan.y - beforePan.y)).toBeGreaterThan(120);
+
+  await page.mouse.move(center.x, center.y);
+  await page.mouse.wheel(0, -600);
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.camera().zoom ?? 0), {
+      timeout: 5_000,
+    })
+    .toBeGreaterThan(afterPan.zoom);
+
+  const afterZoom = requireValue(
+    await page.evaluate(() => window.__civitect?.camera()),
+    "camera after zoom",
+  );
+  expect(afterZoom.zoom).toBeGreaterThan(afterPan.zoom);
+  expect(Math.hypot(afterZoom.x - afterPan.x, afterZoom.y - afterPan.y)).toBeLessThan(1);
 });
