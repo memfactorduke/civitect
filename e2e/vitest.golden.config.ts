@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/golden.test.ts"],
+    include: ["src/golden.test.ts", "src/golden-corpus.test.ts"],
     testTimeout: 120_000,
   },
 });
