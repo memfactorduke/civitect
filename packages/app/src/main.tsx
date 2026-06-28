@@ -128,6 +128,13 @@ async function main(): Promise<void> {
     const w = renderer.screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
     return pickTileAt(w.wx, w.wy, BOOT.mapWidth, BOOT.mapHeight);
   };
+  const cancelToolDrag = (): void => {
+    if (anchor === null) {
+      return;
+    }
+    anchor = null;
+    renderer.stage.setGhost(null);
+  };
 
   renderer.app.canvas.addEventListener("pointerdown", (event: PointerEvent) => {
     const tile = tileAt(event);
@@ -175,6 +182,7 @@ async function main(): Promise<void> {
       dispatch({ type: CommandType.bulldozeRoad, ax: start.x, ay: start.y, bx: end.x, by: end.y });
     }
   });
+  renderer.app.canvas.addEventListener("pointercancel", cancelToolDrag);
   window.addEventListener("keydown", (event: KeyboardEvent) => {
     if (event.metaKey || event.ctrlKey) {
       return; // quicksave bindings live below
@@ -185,9 +193,16 @@ async function main(): Promise<void> {
     } else if (event.key === "t") {
       trafficOverlayOn = !trafficOverlayOn;
       renderer.stage.setTrafficOverlay(trafficOverlayOn);
-    } else if (event.key === "r") tool = "road";
-    else if (event.key === "b") tool = "bulldoze";
-    else if (event.key === "s" || event.key === "Escape") tool = "select";
+    } else if (event.key === "r") {
+      cancelToolDrag();
+      tool = "road";
+    } else if (event.key === "b") {
+      cancelToolDrag();
+      tool = "bulldoze";
+    } else if (event.key === "s" || event.key === "Escape") {
+      cancelToolDrag();
+      tool = "select";
+    }
   });
   attachCameraControls(renderer, renderer.app.canvas as unknown as HTMLElement, {
     panEnabled: () => tool === "select",
@@ -266,6 +281,7 @@ async function main(): Promise<void> {
       dispatch(intent);
     },
     tool: () => tool,
+    toolDragActive: () => anchor !== null,
     inspectTile: (tileIdx: number) => {
       inspectTile(tileIdx);
     },
