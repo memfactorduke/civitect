@@ -8,6 +8,21 @@ import { useStore } from "zustand";
 import { t } from "./i18n";
 import type { UiStore } from "./store";
 
+const LOAD_BUSY_PERMILLE = 700;
+const LOAD_JAMMED_PERMILLE = 950;
+const DELAY_BUSY_PERMILLE = 1_250;
+const DELAY_JAMMED_PERMILLE = 1_750;
+
+function congestionStatus(vcPermille: number, delayPermille: number): "clear" | "busy" | "jammed" {
+  if (vcPermille >= LOAD_JAMMED_PERMILLE || delayPermille >= DELAY_JAMMED_PERMILLE) {
+    return "jammed";
+  }
+  if (vcPermille >= LOAD_BUSY_PERMILLE || delayPermille >= DELAY_BUSY_PERMILLE) {
+    return "busy";
+  }
+  return "clear";
+}
+
 export function RoadInspector(props: { readonly store: UiStore }): ReactNode {
   const road = useStore(props.store, (s) => s.roadInfo);
   if (road === null) {
@@ -15,10 +30,13 @@ export function RoadInspector(props: { readonly store: UiStore }): ReactNode {
   }
   const delayPermille =
     road.freeFlowCost === 0 ? 1000 : Math.floor((road.congestedCost * 1000) / road.freeFlowCost);
+  const status = congestionStatus(road.vcPermille, delayPermille);
   return (
     <section aria-label={t("roadInspector.title")} data-testid="road-inspector">
       <h2>{t("roadInspector.title")}</h2>
       <dl>
+        <dt>{t("roadInspector.status")}</dt>
+        <dd data-testid="road-status">{t(`roadInspector.status.${status}`)}</dd>
         <dt>{t("roadInspector.volume")}</dt>
         <dd data-testid="road-volume">{road.volume}</dd>
         <dt>{t("roadInspector.capacity")}</dt>

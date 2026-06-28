@@ -291,3 +291,40 @@ describe("building inspector (pillar 1)", () => {
     expect(screen.getByTestId("environ-air").textContent).toBe("12");
   });
 });
+
+describe("road inspector diagnosis (pillar 2)", () => {
+  it("turns load and delay into clear, busy, and jammed status bands", () => {
+    const store = createUiStore();
+    render(<Overlay store={store} dispatch={() => {}} />);
+
+    const feedRoad = (vcPermille: number, congestedCost: number) => {
+      act(() => {
+        store.getState().applyInspectorResponse({
+          requestId: 1,
+          tick: 10,
+          tile: null,
+          road: {
+            roadClass: 1,
+            volume: 90,
+            capacity: 100,
+            vcPermille,
+            freeFlowCost: 1_000,
+            congestedCost,
+          },
+          building: null,
+          environ: null,
+        });
+      });
+    };
+
+    feedRoad(250, 1_000);
+    expect(screen.getByTestId("road-status").textContent).toBe("Clear");
+
+    feedRoad(720, 1_000);
+    expect(screen.getByTestId("road-status").textContent).toBe("Busy");
+
+    feedRoad(300, 1_800);
+    expect(screen.getByTestId("road-status").textContent).toBe("Jammed");
+    expect(screen.getByTestId("road-delay").textContent).toBe("×1.80");
+  });
+});
