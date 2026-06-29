@@ -11,6 +11,7 @@
 import type { LoadResponse, SaveResponse } from "@civitect/protocol";
 
 const QUICKSAVE_KEY = "civitect.quicksave";
+const CORRUPT_QUICKSAVE_DETAIL = "quicksave data is unreadable";
 
 export interface SaveManager {
   /** Snapshot the worker's world; resolves with the .civ bytes (also persisted). Rejects when the worker reports a failed save (empty civ). */
@@ -45,6 +46,19 @@ function fromBase64(text: string): Uint8Array {
   return bytes;
 }
 
+function readStoredQuicksave(): LoadResponse | Uint8Array {
+  const stored = localStorage.getItem(QUICKSAVE_KEY);
+  if (stored === null) {
+    return { ok: false, tick: 0, detail: "no quicksave exists" };
+  }
+  try {
+    return fromBase64(stored);
+  } catch {
+    localStorage.removeItem(QUICKSAVE_KEY);
+    return { ok: false, tick: 0, detail: CORRUPT_QUICKSAVE_DETAIL };
+  }
+}
+
 export function createSaveManager(ports: SaveManagerPorts): SaveManager {
   let pendingSave: { resolve: (bytes: Uint8Array) => void; reject: (e: Error) => void } | null =
     null;
@@ -64,13 +78,13 @@ export function createSaveManager(ports: SaveManagerPorts): SaveManager {
       if (pendingLoad !== null) {
         return Promise.reject(new Error("a load is already in flight"));
       }
-      const stored = localStorage.getItem(QUICKSAVE_KEY);
-      if (stored === null) {
-        return Promise.resolve({ ok: false, tick: 0, detail: "no quicksave exists" });
+      const stored = readStoredQuicksave();
+      if (!(stored instanceof Uint8Array)) {
+        return Promise.resolve(stored);
       }
       return new Promise((resolve) => {
         pendingLoad = resolve;
-        ports.postLoadRequest(fromBase64(stored));
+        ports.postLoadRequest(stored);
       });
     },
     onSaveResponse(body: SaveResponse): void {
