@@ -146,10 +146,28 @@ test("fire, police, and health coverage overlays ride snapshots; budgets reshape
 
     // Starve this service's budget to 50%: the edge sample falls out of reach,
     // proving the worker recomputed and shipped a smaller field for this service.
-    const edgeBefore = await coverageValue(page, service.edgeTile);
+    // Read via activeCoverageAt (service-checked) and require the post-cut value
+    // to be a VALID, strictly-smaller reading (>= 0). A field that vanished
+    // entirely — or a wrong-service overlay — reports the -1 sentinel, which must
+    // NOT satisfy `< edgeBefore`; otherwise the gate passes without proving the
+    // reach SHRANK rather than disappeared (the original trivial-pass bug).
+    const edgeBefore = await page.evaluate(activeCoverageAt, {
+      service: service.service,
+      tileIdx: service.edgeTile,
+    });
+    expect(edgeBefore).toBeGreaterThan(0);
     await page.evaluate(cutBudget, service.service);
     await expect
-      .poll(async () => coverageValue(page, service.edgeTile), { timeout: 30_000 })
-      .toBeLessThan(edgeBefore);
+      .poll(
+        async () => {
+          const after = await page.evaluate(activeCoverageAt, {
+            service: service.service,
+            tileIdx: service.edgeTile,
+          });
+          return after >= 0 && after < edgeBefore;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
   }
 });

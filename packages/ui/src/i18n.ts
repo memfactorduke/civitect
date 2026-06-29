@@ -99,6 +99,10 @@ const en = {
   "bankruptcy.title": "Bankruptcy",
   "bankruptcy.bailout": "The city is insolvent. A one-time bailout loan is offered.",
   "bankruptcy.receivership": "The city is in receivership (sandbox continues; achievements off).",
+  "settings.title": "Settings",
+  "settings.reducedMotion": "Reduced motion",
+  "settings.batterySaver": "Battery saver",
+  "settings.agentDensity": "Agent density",
 } as const;
 
 export type I18nKey = keyof typeof en;
