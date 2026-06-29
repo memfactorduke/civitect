@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/perf.test.ts", "src/metro-perf.test.ts"],
+    include: ["src/perf-report.test.ts", "src/perf.test.ts", "src/metro-perf.test.ts"],
     testTimeout: 300_000,
     fileParallelism: false,
   },
