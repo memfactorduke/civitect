@@ -41,6 +41,17 @@ const MAX_HEIGHT_FOOTPRINT_FACTOR = 4;
 /** [TUNE] anchor tolerance, px at 3× (odd canvas widths round the center). */
 const ANCHOR_TOLERANCE_PX = 1;
 
+function isSiblingPngFilename(file: string): boolean {
+  return (
+    file.length > 0 &&
+    !file.includes("/") &&
+    !file.includes("\\") &&
+    !file.includes(":") &&
+    file !== "." &&
+    file !== ".."
+  );
+}
+
 export interface SpriteIssue {
   readonly rule:
     | "sidecar"
@@ -104,6 +115,14 @@ export async function validateSprite(
   const dir = dirname(sidecarPath);
   const images = new Map<string, RawImage>();
   for (const [state, file] of Object.entries(sidecar.states)) {
+    if (!isSiblingPngFilename(file)) {
+      issues.push({
+        rule: "file",
+        message: `state "${state}" must name a sibling .png file, got ${JSON.stringify(file)}`,
+      });
+      continue;
+    }
+
     try {
       const image = await decodePng(new Uint8Array(readFileSync(join(dir, file))), file);
       images.set(state, image);
