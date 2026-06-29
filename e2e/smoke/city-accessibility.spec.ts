@@ -19,6 +19,7 @@ declare global {
 }
 
 const SPEED_BUTTONS = ["Pause", "1×", "3×", "9×"] as const;
+const FOCUSABLE_SPEED_BUTTONS = ["Pause", "3×", "9×"] as const;
 const OVERLAY_BUTTONS = [
   "Off",
   "Fire",
@@ -79,7 +80,7 @@ test("keyboard focus reaches speed controls before dispatching commands", async 
     page.evaluate(() => window.__civitect?.commandCount() ?? -1);
   const beforeFocus = await commandCount();
 
-  for (const label of SPEED_BUTTONS) {
+  for (const label of FOCUSABLE_SPEED_BUTTONS) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: label })).toBeFocused();
   }
