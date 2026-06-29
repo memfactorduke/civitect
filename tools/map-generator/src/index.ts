@@ -19,3 +19,4 @@ export {
   scoreTerrainPlayability,
 } from "./playability";
 export { renderPreview } from "./preview";
+export { findStartSites, type StartSite, type StartSiteOptions } from "./start-sites";
