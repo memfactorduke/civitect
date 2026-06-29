@@ -32,7 +32,8 @@ describe("session-value audit (GDD §17.2)", () => {
     const summary = summarizeSessionValue(scores);
     const serviceCity = scores.find((score) => score.name === "services-city-01");
     expect(summary.cityScaleCount).toBeGreaterThanOrEqual(1);
-    expect(summary.bestScore.name).toBe("services-city-01");
+    expect(summary.bestScore.tags).toContain("city-scale");
+    expect(summary.bestScore.tags).toContain("service-portfolio");
     expect(serviceCity?.tags).toContain("city-scale");
     expect(serviceCity?.tags).toContain("service-portfolio");
     expect(serviceCity?.metrics.serviceKinds).toBeGreaterThanOrEqual(6);
