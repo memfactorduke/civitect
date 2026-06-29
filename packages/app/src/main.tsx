@@ -25,6 +25,7 @@ import {
   createAppPreferenceStore,
 } from "./preferences";
 import { createSaveManager } from "./save-manager";
+import { viewportHintFromWorldCorners } from "./viewport";
 
 async function main(): Promise<void> {
   const host = document.getElementById("world");
@@ -224,32 +225,22 @@ async function main(): Promise<void> {
   let lastViewportKey = "";
   const sendViewport = (): void => {
     const rect = renderer.app.canvas.getBoundingClientRect();
-    const corners = [
-      renderer.screenToWorld(0, 0),
-      renderer.screenToWorld(rect.width, 0),
-      renderer.screenToWorld(0, rect.height),
-      renderer.screenToWorld(rect.width, rect.height),
-    ];
-    let x0 = BOOT.mapWidth - 1;
-    let y0 = BOOT.mapHeight - 1;
-    let x1 = 0;
-    let y1 = 0;
-    for (const c of corners) {
-      const tile = pickTileAt(c.wx, c.wy, BOOT.mapWidth, BOOT.mapHeight);
-      // Off-map corners clamp to the map edge (zoomed way out = whole map).
-      const tx = tile?.x ?? (c.wx < 0 ? 0 : BOOT.mapWidth - 1);
-      const ty = tile?.y ?? (c.wy < 0 ? 0 : BOOT.mapHeight - 1);
-      x0 = Math.min(x0, tx);
-      y0 = Math.min(y0, ty);
-      x1 = Math.max(x1, tx);
-      y1 = Math.max(y1, ty);
-    }
-    const key = `${x0},${y0},${x1},${y1}`;
+    const viewport = viewportHintFromWorldCorners(
+      [
+        renderer.screenToWorld(0, 0),
+        renderer.screenToWorld(rect.width, 0),
+        renderer.screenToWorld(0, rect.height),
+        renderer.screenToWorld(rect.width, rect.height),
+      ],
+      BOOT.mapWidth,
+      BOOT.mapHeight,
+    );
+    const key = `${viewport.x0},${viewport.y0},${viewport.x1},${viewport.y1}`;
     if (key === lastViewportKey) {
       return;
     }
     lastViewportKey = key;
-    const bytes = encodeMessage({ kind: MessageKind.viewportHint, body: { x0, y0, x1, y1 } });
+    const bytes = encodeMessage({ kind: MessageKind.viewportHint, body: viewport });
     worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
   };
   sendViewport();
