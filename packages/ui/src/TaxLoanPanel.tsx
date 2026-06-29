@@ -17,6 +17,18 @@ const ZONES = [1, 2, 3, 4, 5, 6] as const;
 const LOAN_TIERS = [1, 2, 3] as const;
 const UNLOCK_LOANS = 1 << 1; // Unlock.loans (kept in sync with sim progression)
 
+type TaxPressure = "stimulus" | "balanced" | "pressure";
+
+function taxPressure(permille: number): TaxPressure {
+  if (permille < 70) {
+    return "stimulus";
+  }
+  if (permille > 120) {
+    return "pressure";
+  }
+  return "balanced";
+}
+
 export function TaxLoanPanel(props: { readonly store: UiStore }): ReactNode {
   const dispatch = useDispatch();
   const unlockedMask = useUiStore(props.store, (s) => s.milestone?.unlockedMask ?? 0);
@@ -28,6 +40,7 @@ export function TaxLoanPanel(props: { readonly store: UiStore }): ReactNode {
       <ul>
         {ZONES.map((zone) => {
           const permille = rates[zone] ?? 90;
+          const pressure = taxPressure(permille);
           return (
             <li key={zone}>
               <label>
@@ -50,6 +63,9 @@ export function TaxLoanPanel(props: { readonly store: UiStore }): ReactNode {
                   }}
                 />
                 <span data-testid={`tax-value-${zone}`}>{(permille / 10).toFixed(0)}%</span>
+                <span data-pressure={pressure} data-testid={`tax-pressure-${zone}`}>
+                  {t(`tax.pressure.${pressure}`)}
+                </span>
               </label>
             </li>
           );
