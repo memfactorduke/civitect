@@ -179,6 +179,9 @@ async function main(): Promise<void> {
     if (event.metaKey || event.ctrlKey) {
       return; // quicksave bindings live below
     }
+    if (event.repeat && (event.key === "z" || event.key === "t")) {
+      return; // avoid rapid overlay flicker when a hotkey is held
+    }
     if (event.key === "z") {
       zoneOverlayOn = !zoneOverlayOn;
       renderer.stage.setZoneOverlay(zoneOverlayOn);
@@ -261,6 +264,7 @@ async function main(): Promise<void> {
     saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
     loadQuick: () => saveManager.loadQuick(),
     hasQuicksave: () => saveManager.hasQuicksave(),
+    controlsState: () => ({ tool, zoneOverlayOn, trafficOverlayOn }),
     // Tool UIs land per-phase; until then e2e drives intents directly.
     dispatchIntent: (intent: CommandIntent) => {
       dispatch(intent);
