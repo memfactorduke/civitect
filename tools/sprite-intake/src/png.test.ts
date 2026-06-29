@@ -7,6 +7,57 @@ import { decodePng, encodePng, type RawImage } from "./png";
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "..", "fixtures");
 
+const TEST_CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function testCrc32(bytes: Uint8Array): number {
+  let c = 0xffffffff;
+  for (const byte of bytes) {
+    c = (TEST_CRC_TABLE[(c ^ byte) & 0xff] as number) ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function u32be(bytes: Uint8Array, at: number): number {
+  return (
+    (((bytes[at] as number) << 24) |
+      ((bytes[at + 1] as number) << 16) |
+      ((bytes[at + 2] as number) << 8) |
+      (bytes[at + 3] as number)) >>>
+    0
+  );
+}
+
+function rewriteFirstChunkCrc(bytes: Uint8Array, chunkType: string): void {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let at = 8;
+  while (at + 8 <= bytes.length) {
+    const length = u32be(bytes, at);
+    const type = String.fromCharCode(
+      bytes[at + 4] as number,
+      bytes[at + 5] as number,
+      bytes[at + 6] as number,
+      bytes[at + 7] as number,
+    );
+    const chunkEnd = at + 8 + length;
+    if (type === chunkType) {
+      view.setUint32(chunkEnd, testCrc32(bytes.subarray(at + 4, chunkEnd)));
+      return;
+    }
+    at = chunkEnd + 4;
+  }
+  throw new Error(`missing PNG chunk ${chunkType}`);
+}
+
 /** The exact 8×8 RGBA gradient the Python fixture generator wrote. */
 function referenceGradient(): Uint8Array {
   const px = new Uint8Array(8 * 8 * 4);
@@ -61,11 +112,19 @@ describe("png codec (gate-internal, zero-dependency)", () => {
     );
   });
 
+  it("rejects PNG chunks with bad CRCs before decoding pixels", async () => {
+    const bytes = new Uint8Array(readFileSync(join(FIXTURES, "filter-0.png")));
+    const tampered = Uint8Array.from(bytes);
+    tampered[24] = 16; // IHDR bitDepth byte, CRC intentionally left stale.
+    await expect(decodePng(tampered, "bad-crc.png")).rejects.toThrow(/CRC mismatch/);
+  });
+
   it("rejects unsupported variants with re-export guidance", async () => {
     // 16-bit depth header: signature + IHDR with bitDepth 16.
     const bytes = new Uint8Array(readFileSync(join(FIXTURES, "filter-0.png")));
     const tampered = Uint8Array.from(bytes);
     tampered[24] = 16; // IHDR bitDepth byte
+    rewriteFirstChunkCrc(tampered, "IHDR");
     await expect(decodePng(tampered, "deep.png")).rejects.toThrow(/re-export/);
   });
 });
