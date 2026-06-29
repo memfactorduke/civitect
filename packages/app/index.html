@@ -23,6 +23,62 @@
         color: #e8efe9;
         font-family: system-ui, sans-serif;
       }
+      #minimap {
+        position: absolute;
+        top: 112px;
+        right: 16px;
+        z-index: 3;
+        width: 184px;
+        height: 132px;
+        padding: 8px;
+        border: 1px solid rgba(232, 239, 233, 0.22);
+        border-radius: 8px;
+        background: rgba(17, 24, 26, 0.88);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+      }
+      #minimap svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+      #minimap svg:focus-visible {
+        outline: 2px solid #8fd3ff;
+        outline-offset: 3px;
+      }
+      #minimap [data-testid="mini-map-outline"] {
+        fill: rgba(55, 81, 72, 0.8);
+        stroke: rgba(232, 239, 233, 0.58);
+        stroke-width: 1.2;
+      }
+      #minimap [data-testid="mini-map-roads"] {
+        fill: none;
+        stroke: #c6b36a;
+        stroke-linecap: round;
+        stroke-width: 1.2;
+      }
+      #minimap [data-testid="mini-map-buildings"] {
+        fill: #7fb7d6;
+      }
+      #minimap [data-testid="mini-map-viewport"] {
+        fill: rgba(143, 211, 255, 0.12);
+        stroke: #8fd3ff;
+        stroke-width: 1.4;
+      }
+      #minimap [data-testid="mini-map-center"] {
+        fill: #f3f0cf;
+        stroke: #11181a;
+        stroke-width: 1;
+      }
+      @media (max-width: 760px) {
+        #minimap {
+          top: auto;
+          right: 12px;
+          bottom: 84px;
+          width: 148px;
+          height: 108px;
+        }
+      }
       /* Panels re-enable hit-testing; the world stays tappable between
          them — so panels must hug their content, never span the canvas
          (a full-width section silently ate the road tool's drags; the
@@ -36,6 +92,7 @@
   </head>
   <body>
     <div id="world"></div>
+    <div id="minimap"></div>
     <div id="overlay"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

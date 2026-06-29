@@ -18,14 +18,16 @@ import { type CommandIntent, createUiStore, Overlay } from "@civitect/ui";
 import { createRoot } from "react-dom/client";
 import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
+import { createMiniMap } from "./mini-map";
 import { pickTileAt } from "./picking";
 import { createSaveManager } from "./save-manager";
 
 async function main(): Promise<void> {
   const host = document.getElementById("world");
   const overlayHost = document.getElementById("overlay");
-  if (host === null || overlayHost === null) {
-    throw new Error("app page is missing #world / #overlay");
+  const miniMapHost = document.getElementById("minimap");
+  if (host === null || overlayHost === null || miniMapHost === null) {
+    throw new Error("app page is missing #world / #overlay / #minimap");
   }
 
   const store = createUiStore();
@@ -34,6 +36,11 @@ async function main(): Promise<void> {
     mapWidth: BOOT.mapWidth,
     mapHeight: BOOT.mapHeight,
   });
+  const miniMap = createMiniMap(miniMapHost, renderer, {
+    mapWidth: BOOT.mapWidth,
+    mapHeight: BOOT.mapHeight,
+  });
+  miniMap.start();
 
   const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
   const queue = createCommandQueue((bytes, transfer) => worker.postMessage(bytes, { transfer }));
@@ -73,6 +80,7 @@ async function main(): Promise<void> {
         lastAgents = agents;
         renderer.consume(message.body, agents);
         store.getState().applySnapshot(message.body);
+        miniMap.refresh();
         break;
       }
       case MessageKind.inspectorResponse:
@@ -257,6 +265,11 @@ async function main(): Promise<void> {
   // renderer's display state without reaching into Pixi internals.
   (globalThis as Record<string, unknown>).__civitect = {
     displayState: () => renderer.state(),
+    miniMap: () => ({
+      tick: renderer.state().tick,
+      cameraX: renderer.camera.x,
+      cameraY: renderer.camera.y,
+    }),
     commandCount: () => queue.count(),
     saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
     loadQuick: () => saveManager.loadQuick(),

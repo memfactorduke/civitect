@@ -10,6 +10,14 @@
  */
 export { BOOT } from "./boot-config";
 export { type CommandQueue, createCommandQueue, type PostFn } from "./command-queue";
+export {
+  createMiniMap,
+  createMiniMapProjection,
+  type MiniMapControl,
+  type MiniMapOptions,
+  type MiniMapProjection,
+  type MiniMapRenderer,
+} from "./mini-map";
 export { pickTileAt } from "./picking";
 export { civToWorld, SIM_VERSION, worldToCiv } from "./save-codec";
 export {
