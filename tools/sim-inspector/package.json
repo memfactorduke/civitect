@@ -1,0 +1,24 @@
+{
+  "name": "@civitect/sim-inspector",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "inspect": "vite-node src/cli.ts",
+    "test": "vitest run --root ../.. tools/sim-inspector/src/index.test.ts"
+  },
+  "dependencies": {
+    "@civitect/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vite-node": "^3.0.0",
+    "vitest": "^3.0.0"
+  }
+}
