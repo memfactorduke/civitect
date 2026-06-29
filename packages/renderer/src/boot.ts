@@ -12,7 +12,7 @@ import type { Snapshot, TerrainGrid } from "@civitect/protocol";
 import { Application } from "pixi.js";
 import {
   type CameraState,
-  clampToBounds,
+  clampViewportToBounds,
   containerTransform,
   createCamera,
   frameBlend,
@@ -122,11 +122,11 @@ export async function bootRenderer(options: RendererBootOptions): Promise<Render
     },
     panBy(dxPx: number, dyPx: number): void {
       pan(camera, dxPx, dyPx);
-      clampToBounds(camera, bounds);
+      clampViewportToBounds(camera, view(), bounds);
     },
     zoomAt(sx: number, sy: number, factor: number): void {
       zoomAt(camera, view(), sx, sy, factor);
-      clampToBounds(camera, bounds);
+      clampViewportToBounds(camera, view(), bounds);
     },
     screenToWorld(sx: number, sy: number): { wx: number; wy: number } {
       return screenToWorld(camera, view(), sx, sy);

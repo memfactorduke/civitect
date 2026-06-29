@@ -169,6 +169,16 @@ function rebuildBuildings(save: CivSave): World["buildings"] {
   return b;
 }
 
+function validateBuildingCohorts(save: CivSave): void {
+  const expected = save.buildings.length * COHORT_BLOCK;
+  if (save.cohorts.length !== expected) {
+    throw new Error(
+      `save building cohort payload has ${save.cohorts.length} entries; expected ` +
+        `${expected} for ${save.buildings.length} buildings`,
+    );
+  }
+}
+
 function rebuildRoads(segments: CivSave["roads"]): World["roads"] {
   const g = createRoadGraph();
   for (const seg of segments) {
@@ -210,6 +220,7 @@ export function civToWorld(save: CivSave): World {
         `${RNG_STREAM_NAMES.length}`,
     );
   }
+  validateBuildingCohorts(save);
   // Canonical segments rebuild deterministically (sorted order); undo/redo
   // stacks are session-local — loading starts them fresh.
   const roads = rebuildRoads(save.roads);
