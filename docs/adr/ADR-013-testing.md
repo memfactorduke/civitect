@@ -6,12 +6,13 @@
 AI agents write most code; the human can't QA every change in a running game. Verification must be automated, behavioral, and cheap to run constantly. Determinism (ADR-005) makes exact behavioral testing possible.
 
 ## Decision
-Five layers (detail TDD §12), CI-gated in this order:
+Six layers (detail TDD §12), CI-gated in this order:
 1. **Golden-master cities:** ~12 scripted seed+command-log cities replayed headlessly per PR; final-state hashes must match bit-exactly. Intentional rule changes regenerate via `--bless`, producing a balance-diff report — *the diff is the review artifact*.
 2. **Property tests** (fast-check): conservation laws (people, money, trips), no-NaN/no-∞ invariants under command fuzzing.
 3. **Balance simulations:** scenario runner with assertion bands (e.g., unemployment within range by year 5) + plots to the balance dashboard — catches slow economic explosions goldens miss.
-4. **Perf gates:** golden replays measure tick p95 against TDD §2 budgets; breach fails CI. Weekly device-profile render traces (Playwright).
-5. **Determinism cross-check:** weekly golden replays across Chromium/WebKit/Node must hash-agree.
+4. **Diagnosability gates:** scripted city failures must emit advisor cause chains whose subjects resolve to the current world state (GDD §17.1/§17.4).
+5. **Perf gates:** golden replays measure tick p95 against TDD §2 budgets; breach fails CI. Weekly device-profile render traces (Playwright).
+6. **Determinism cross-check:** weekly golden replays across Chromium/WebKit/Node must hash-agree.
 
 Definition of done for any sim PR [binding]: lint + typecheck + units + goldens (or blessed diff) + perf gate green.
 
