@@ -50,4 +50,9 @@ export {
   type WorldPoint,
   worldToTile,
 } from "./iso";
-export { createWorldStage, type WorldStage, type WorldStageOptions } from "./stage";
+export {
+  createWorldStage,
+  type WorldStage,
+  type WorldStageOptions,
+  type WorldStageStats,
+} from "./stage";

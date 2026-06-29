@@ -46,6 +46,27 @@ export interface WorldStage {
   setCoverageOverlay(visible: boolean): void;
   /** Chunk count — observability for tests/devtools. */
   readonly chunkCount: number;
+  /** Snapshot renderer rebuild counters for perf diagnostics. */
+  stats(): WorldStageStats;
+}
+
+export interface WorldStageStats {
+  /** Chunk bakes since stage creation, including initial terrain/grid bakes. */
+  readonly terrainBakeCount: number;
+  /** Road layer redraws keyed by roadVersion. */
+  readonly roadDrawCount: number;
+  /** Building layer redraws keyed by buildingVersion. */
+  readonly buildingDrawCount: number;
+  /** Traffic overlay redraws keyed by congestionVersion while visible. */
+  readonly trafficOverlayDrawCount: number;
+  /** Zone overlay redraws keyed by zoneVersion while visible. */
+  readonly zoneOverlayDrawCount: number;
+  /** Service coverage overlay redraws keyed by coverageVersion while visible. */
+  readonly coverageOverlayDrawCount: number;
+  /** Agent layer redraw requests from transform riders. */
+  readonly agentDrawCount: number;
+  /** Tool ghost redraw requests. */
+  readonly ghostDrawCount: number;
 }
 
 const GRID_COLOR = 0x3a4a3f; // placeholder slate-green until terrain art
@@ -111,6 +132,16 @@ function diamondPath(g: Graphics, wx: number, wy: number): Graphics {
 export function createWorldStage(options: WorldStageOptions): WorldStage {
   const root = new Container();
   const layout = chunkLayout(options.mapWidth, options.mapHeight);
+  const stats = {
+    terrainBakeCount: 0,
+    roadDrawCount: 0,
+    buildingDrawCount: 0,
+    trafficOverlayDrawCount: 0,
+    zoneOverlayDrawCount: 0,
+    coverageOverlayDrawCount: 0,
+    agentDrawCount: 0,
+    ghostDrawCount: 0,
+  };
 
   const terrainLayer = new Container();
   root.addChild(terrainLayer);
@@ -154,6 +185,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     // Plain append: chunks never overlap meaningfully, so z-order among
     // them is cosmetic — and index-based insertion would fight rebakes.
     terrainLayer.addChild(container);
+    stats.terrainBakeCount++;
   };
 
   for (let id = 0; id < layout.count; id++) {
@@ -167,6 +199,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   let drawnRoadVersion = -1;
 
   const drawRoads = (segments: readonly RoadSegment[]): void => {
+    stats.roadDrawCount++;
     roadLayer.clear();
     for (const seg of segments) {
       const a = tileCenterToWorld(seg.ax, seg.ay);
@@ -205,6 +238,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   };
 
   const drawTrafficOverlay = (): void => {
+    stats.trafficOverlayDrawCount++;
     trafficOverlay.clear();
     if (lastCongestion === null) {
       return;
@@ -234,6 +268,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   let drawnBuildingVersion = -1;
 
   const drawBuildings = (views: readonly BuildingView[]): void => {
+    stats.buildingDrawCount++;
     buildingLayer.clear();
     for (const v of views) {
       const { wx, wy } = tileToWorld(v.x, v.y);
@@ -277,6 +312,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   let lastZones: Uint16Array | null = null;
 
   const drawZones = (): void => {
+    stats.zoneOverlayDrawCount++;
     zoneOverlay.clear();
     if (lastZones === null) {
       return;
@@ -302,6 +338,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   let lastCoverage: Uint8Array | null = null;
 
   const drawCoverage = (): void => {
+    stats.coverageOverlayDrawCount++;
     coverageOverlay.clear();
     if (lastCoverage === null) {
       return;
@@ -335,6 +372,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
   return {
     root,
     chunkCount: layout.count,
+    stats: () => ({ ...stats }),
     update(state: DisplayState): void {
       if (state.roadVersion !== drawnRoadVersion) {
         drawRoads(state.roads);
@@ -393,6 +431,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
       }
     },
     setAgents(buffer: Float32Array | null): void {
+      stats.agentDrawCount++;
       agentLayer.clear();
       if (buffer === null) {
         return;
@@ -426,6 +465,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
       }
     },
     setGhost(a, b): void {
+      stats.ghostDrawCount++;
       ghost.clear();
       if (a == null || b == null) {
         return;
