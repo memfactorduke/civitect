@@ -16,6 +16,7 @@ import {
   containerTransform,
   createCamera,
   frameBlend,
+  lodTier,
   pan,
   render as renderCamera,
   screenToWorld,
@@ -100,6 +101,7 @@ export async function bootRenderer(options: RendererBootOptions): Promise<Render
   // camera-only interpolation; the sim view stays at its own rate).
   app.ticker.add((ticker) => {
     renderCamera(camera, frameBlend(ticker.deltaMS));
+    stage.setLodTier(lodTier(camera.renderedZoom));
     applyCamera();
   });
   applyCamera();
