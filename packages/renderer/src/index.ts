@@ -15,6 +15,7 @@ export {
   CAMERA_SMOOTHING_TAU_MS,
   type CameraState,
   clampToBounds,
+  clampViewportToBounds,
   containerTransform,
   createCamera,
   frameBlend,
