@@ -14,8 +14,8 @@ import {
   RoadClassWire,
 } from "@civitect/protocol";
 import { attachCameraControls, bootRenderer } from "@civitect/renderer";
-import { type CommandIntent, createUiStore, Overlay } from "@civitect/ui";
-import { createRoot } from "react-dom/client";
+import { type CommandIntent, createUiStore, Overlay, SettingsPanel } from "@civitect/ui";
+import { createRoot, type Root } from "react-dom/client";
 import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
 import { pickTileAt } from "./picking";
@@ -254,9 +254,21 @@ async function main(): Promise<void> {
     renderer.stage.setCoverageOverlay(service !== 0);
   };
 
-  createRoot(overlayHost).render(
-    <Overlay store={store} dispatch={dispatch} onSelectOverlay={selectOverlay} />,
-  );
+  const overlayRoot: Root = createRoot(overlayHost);
+  const updatePreferences = (next: AppPreferences): void => {
+    preferences.set(next);
+    applyPreferences();
+    renderOverlay();
+  };
+  const renderOverlay = (): void => {
+    overlayRoot.render(
+      <>
+        <Overlay store={store} dispatch={dispatch} onSelectOverlay={selectOverlay} />
+        <SettingsPanel preferences={preferences.get()} onChange={updatePreferences} />
+      </>,
+    );
+  };
+  renderOverlay();
 
   // Test/debug hook: lets the e2e smoke (and humans in devtools) observe the
   // renderer's display state without reaching into Pixi internals.
@@ -283,11 +295,13 @@ async function main(): Promise<void> {
     setPreferences: (next: Partial<AppPreferences>) => {
       const updated = preferences.set(next);
       applyPreferences();
+      renderOverlay();
       return updated;
     },
     resetPreferences: () => {
       const updated = preferences.reset();
       applyPreferences();
+      renderOverlay();
       return updated;
     },
     selectOverlay: (service: number) => {
