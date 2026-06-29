@@ -7,6 +7,7 @@
  * fail typecheck (ADR-009); all strings through i18n keys.
  */
 
+export { ActionPriorityPanel } from "./ActionPriorityPanel";
 export { AdvisorFeed } from "./AdvisorFeed";
 export { BankruptcyDialog } from "./BankruptcyDialog";
 export { BudgetPanel } from "./BudgetPanel";
