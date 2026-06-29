@@ -7,6 +7,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./sync-metadata": {
+      "types": "./src/sync-metadata.ts",
+      "default": "./src/sync-metadata.ts"
     }
   }
 }
