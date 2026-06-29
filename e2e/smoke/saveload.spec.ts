@@ -66,3 +66,45 @@ test("quicksave → keep playing → quickload rewinds to the saved tick", async
     .poll(async () => page.evaluate(() => window.__civitect?.displayState() ?? null))
     .toEqual(saved);
 });
+
+test("keyboard quicksave and quickload shortcuts rewind the worker state", async ({ page }) => {
+  await page.goto("/");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().tick ?? -1), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThanOrEqual(0);
+
+  await page
+    .locator("#world canvas")
+    .dispatchEvent("pointerdown", { bubbles: true, clientX: 640, clientY: 360 });
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().highlight ?? null))
+    .not.toBeNull();
+
+  await page.getByRole("button", { name: "Pause" }).click();
+  await page.waitForTimeout(250);
+  const saved = await page.evaluate(() => window.__civitect?.displayState() ?? null);
+  expect(saved).not.toBeNull();
+  const savedTick = (saved as { tick: number }).tick;
+  expect(await page.evaluate(() => window.__civitect?.hasQuicksave() ?? false)).toBe(false);
+
+  await page.keyboard.press("Control+s");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.hasQuicksave() ?? false), {
+      timeout: 5_000,
+    })
+    .toBe(true);
+
+  await page.getByRole("button", { name: "9×" }).click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().tick ?? -1))
+    .toBeGreaterThan(savedTick + 5);
+
+  await page.keyboard.press("Control+o");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState() ?? null), {
+      timeout: 5_000,
+    })
+    .toEqual(saved);
+});
