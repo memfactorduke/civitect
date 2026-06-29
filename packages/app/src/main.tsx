@@ -19,14 +19,16 @@ import { createRoot } from "react-dom/client";
 import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
 import { pickTileAt } from "./picking";
+import { createSaveControls } from "./save-controls";
 import { createSaveManager } from "./save-manager";
 import { viewportHintFromWorldCorners } from "./viewport";
 
 async function main(): Promise<void> {
   const host = document.getElementById("world");
   const overlayHost = document.getElementById("overlay");
-  if (host === null || overlayHost === null) {
-    throw new Error("app page is missing #world / #overlay");
+  const saveControlsHost = document.getElementById("save-controls");
+  if (host === null || overlayHost === null || saveControlsHost === null) {
+    throw new Error("app page is missing #world / #overlay / #save-controls");
   }
 
   const store = createUiStore();
@@ -49,6 +51,7 @@ async function main(): Promise<void> {
       worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
     },
   });
+  const saveControls = createSaveControls(saveControlsHost, saveManager);
 
   let lastAgents: Float32Array | null = null;
   worker.onmessage = (event: MessageEvent<unknown>) => {
@@ -102,11 +105,11 @@ async function main(): Promise<void> {
   window.addEventListener("keydown", (event: KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "s") {
       event.preventDefault();
-      void saveManager.saveQuick();
+      void saveControls.saveQuick();
     }
     if ((event.metaKey || event.ctrlKey) && event.key === "o") {
       event.preventDefault();
-      void saveManager.loadQuick();
+      void saveControls.loadQuick();
     }
   });
 
@@ -249,8 +252,8 @@ async function main(): Promise<void> {
   (globalThis as Record<string, unknown>).__civitect = {
     displayState: () => renderer.state(),
     commandCount: () => queue.count(),
-    saveQuick: () => saveManager.saveQuick().then((bytes) => bytes.length),
-    loadQuick: () => saveManager.loadQuick(),
+    saveQuick: () => saveControls.saveQuick().then((bytes) => bytes.length),
+    loadQuick: () => saveControls.loadQuick(),
     hasQuicksave: () => saveManager.hasQuicksave(),
     // Tool UIs land per-phase; until then e2e drives intents directly.
     dispatchIntent: (intent: CommandIntent) => {
