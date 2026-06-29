@@ -4,7 +4,7 @@
  * and accepts a good one. Fixtures are GENERATED here with the intake's
  * own encoder — self-contained, no binary blobs in the repo.
  */
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -142,6 +142,25 @@ describe("sprite-intake gates (ADR-012: machines check consistency)", () => {
       palette,
     );
     expect(report.issues.some((i) => i.rule === "state-missing")).toBe(true);
+  });
+
+  it.each([
+    ["path traversal", "../outside.png"],
+    ["nested path", "nested/outside.png"],
+    ["absolute path", "/tmp/outside.png"],
+    ["Windows drive path", "C:\\outside.png"],
+  ])("rejects state PNG %s references", async (_label, file) => {
+    const sidecarPath = await writeFixture({ id: "unsafe-state-path" });
+    const sidecar = JSON.parse(readFileSync(sidecarPath, "utf8")) as {
+      states: Record<string, string>;
+    };
+    sidecar.states.normal = file;
+    writeFileSync(sidecarPath, JSON.stringify(sidecar));
+
+    const report = await validateSprite(sidecarPath, palette);
+    expect(
+      report.issues.some((i) => i.rule === "file" && /sibling \.png file/.test(i.message)),
+    ).toBe(true);
   });
 
   it("rejects anchors off the footprint center-bottom", async () => {
