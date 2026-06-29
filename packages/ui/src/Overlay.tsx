@@ -8,6 +8,7 @@ import { AdvisorFeed } from "./AdvisorFeed";
 import { BankruptcyDialog } from "./BankruptcyDialog";
 import { BudgetPanel } from "./BudgetPanel";
 import { BuildingInspector } from "./BuildingInspector";
+import { CityStatusPanel } from "./CityStatusPanel";
 import { DemandPanel } from "./DemandPanel";
 import { type DispatchFn, DispatchProvider } from "./dispatch";
 import { Hud } from "./Hud";
@@ -28,6 +29,7 @@ export function Overlay(props: {
   return (
     <DispatchProvider dispatch={props.dispatch}>
       <Hud store={props.store} />
+      <CityStatusPanel store={props.store} />
       <SpeedControls store={props.store} />
       <MilestoneToast store={props.store} />
       <DemandPanel store={props.store} />
