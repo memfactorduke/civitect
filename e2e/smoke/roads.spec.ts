@@ -12,8 +12,11 @@ import { expect, test } from "@playwright/test";
 declare global {
   interface Window {
     __civitect?: {
-      displayState(): { tick: number; roads: unknown[] };
+      displayState(): { tick: number; roads: { roadClass?: number }[] };
       dispatchIntent(intent: Record<string, unknown>): void;
+      commandCount?(): number;
+      roadClass?(): number;
+      tool?(): string;
     };
   }
 }
@@ -109,4 +112,51 @@ test("drag-to-build: R mode drags a ghost and lands a rendered segment", async (
   expect(await page.evaluate(() => (window.__civitect as { tool?: () => string }).tool?.())).toBe(
     "select",
   );
+});
+
+test("road class hotkeys choose the class used by drag-build", async ({ page }) => {
+  await page.goto("/");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().tick ?? -1), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThanOrEqual(0);
+
+  const commandsBefore = await page.evaluate(() => window.__civitect?.commandCount?.() ?? -1);
+
+  await page.keyboard.press("2");
+  expect(await page.evaluate(() => window.__civitect?.tool?.())).toBe("road");
+  expect(await page.evaluate(() => window.__civitect?.roadClass?.())).toBe(2);
+
+  const canvas = page.locator("#world canvas");
+  const box = await canvas.boundingBox();
+  if (box === null) throw new Error("no canvas box");
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+
+  await page.mouse.move(cx, cy + 48);
+  await page.mouse.down();
+  await page.mouse.move(cx + 128, cy + 48, { steps: 4 });
+  await page.mouse.up();
+
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const roads = window.__civitect?.displayState().roads ?? [];
+          return roads.length === 0 ? null : roads[0]?.roadClass;
+        }),
+      { timeout: 5_000 },
+    )
+    .toBe(2);
+  expect(await page.evaluate(() => window.__civitect?.commandCount?.() ?? -1)).toBe(
+    commandsBefore + 1,
+  );
+
+  await page.keyboard.press("3");
+  expect(await page.evaluate(() => window.__civitect?.roadClass?.())).toBe(3);
+  await page.keyboard.press("4");
+  expect(await page.evaluate(() => window.__civitect?.roadClass?.())).toBe(4);
+  await page.keyboard.press("1");
+  expect(await page.evaluate(() => window.__civitect?.roadClass?.())).toBe(1);
 });
