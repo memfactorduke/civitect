@@ -90,4 +90,40 @@ describe("snapshot → display-state (board PR 5 verification)", () => {
     );
     expect(b.highlight).toEqual({ x: 2, y: 2 });
   });
+
+  it("KEYFRAMES clear omitted layers instead of leaking the previous scene", () => {
+    const populated = applySnapshot(
+      initialDisplayState(),
+      snapshot({
+        tick: 20,
+        roadVersion: 3,
+        roads: [{ ax: 1, ay: 1, bx: 4, by: 1, roadClass: 1 }],
+        buildingVersion: 5,
+        buildings: [{ x: 2, y: 2, kind: 103, level: 1, status: 0 }],
+        zoneVersion: 7,
+        zones: new Uint16Array([1, 0, 0, 2]),
+        congestionVersion: 9,
+        congestion: new Uint16Array([1200]),
+        coverageService: 3,
+        coverageVersion: 11,
+        coverage: new Uint8Array([0, 255, 64, 0]),
+      }),
+    );
+    const deltaWithoutLayers = applySnapshot(populated, snapshot({ tick: 21, coverageService: 3 }));
+    expect(deltaWithoutLayers.roads).toHaveLength(1);
+    expect(deltaWithoutLayers.buildings).toHaveLength(1);
+    expect(deltaWithoutLayers.zones).not.toBeNull();
+    expect(deltaWithoutLayers.congestion).not.toBeNull();
+    expect(deltaWithoutLayers.coverage).not.toBeNull();
+
+    const keyframeWithoutLayers = applySnapshot(
+      deltaWithoutLayers,
+      snapshot({ kind: SnapshotKind.keyframe, tick: 5 }),
+    );
+    expect(keyframeWithoutLayers.roads).toEqual([]);
+    expect(keyframeWithoutLayers.buildings).toEqual([]);
+    expect(keyframeWithoutLayers.zones).toBeNull();
+    expect(keyframeWithoutLayers.congestion).toBeNull();
+    expect(keyframeWithoutLayers.coverage).toBeNull();
+  });
 });

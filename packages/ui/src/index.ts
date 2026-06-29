@@ -21,6 +21,15 @@ export { Overlay } from "./Overlay";
 export { OverlayPicker } from "./OverlayPicker";
 export { ReportPanel } from "./ReportPanel";
 export { RoadInspector } from "./RoadInspector";
+export {
+  AGENT_DENSITY_MAX_PERMILLE,
+  AGENT_DENSITY_MIN_PERMILLE,
+  AGENT_DENSITY_STEP_PERMILLE,
+  DEFAULT_UI_PREFERENCES,
+  normalizeUiPreferences,
+  SettingsPanel,
+  type UiPreferences,
+} from "./SettingsPanel";
 export { SpeedControls } from "./SpeedControls";
 export { createUiStore, type UiState, type UiStore, useUiStore } from "./store";
 export { TaxLoanPanel } from "./TaxLoanPanel";

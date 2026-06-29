@@ -2,6 +2,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   clampToBounds,
+  clampViewportToBounds,
   containerTransform,
   createCamera,
   frameBlend,
@@ -83,6 +84,20 @@ describe("camera (TDD §8, phase-1 task 2)", () => {
     clampToBounds(cam, { minX: 0, minY: 0, maxX: 1000, maxY: 1000 });
     expect(cam.x).toBe(0);
     expect(cam.y).toBe(1000);
+  });
+
+  it("clampViewportToBounds keeps the visible world inside bounds when it fits", () => {
+    const cam = createCamera(-999, 5000, 2);
+    clampViewportToBounds(cam, VIEW, { minX: 0, minY: 0, maxX: 2000, maxY: 1600 });
+    expect(cam.x).toBe(VIEW.width / 4);
+    expect(cam.y).toBe(1600 - VIEW.height / 4);
+  });
+
+  it("clampViewportToBounds centers maps smaller than the viewport", () => {
+    const cam = createCamera(999, -999, 0.5);
+    clampViewportToBounds(cam, VIEW, { minX: -100, minY: 50, maxX: 300, maxY: 250 });
+    expect(cam.x).toBe(100);
+    expect(cam.y).toBe(150);
   });
 
   it("LOD tiers split at the [TUNE] thresholds", () => {

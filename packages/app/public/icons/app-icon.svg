@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Civitect app icon">
+  <rect width="512" height="512" rx="96" fill="#11181a" />
+  <path d="M256 74 438 179 256 284 74 179Z" fill="#4aa17b" />
+  <path d="M74 179v154l182 105V284Z" fill="#2c6d66" />
+  <path d="M438 179v154L256 438V284Z" fill="#1f555a" />
+  <path d="M154 176 256 117l102 59-102 59Z" fill="#b8d77d" />
+  <path d="M159 273 256 329l97-56" fill="none" stroke="#d8e7b0" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M201 178v-42l39-22v42Z" fill="#f2c16b" />
+  <path d="M240 156v-42l55 32v42Z" fill="#c98554" />
+  <path d="M204 179 240 158l53 31-36 21Z" fill="#ffe2a4" />
+  <path d="M282 249v-74l54-31v74Z" fill="#7db6d6" />
+  <path d="M336 218v-74l38 22v74Z" fill="#406f91" />
+  <path d="M282 175 336 144l38 22-54 31Z" fill="#a8d1e6" />
+  <path d="M143 337 256 402l113-65" fill="none" stroke="#ffd37a" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
