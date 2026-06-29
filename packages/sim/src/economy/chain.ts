@@ -21,6 +21,30 @@ import { dijkstraTree } from "../roads/pathfind";
 import { accumulate, type EconomyState } from "./budget";
 
 export const COMMODITIES = 6;
+/**
+ * The cumulative conservation ledgers (produced/consumed/imported/exported/lost)
+ * are Uint32Array and wrap at 2^32 — reachable only over very long games (~20+
+ * game-years at metro scale). The conservation identity holds EXACTLY in modular
+ * u32 arithmetic, so differences of these accumulators are reduced to their
+ * canonical signed value: a balanced-but-wrapped ledger yields 0, while a genuine
+ * (always-small) leak still shows. The cumulative totals are internal-only — no
+ * gameplay/UI reads them (reports use per-period deltas) — so u32-cyclic storage
+ * is fine; widen to u64 only if lifetime totals are ever surfaced.
+ */
+const LEDGER_MODULUS = 0x1_0000_0000; // 2^32
+// Reduce x to its canonical signed representative in (-2^31, 2^31]. Genuine
+// residuals/deficits are bounded FAR below 2^31: total live stock per commodity
+// is at most buildingCount * STOCK_OUT_CAP (tens of millions of units), so a
+// balanced-but-wrapped ledger reduces to 0 while a real leak keeps its true
+// small value. `>=` at the fold makes the (physically unreachable) exact-2^31
+// case skip rather than book a phantom. LIMITATION: a true leak of EXACTLY a
+// multiple of 2^32 reduces to 0 (invisible) — accepted, since real leaks are
+// tiny and this avoids widening the ledgers (which would change the save format
+// + FNV state hash and force a golden re-bless).
+function modSignedLedger(x: number): number {
+  const m = ((x % LEDGER_MODULUS) + LEDGER_MODULUS) % LEDGER_MODULUS;
+  return m >= LEDGER_MODULUS / 2 ? m - LEDGER_MODULUS : m;
+}
 export const TICKS_PER_HOUR = 60;
 export const TICKS_PER_DAY = 1440;
 
@@ -564,7 +588,11 @@ export function reconcileLost(chain: ChainState, b: Buildings): void {
       (chain.exported[c] as number) -
       (chain.lost[c] as number) -
       (inTransit[c] as number);
-    const deficit = predicted - (stock[c] as number);
+    // Reduce the raw difference mod 2^32 (ledgers are Uint32Array): a wrap
+    // boundary on the consumed/exported/lost side must not spuriously inflate,
+    // nor a produced-side wrap suppress, the genuine demolished-cargo deficit
+    // (always small relative to 2^31).
+    const deficit = modSignedLedger(predicted - (stock[c] as number));
     if (deficit > 0) {
       chain.lost[c] = (chain.lost[c] as number) + deficit;
     }
@@ -577,14 +605,19 @@ export function chainConservationResidual(chain: ChainState, b: Buildings): numb
   const inTransit = chainInTransit(chain);
   const residual: number[] = [];
   for (let c = 0; c < COMMODITIES; c++) {
+    // Reduce mod 2^32 (ledgers are Uint32Array): the conservation identity holds
+    // exactly in modular u32 arithmetic, so a balanced-but-wrapped ledger yields
+    // 0 while a genuine leak (a small non-multiple-of-2^32 residual) still shows.
     residual.push(
-      (chain.produced[c] as number) +
-        (chain.imported[c] as number) -
-        ((chain.consumed[c] as number) +
-          (chain.exported[c] as number) +
-          (chain.lost[c] as number) +
-          (inTransit[c] as number) +
-          (stock[c] as number)),
+      modSignedLedger(
+        (chain.produced[c] as number) +
+          (chain.imported[c] as number) -
+          ((chain.consumed[c] as number) +
+            (chain.exported[c] as number) +
+            (chain.lost[c] as number) +
+            (inTransit[c] as number) +
+            (stock[c] as number)),
+      ),
     );
   }
   return residual;
