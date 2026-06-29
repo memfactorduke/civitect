@@ -18,6 +18,7 @@ import {
   type Snapshot,
   SnapshotKind,
   type TileCoord,
+  type TileInfo,
 } from "@civitect/protocol";
 import { useStore } from "zustand";
 import { createStore, type StoreApi } from "zustand/vanilla";
@@ -31,6 +32,8 @@ export interface UiState {
   /** Rolling advisor feed (latest first, capped) — events ACCUMULATE. */
   readonly advisorEvents: readonly AdvisorEvent[];
   readonly demand: DemandBlock;
+  /** Tile inspector payload for the selected tile; null while no response is current. */
+  readonly tileInfo: TileInfo | null;
   /** Road inspector payload for the selected tile (GDD §9.5); null = none. */
   readonly roadInfo: RoadInfo | null;
   /** Building + environment payloads for the selected tile (v11). */
@@ -47,6 +50,10 @@ export interface UiState {
 
 export type UiStore = StoreApi<UiState>;
 
+function sameTile(a: TileCoord | null, b: TileCoord | null): boolean {
+  return a === b || (a !== null && b !== null && a.x === b.x && a.y === b.y);
+}
+
 export function createUiStore(): UiStore {
   return createStore<UiState>()((set, get) => ({
     tick: -1,
@@ -56,17 +63,20 @@ export function createUiStore(): UiStore {
     selectedTile: null,
     advisorEvents: [],
     demand: { r: 0, c: 0, i: 0, o: 0, factors: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    tileInfo: null,
     roadInfo: null,
     buildingInfo: null,
     environInfo: null,
     report: null,
     milestone: null,
     applySnapshot(snapshot: Snapshot): void {
+      const current = get();
       // Keyframes are authoritative resets (scene load / save-load rewind,
       // TDD §7) and apply even to an older tick; stale DELTAS lose.
-      if (snapshot.kind !== SnapshotKind.keyframe && snapshot.tick < get().tick) {
+      if (snapshot.kind !== SnapshotKind.keyframe && snapshot.tick < current.tick) {
         return;
       }
+      const selectionChanged = !sameTile(current.selectedTile, snapshot.selectedTile);
       set({
         tick: snapshot.tick,
         speed: snapshot.speed,
@@ -74,16 +84,21 @@ export function createUiStore(): UiStore {
         fundsCents: snapshot.hud.fundsCents,
         selectedTile: snapshot.selectedTile,
         // Feed semantics: snapshots carry only NEW events; accumulate.
-        advisorEvents: [...snapshot.advisorEvents, ...get().advisorEvents].slice(0, 20),
+        advisorEvents: [...snapshot.advisorEvents, ...current.advisorEvents].slice(0, 20),
         demand: snapshot.demand,
+        tileInfo: selectionChanged ? null : current.tileInfo,
+        roadInfo: selectionChanged ? null : current.roadInfo,
+        buildingInfo: selectionChanged ? null : current.buildingInfo,
+        environInfo: selectionChanged ? null : current.environInfo,
         // The report rides only the close tick — keep the last one until the
         // next close; the milestone block is on every snapshot.
-        report: snapshot.report ?? get().report,
+        report: snapshot.report ?? current.report,
         milestone: snapshot.milestone,
       });
     },
     applyInspectorResponse(response: InspectorResponse): void {
       set({
+        tileInfo: response.tile,
         roadInfo: response.road,
         buildingInfo: response.building,
         environInfo: response.environ,

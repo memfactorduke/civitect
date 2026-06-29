@@ -24,3 +24,4 @@ export { RoadInspector } from "./RoadInspector";
 export { SpeedControls } from "./SpeedControls";
 export { createUiStore, type UiState, type UiStore, useUiStore } from "./store";
 export { TaxLoanPanel } from "./TaxLoanPanel";
+export { TileInspector } from "./TileInspector";
