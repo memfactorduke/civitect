@@ -40,6 +40,15 @@ export {
   type TileRect,
   terrainTint,
 } from "./chunks";
+export {
+  DAY_NIGHT_CLEAR_TINT,
+  DAY_NIGHT_MAX_ALPHA,
+  DAY_NIGHT_TINT,
+  type DayNightTint,
+  dayNightTintForTick,
+  minuteOfDay,
+  TICKS_PER_DAY,
+} from "./day-night";
 export { applySnapshot, type DisplayState, initialDisplayState } from "./display";
 export {
   TILE_H,

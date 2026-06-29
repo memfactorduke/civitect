@@ -17,6 +17,7 @@ import type { BuildingView, RoadSegment, TerrainGrid } from "@civitect/protocol"
 import { AGENT_FLOATS, AgentKind } from "@civitect/protocol";
 import { Container, Graphics } from "pixi.js";
 import { CHUNK_TILES, chunkLayout, chunkTiles, terrainTint } from "./chunks";
+import { dayNightTintForTick } from "./day-night";
 import type { DisplayState } from "./display";
 import { TILE_H, TILE_W, tileCenterToWorld, tileToWorld } from "./iso";
 
@@ -321,6 +322,24 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     }
   };
 
+  let drawnDayNightKey = "";
+
+  const applyDayNightTint = (tick: number): void => {
+    const tint = dayNightTintForTick(tick);
+    const key = `${tint.phasePermille}:${tint.color}`;
+    if (key === drawnDayNightKey) {
+      return;
+    }
+    drawnDayNightKey = key;
+
+    terrainLayer.tint = tint.color;
+    roadLayer.tint = tint.color;
+    trafficOverlay.tint = tint.color;
+    buildingLayer.tint = tint.color;
+    zoneOverlay.tint = tint.color;
+    coverageOverlay.tint = tint.color;
+  };
+
   const highlight = new Graphics();
   diamondPath(highlight, 0, 0).fill({ color: HIGHLIGHT_COLOR, alpha: 0.55 });
   highlight.visible = false;
@@ -336,6 +355,7 @@ export function createWorldStage(options: WorldStageOptions): WorldStage {
     root,
     chunkCount: layout.count,
     update(state: DisplayState): void {
+      applyDayNightTint(state.tick);
       if (state.roadVersion !== drawnRoadVersion) {
         drawRoads(state.roads);
         drawnRoadVersion = state.roadVersion;
