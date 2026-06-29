@@ -21,6 +21,13 @@ import { createCommandQueue } from "./command-queue";
 import { pickTileAt } from "./picking";
 import { createSaveManager } from "./save-manager";
 
+const isEditableTarget = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement);
+
 async function main(): Promise<void> {
   const host = document.getElementById("world");
   const overlayHost = document.getElementById("overlay");
@@ -48,6 +55,10 @@ async function main(): Promise<void> {
       worker.postMessage(bytes, { transfer: [bytes.buffer as ArrayBuffer] });
     },
   });
+
+  const dispatch = (intent: CommandIntent): void => {
+    queue.dispatch(intent);
+  };
 
   let lastAgents: Float32Array | null = null;
   worker.onmessage = (event: MessageEvent<unknown>) => {
@@ -97,21 +108,38 @@ async function main(): Promise<void> {
     }
   };
 
-  // Quicksave/quickload (TDD §10; slot UI arrives with the pause menu).
+  // Global app shortcuts (TDD §10; slot UI arrives with the pause menu).
   window.addEventListener("keydown", (event: KeyboardEvent) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "s") {
+    const hasCommandChord = event.metaKey || event.ctrlKey;
+    if (!hasCommandChord) {
+      return;
+    }
+
+    if (event.key === "s") {
       event.preventDefault();
       void saveManager.saveQuick();
+      return;
     }
-    if ((event.metaKey || event.ctrlKey) && event.key === "o") {
+    if (event.key === "o") {
       event.preventDefault();
       void saveManager.loadQuick();
+      return;
+    }
+    if (isEditableTarget(event.target)) {
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+    if (key === "z") {
+      event.preventDefault();
+      dispatch({ type: event.shiftKey ? CommandType.redo : CommandType.undo });
+      return;
+    }
+    if (key === "y") {
+      event.preventDefault();
+      dispatch({ type: CommandType.redo });
     }
   });
-
-  const dispatch = (intent: CommandIntent): void => {
-    queue.dispatch(intent);
-  };
 
   // Tool modes (v0, keyboard-switched: R road, B bulldoze, Esc/S select —
   // toolbar UI rides the next ui-package slice). Select taps on pointerdown
@@ -177,7 +205,7 @@ async function main(): Promise<void> {
   });
   window.addEventListener("keydown", (event: KeyboardEvent) => {
     if (event.metaKey || event.ctrlKey) {
-      return; // quicksave bindings live below
+      return; // command chords are handled by the global app shortcuts.
     }
     if (event.key === "z") {
       zoneOverlayOn = !zoneOverlayOn;

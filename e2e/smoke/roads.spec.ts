@@ -14,6 +14,7 @@ declare global {
     __civitect?: {
       displayState(): { tick: number; roads: unknown[] };
       dispatchIntent(intent: Record<string, unknown>): void;
+      tool?: () => string;
     };
   }
 }
@@ -106,7 +107,68 @@ test("drag-to-build: R mode drags a ghost and lands a rendered segment", async (
 
   // And select mode still pans (no road tool fighting the camera).
   await page.keyboard.press("s");
-  expect(await page.evaluate(() => (window.__civitect as { tool?: () => string }).tool?.())).toBe(
-    "select",
-  );
+  expect(await page.evaluate(() => window.__civitect?.tool?.())).toBe("select");
+});
+
+test("keyboard undo/redo shortcuts replay the last road edit", async ({ page }) => {
+  const rejections: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning" && message.text().includes("rejected command")) {
+      rejections.push(message.text());
+    }
+  });
+
+  await page.goto("/");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().tick ?? -1), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThanOrEqual(0);
+
+  await page.keyboard.press("r");
+  const canvas = page.locator("#world canvas");
+  const box = await canvas.boundingBox();
+  if (box === null) throw new Error("no canvas box");
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 128, cy, { steps: 4 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().roads.length ?? -1), {
+      timeout: 5_000,
+    })
+    .toBe(1);
+
+  await page.keyboard.press("Control+Z");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().roads.length ?? -1), {
+      timeout: 5_000,
+    })
+    .toBe(0);
+
+  await page.keyboard.press("Control+Shift+Z");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().roads.length ?? -1), {
+      timeout: 5_000,
+    })
+    .toBe(1);
+
+  await page.keyboard.press("Control+Z");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().roads.length ?? -1), {
+      timeout: 5_000,
+    })
+    .toBe(0);
+
+  await page.keyboard.press("Control+Y");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().roads.length ?? -1), {
+      timeout: 5_000,
+    })
+    .toBe(1);
+  expect(rejections).toHaveLength(0);
 });
