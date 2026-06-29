@@ -203,13 +203,32 @@ export function edgeBetween(g: RoadGraph, a: number, b: number): number {
   return -1;
 }
 
+/**
+ * Exact integer floor-sqrt. `Math.sqrt` IS IEEE-correctly-rounded, but the
+ * SCALED expression `Math.sqrt(N) * 1000` then `Math.floor` is hypersensitive at
+ * integer boundaries — and V8 (Node/Chromium) vs JSC (WebKit, and iOS) can land
+ * a boundary value on opposite sides of the floor, diverging the road-graph
+ * state hash (the cross-check caught this on road-grid-500-01). The float seed
+ * may differ by an ULP across engines, but the integer correction below
+ * converges to the UNIQUE exact floor on every engine, so edge lengths are
+ * bit-identical Node/Chromium/WebKit (ADR-005 cross-engine determinism).
+ */
+function isqrt(n: number): number {
+  if (n <= 0) return 0;
+  let x = Math.floor(Math.sqrt(n)); // fast seed; may be off by 1 either way
+  while (x * x > n) x--;
+  while ((x + 1) * (x + 1) <= n) x++;
+  return x;
+}
+
 /** Integer milli-tile distance between two live nodes. */
 function milliTileLength(g: RoadGraph, a: number, b: number): number {
   const dx = (g.nodeX[a] as number) - (g.nodeX[b] as number);
   const dy = (g.nodeY[a] as number) - (g.nodeY[b] as number);
-  // sqrt of an integer is correctly-rounded IEEE (not transcendental);
-  // flooring the scaled result keeps the stored value integer.
-  return Math.floor(Math.sqrt(dx * dx + dy * dy) * 1000);
+  // floor(1000 * sqrt(N)) == isqrt(N * 1e6), computed with an integer floor-sqrt
+  // so the stored length is bit-identical across JS engines (N is a small exact
+  // integer; N * 1e6 stays well under 2^53 for any real map).
+  return isqrt((dx * dx + dy * dy) * 1_000_000);
 }
 
 export function addEdge(g: RoadGraph, a: number, b: number, roadClass: RoadClass): number {
