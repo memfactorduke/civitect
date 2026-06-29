@@ -13,11 +13,13 @@
  */
 import { COHORT_BLOCK, createAgentPool, createWorld, runTick, spawnBuilding } from "@civitect/sim";
 import { describe, expect, it } from "vitest";
-import { percentile } from "./runner";
+import { summarizeDurations } from "./runner";
 
 const MAP = 256;
 const BLOCK = 16;
 const SEED = 4242;
+const CI_TICK_P95_HARD_GATE_MS = 20;
+const DEVICE_TICK_P95_GATE_MS = 10;
 
 function buildMetro() {
   const world = createWorld(SEED, MAP, MAP);
@@ -105,25 +107,20 @@ describe("metro perf (exit criterion 3: 250k pop + 10k agents)", () => {
     expect(world.agents.liveCount).toBeGreaterThanOrEqual(10_000 * 0.95); // pool saturated
     expect(world.population).toBeGreaterThanOrEqual(250_000); // held through the run
 
-    const p95 = percentile(durations, 0.95);
-    const p99 = percentile(durations, 0.99);
-    let max = 0;
-    let sum = 0;
-    for (const d of durations) {
-      if (d > max) max = d;
-      sum += d;
-    }
+    const summary = summarizeDurations(durations, CI_TICK_P95_HARD_GATE_MS);
     console.log(
       `[metro-perf] pop=${world.population} agents=${world.agents.liveCount} ` +
-        `edges≈${world.roads.edgeCount} ticks=${durations.length} ` +
-        `p95=${p95.toFixed(3)}ms p99=${p99.toFixed(3)}ms max=${max.toFixed(3)}ms ` +
-        `total=${(sum / 1000).toFixed(2)}s`,
+        `edges≈${world.roads.edgeCount} ticks=${summary.count} ` +
+        `p95=${summary.p95Ms.toFixed(3)}ms p99=${summary.p99Ms.toFixed(3)}ms ` +
+        `max=${summary.maxMs.toFixed(3)}ms over${CI_TICK_P95_HARD_GATE_MS}ms=` +
+        `${summary.overBudgetCount} (${summary.overBudgetPercent.toFixed(2)}%) ` +
+        `total=${(summary.totalMs / 1000).toFixed(2)}s`,
     );
     // CI: the 20 ms hard gate (normalized machine, structural tripwire).
-    expect(p95).toBeLessThanOrEqual(20);
+    expect(summary.p95Ms).toBeLessThanOrEqual(CI_TICK_P95_HARD_GATE_MS);
     if (process.env.CI === undefined) {
       // Device floor — THE exit criterion (TDD §2, ROADMAP Phase 3).
-      expect(p95).toBeLessThanOrEqual(10);
+      expect(summary.p95Ms).toBeLessThanOrEqual(DEVICE_TICK_P95_GATE_MS);
     }
   });
 });

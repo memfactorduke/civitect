@@ -77,6 +77,7 @@ export function applySnapshot(state: DisplayState, snapshot: Snapshot): DisplayS
   if (snapshot.kind !== SnapshotKind.keyframe && snapshot.tick < state.tick) {
     return state;
   }
+  const isKeyframe = snapshot.kind === SnapshotKind.keyframe;
   return {
     tick: snapshot.tick,
     speed: snapshot.speed,
@@ -86,19 +87,23 @@ export function applySnapshot(state: DisplayState, snapshot: Snapshot): DisplayS
       fundsCents: snapshot.hud.fundsCents,
     },
     roadVersion: snapshot.roadVersion,
-    roads: snapshot.roads ?? state.roads,
+    roads: snapshot.roads ?? (isKeyframe ? [] : state.roads),
     buildingVersion: snapshot.buildingVersion,
-    buildings: snapshot.buildings ?? state.buildings,
+    buildings: snapshot.buildings ?? (isKeyframe ? [] : state.buildings),
     zoneVersion: snapshot.zoneVersion,
-    zones: snapshot.zones ?? state.zones,
+    zones: snapshot.zones ?? (isKeyframe ? null : state.zones),
     agentCount: snapshot.agentCount,
     congestionVersion: snapshot.congestionVersion,
-    congestion: snapshot.congestion ?? state.congestion,
+    congestion: snapshot.congestion ?? (isKeyframe ? null : state.congestion),
     coverageService: snapshot.coverageService,
     coverageVersion: snapshot.coverageVersion,
     // A service switch invalidates the kept layer; same service keeps it.
     coverage:
       snapshot.coverage ??
-      (snapshot.coverageService === state.coverageService ? state.coverage : null),
+      (isKeyframe
+        ? null
+        : snapshot.coverageService === state.coverageService
+          ? state.coverage
+          : null),
   };
 }
