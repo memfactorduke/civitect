@@ -14,3 +14,4 @@ Planned residents (each arrives with the phase that needs it):
 | Map generator | TDD §13 | Phase 1 |
 | Progression report | GDD §13, GDD §17 | Phase 5+ |
 | Replay theater | TDD §13 | Phase 3+ |
+| Playtest report | GDD §17, TDD §13 | Phase 5+ |
