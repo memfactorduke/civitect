@@ -11,6 +11,21 @@
 export { BOOT } from "./boot-config";
 export { type CommandQueue, createCommandQueue, type PostFn } from "./command-queue";
 export { pickTileAt } from "./picking";
+export {
+  AGENT_DENSITY_MAX_PERMILLE,
+  AGENT_DENSITY_MIN_PERMILLE,
+  AGENT_DENSITY_STEP_PERMILLE,
+  APP_PREFERENCES_KEY,
+  type AppPreferenceStorage,
+  type AppPreferenceStore,
+  type AppPreferences,
+  appPreferenceDataAttributes,
+  createAppPreferenceStore,
+  DEFAULT_APP_PREFERENCES,
+  loadAppPreferences,
+  normalizeAppPreferences,
+  saveAppPreferences,
+} from "./preferences";
 export { civToWorld, SIM_VERSION, worldToCiv } from "./save-codec";
 export {
   createSaveManager,

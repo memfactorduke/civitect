@@ -12,4 +12,11 @@ export {
   MapArchetype,
 } from "./generate";
 export { fractalNoise, latticeHash, valueNoise } from "./noise";
+export {
+  type MapPlayabilityBand,
+  type MapPlayabilityOptions,
+  type MapPlayabilityScore,
+  scoreTerrainPlayability,
+} from "./playability";
 export { renderPreview } from "./preview";
+export { findStartSites, type StartSite, type StartSiteOptions } from "./start-sites";
