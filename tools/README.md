@@ -2,6 +2,12 @@
 
 Developer tooling — all web apps, AI agents can extend them (TDD §13).
 
+Implemented residents:
+
+| Tool | Spec | Notes |
+|---|---|---|
+| `replay-theater/` | TDD §13 | Bug-report replay JSON to deterministic timeline + static HTML scrubber. |
+
 Planned residents (each arrives with the phase that needs it):
 
 | Tool | Spec | Arrives |
