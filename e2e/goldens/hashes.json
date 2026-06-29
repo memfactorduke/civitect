@@ -39,6 +39,14 @@
       "fundsCents": 19619500
     }
   },
+  "service-budget-city-01": {
+    "hash": "ac19965690938df2",
+    "hud": {
+      "tick": 131400,
+      "population": 38781,
+      "fundsCents": 458416164
+    }
+  },
   "services-city-01": {
     "hash": "390e9582c372dbc0",
     "hud": {
