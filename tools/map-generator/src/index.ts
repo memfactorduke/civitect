@@ -13,3 +13,4 @@ export {
 } from "./generate";
 export { fractalNoise, latticeHash, valueNoise } from "./noise";
 export { renderPreview } from "./preview";
+export { findStartSites, type StartSite, type StartSiteOptions } from "./start-sites";
