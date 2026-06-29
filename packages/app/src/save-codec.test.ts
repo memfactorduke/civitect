@@ -112,6 +112,36 @@ describe("save → load → state-hash-equal (TDD §10)", () => {
     const decoded = await decodeCiv(await encodeCiv(broken));
     expect(() => civToWorld(decoded)).toThrow(/missing RNG stream/);
   });
+
+  it("rejects saves with malformed building cohort payloads", () => {
+    const { world } = replay(
+      BOOT.seed,
+      [
+        {
+          seq: 0,
+          tick: 0,
+          type: CommandType.buildRoad,
+          ax: 10,
+          ay: 20,
+          bx: 40,
+          by: 20,
+          roadClass: 1,
+        },
+        { seq: 1, tick: 1, type: CommandType.placeBuilding, x: 12, y: 21, building: 1 },
+      ],
+      2,
+      { mapWidth: BOOT.mapWidth, mapHeight: BOOT.mapHeight },
+    );
+    const save = worldToCiv(world, []);
+    expect(save.buildings.length).toBeGreaterThan(0);
+
+    expect(() =>
+      civToWorld({ ...save, cohorts: save.cohorts.slice(0, save.cohorts.length - 1) }),
+    ).toThrow(/building cohort payload/);
+    expect(() => civToWorld({ ...save, cohorts: Uint16Array.from([...save.cohorts, 7]) })).toThrow(
+      /building cohort payload/,
+    );
+  });
 });
 
 describe("roads through the save pipeline (save format v3, task 12f)", () => {

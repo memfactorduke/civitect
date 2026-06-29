@@ -23,16 +23,26 @@ export function SpeedControls(props: { readonly store: UiStore }): ReactNode {
   return (
     <fieldset aria-label={t("hud.speed")}>
       <legend>{t("hud.speed")}</legend>
-      {TIERS.map((tier) => (
-        <button
-          key={tier.speed}
-          type="button"
-          aria-pressed={current === tier.speed}
-          onClick={() => dispatch({ type: CommandType.setSpeed, speed: tier.speed })}
-        >
-          {t(tier.label)}
-        </button>
-      ))}
+      {TIERS.map((tier) => {
+        const isCurrent = current === tier.speed;
+        return (
+          <button
+            key={tier.speed}
+            type="button"
+            aria-pressed={isCurrent}
+            data-speed={tier.speed}
+            data-testid={`speed-control-${tier.speed}`}
+            disabled={isCurrent}
+            onClick={() => {
+              if (!isCurrent) {
+                dispatch({ type: CommandType.setSpeed, speed: tier.speed });
+              }
+            }}
+          >
+            {t(tier.label)}
+          </button>
+        );
+      })}
     </fieldset>
   );
 }
