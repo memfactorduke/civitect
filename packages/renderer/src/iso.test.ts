@@ -1,6 +1,13 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { TILE_H, TILE_W, tileCenterToWorld, tileToWorld, worldToTile } from "./iso";
+import {
+  TILE_H,
+  TILE_W,
+  tileBoundsForWorldBounds,
+  tileCenterToWorld,
+  tileToWorld,
+  worldToTile,
+} from "./iso";
 
 describe("iso transforms (TDD §11 tile metric: 64×32 at 1×)", () => {
   it("origin tile's top corner is the world origin", () => {
@@ -50,5 +57,34 @@ describe("iso transforms (TDD §11 tile metric: 64×32 at 1×)", () => {
         },
       ),
     );
+  });
+
+  it("converts world viewport bounds to a conservative clipped tile rect", () => {
+    expect(
+      tileBoundsForWorldBounds({ minX: -TILE_W, minY: 0, maxX: TILE_W, maxY: TILE_H }, 10, 10),
+    ).toEqual({ x0: 0, y0: 0, x1: 4, y1: 4 });
+  });
+
+  it("keeps the tile containing a sampled center inside the derived tile rect (property)", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 127 }), fc.integer({ min: 0, max: 127 }), (x, y) => {
+        const center = tileCenterToWorld(x, y);
+        const bounds = tileBoundsForWorldBounds(
+          { minX: center.wx, minY: center.wy, maxX: center.wx, maxY: center.wy },
+          128,
+          128,
+        );
+        expect(x).toBeGreaterThanOrEqual(bounds.x0);
+        expect(y).toBeGreaterThanOrEqual(bounds.y0);
+        expect(x).toBeLessThan(bounds.x1);
+        expect(y).toBeLessThan(bounds.y1);
+      }),
+    );
+  });
+
+  it("returns an empty tile rect when world bounds miss the map", () => {
+    expect(
+      tileBoundsForWorldBounds({ minX: 20_000, minY: 20_000, maxX: 21_000, maxY: 21_000 }, 8, 8),
+    ).toEqual({ x0: 0, y0: 0, x1: 0, y1: 0 });
   });
 });
