@@ -235,6 +235,32 @@ describe("budget panel (GDD §7 sliders)", () => {
   });
 });
 
+describe("overlay picker legend (GDD §15 one-tap overlays)", () => {
+  it("shows the active overlay name and scale without dispatching protocol commands", () => {
+    const store = createUiStore();
+    const selected: number[] = [];
+    render(
+      <Overlay store={store} dispatch={() => {}} onSelectOverlay={(id) => selected.push(id)} />,
+    );
+
+    expect(screen.getByTestId("overlay-active-label").textContent).toBe("Off");
+
+    fireEvent.click(screen.getByTestId("overlay-pick-1"));
+    expect(selected).toEqual([1]);
+    expect(screen.getByTestId("overlay-active-label").textContent).toBe("Fire");
+    expect(screen.getByTestId("overlay-scale-label").textContent).toBe("Coverage");
+    expect(screen.getByTestId("overlay-legend-low-label").textContent).toBe("Weak");
+    expect(screen.getByTestId("overlay-legend-high-label").textContent).toBe("Strong");
+
+    fireEvent.click(screen.getByTestId("overlay-pick-11"));
+    expect(selected).toEqual([1, 11]);
+    expect(screen.getByTestId("overlay-active-label").textContent).toBe("Air pollution");
+    expect(screen.getByTestId("overlay-scale-label").textContent).toBe("Pollution");
+    expect(screen.getByTestId("overlay-legend-low-label").textContent).toBe("Low");
+    expect(screen.getByTestId("overlay-legend-high-label").textContent).toBe("High");
+  });
+});
+
 describe("advisor feed groups by cause (GDD §15 [LOCKED])", () => {
   it("three same-cause events render one row with a ×3 badge", () => {
     const store = createUiStore();
