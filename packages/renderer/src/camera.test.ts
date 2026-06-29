@@ -10,6 +10,7 @@ import {
   pan,
   render,
   screenToWorld,
+  visibleWorldBounds,
   worldToScreen,
   ZOOM_MAX,
   ZOOM_MIN,
@@ -111,6 +112,36 @@ describe("camera (TDD §8, phase-1 task 2)", () => {
     expect(t.scale).toBe(2);
     expect(t.x).toBe(VIEW.width / 2 - 200 * 2);
     expect(t.y).toBe(VIEW.height / 2 - 100 * 2);
+  });
+
+  it("visibleWorldBounds maps viewport corners through the rendered transform", () => {
+    const cam = createCamera(200, -80, 2);
+    render(cam);
+    const bounds = visibleWorldBounds(cam, VIEW);
+    expect(bounds).toEqual({
+      minX: -120,
+      minY: -260,
+      maxX: 520,
+      maxY: 100,
+    });
+
+    expect(worldToScreen(cam, VIEW, bounds.minX, bounds.minY)).toEqual({ sx: 0, sy: 0 });
+    expect(worldToScreen(cam, VIEW, bounds.maxX, bounds.maxY)).toEqual({
+      sx: VIEW.width,
+      sy: VIEW.height,
+    });
+  });
+
+  it("visibleWorldBounds follows render interpolation, not the target camera", () => {
+    const cam = createCamera(0, 0, 1);
+    cam.x = 100;
+    cam.y = 50;
+    render(cam, 0.5);
+    const bounds = visibleWorldBounds(cam, VIEW);
+    expect(bounds.minX).toBe(-590);
+    expect(bounds.maxX).toBe(690);
+    expect(bounds.minY).toBe(-335);
+    expect(bounds.maxY).toBe(385);
   });
 });
 

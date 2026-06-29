@@ -91,6 +91,21 @@ export function screenToWorld(
   };
 }
 
+/**
+ * World-px bounds currently visible through the rendered camera. This is the
+ * pure camera-side primitive for terrain chunk culling and viewport sampling.
+ */
+export function visibleWorldBounds(cam: CameraState, view: ViewSize): WorldBounds {
+  const nw = screenToWorld(cam, view, 0, 0);
+  const se = screenToWorld(cam, view, view.width, view.height);
+  return {
+    minX: Math.min(nw.wx, se.wx),
+    minY: Math.min(nw.wy, se.wy),
+    maxX: Math.max(nw.wx, se.wx),
+    maxY: Math.max(nw.wy, se.wy),
+  };
+}
+
 /** Pan by a SCREEN-px delta (drag): world moves opposite, scaled by zoom. */
 export function pan(cam: CameraState, dxPx: number, dyPx: number): void {
   cam.x -= dxPx / cam.zoom;
