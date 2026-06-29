@@ -29,6 +29,16 @@ export interface TimedResult extends GoldenResult {
   readonly tickDurationsMs: Float64Array;
 }
 
+export interface DurationSummary {
+  readonly count: number;
+  readonly p95Ms: number;
+  readonly p99Ms: number;
+  readonly maxMs: number;
+  readonly totalMs: number;
+  readonly overBudgetCount: number;
+  readonly overBudgetPercent: number;
+}
+
 /**
  * Driver yield cadence, in ticks. Long synchronous replays starve vitest's
  * worker RPC on slow runners: the worker fires `onTaskUpdate`, back-to-back
@@ -131,4 +141,40 @@ export function percentile(samples: Float64Array, p: number): number {
   }
   const sorted = Float64Array.from(samples).sort();
   return sorted[Math.ceil(p * sorted.length) - 1] as number;
+}
+
+/** Shared perf-gate readout: summary stats plus over-budget tick density. */
+export function summarizeDurations(samples: Float64Array, budgetMs: number): DurationSummary {
+  if (samples.length === 0) {
+    throw new Error("duration summary of zero samples");
+  }
+  if (!Number.isFinite(budgetMs) || budgetMs < 0) {
+    throw new Error(`duration budget must be finite non-negative ms, got ${budgetMs}`);
+  }
+
+  let maxMs = 0;
+  let totalMs = 0;
+  let overBudgetCount = 0;
+  for (const sample of samples) {
+    if (!Number.isFinite(sample) || sample < 0) {
+      throw new Error(`duration samples must be finite non-negative ms, got ${sample}`);
+    }
+    if (sample > maxMs) {
+      maxMs = sample;
+    }
+    totalMs += sample;
+    if (sample > budgetMs) {
+      overBudgetCount++;
+    }
+  }
+
+  return {
+    count: samples.length,
+    p95Ms: percentile(samples, 0.95),
+    p99Ms: percentile(samples, 0.99),
+    maxMs,
+    totalMs,
+    overBudgetCount,
+    overBudgetPercent: (overBudgetCount / samples.length) * 100,
+  };
 }

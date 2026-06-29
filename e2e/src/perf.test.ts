@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { loadScenarios } from "./goldens";
-import { percentile, runScenario, runScenarioTimed } from "./runner";
+import { runScenario, runScenarioTimed, summarizeDurations } from "./runner";
 
 /** TDD §2: sim tick p95 hard gate (CI fails) — 20 ms [TUNE]. */
 const TICK_P95_HARD_GATE_MS = 20;
@@ -25,21 +25,16 @@ describe.each(scenarios.map((s) => [s.name, s] as const))("perf %s", (name, scen
     const reference = await runScenario(scenario);
     expect(timed.hash).toBe(reference.hash);
 
-    const p95 = percentile(timed.tickDurationsMs, 0.95);
-    const p99 = percentile(timed.tickDurationsMs, 0.99);
-    let max = 0;
-    let sum = 0;
-    for (const d of timed.tickDurationsMs) {
-      if (d > max) max = d;
-      sum += d;
-    }
+    const summary = summarizeDurations(timed.tickDurationsMs, TICK_P95_HARD_GATE_MS);
     // CI log line — the per-PR record reviewers compare across runs
     // (AI-WORKFLOW §4.2: flag >10% p95 regressions even under gate).
     console.log(
-      `[perf] ${name}: ticks=${timed.tickDurationsMs.length} ` +
-        `p95=${p95.toFixed(4)}ms p99=${p99.toFixed(4)}ms max=${max.toFixed(4)}ms ` +
-        `total=${(sum / 1000).toFixed(2)}s`,
+      `[perf] ${name}: ticks=${summary.count} ` +
+        `p95=${summary.p95Ms.toFixed(4)}ms p99=${summary.p99Ms.toFixed(4)}ms ` +
+        `max=${summary.maxMs.toFixed(4)}ms over${TICK_P95_HARD_GATE_MS}ms=` +
+        `${summary.overBudgetCount} (${summary.overBudgetPercent.toFixed(2)}%) ` +
+        `total=${(summary.totalMs / 1000).toFixed(2)}s`,
     );
-    expect(p95).toBeLessThanOrEqual(TICK_P95_HARD_GATE_MS);
+    expect(summary.p95Ms).toBeLessThanOrEqual(TICK_P95_HARD_GATE_MS);
   });
 });
