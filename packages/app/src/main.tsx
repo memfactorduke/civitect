@@ -19,6 +19,11 @@ import { createRoot } from "react-dom/client";
 import { BOOT } from "./boot-config";
 import { createCommandQueue } from "./command-queue";
 import { pickTileAt } from "./picking";
+import {
+  type AppPreferences,
+  appPreferenceDataAttributes,
+  createAppPreferenceStore,
+} from "./preferences";
 import { createSaveManager } from "./save-manager";
 
 async function main(): Promise<void> {
@@ -29,6 +34,15 @@ async function main(): Promise<void> {
   }
 
   const store = createUiStore();
+  const preferences = createAppPreferenceStore(localStorage);
+  const applyPreferences = (): void => {
+    const attrs = appPreferenceDataAttributes(preferences.get());
+    document.documentElement.dataset.civitectReducedMotion = attrs.civitectReducedMotion;
+    document.documentElement.dataset.civitectBatterySaver = attrs.civitectBatterySaver;
+    document.documentElement.dataset.civitectAgentDensity = attrs.civitectAgentDensity;
+  };
+  applyPreferences();
+
   const renderer = await bootRenderer({
     host,
     mapWidth: BOOT.mapWidth,
@@ -273,6 +287,17 @@ async function main(): Promise<void> {
     setTrafficOverlay: (on: boolean) => {
       trafficOverlayOn = on;
       renderer.stage.setTrafficOverlay(on);
+    },
+    preferences: () => preferences.get(),
+    setPreferences: (next: Partial<AppPreferences>) => {
+      const updated = preferences.set(next);
+      applyPreferences();
+      return updated;
+    },
+    resetPreferences: () => {
+      const updated = preferences.reset();
+      applyPreferences();
+      return updated;
     },
     selectOverlay: (service: number) => {
       selectOverlay(service);
