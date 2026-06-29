@@ -1,0 +1,342 @@
+{
+  "name": "service-budget-city-01",
+  "seed": 6868,
+  "mapWidth": 80,
+  "mapHeight": 80,
+  "untilTick": 131400,
+  "startingFundsCents": 50000000,
+  "terrainRects": [],
+  "commands": [
+    {
+      "seq": 0,
+      "tick": 1,
+      "type": "buildRoad",
+      "ax": 12,
+      "ay": 20,
+      "bx": 68,
+      "by": 20,
+      "roadClass": 2
+    },
+    {
+      "seq": 1,
+      "tick": 2,
+      "type": "buildRoad",
+      "ax": 12,
+      "ay": 32,
+      "bx": 68,
+      "by": 32,
+      "roadClass": 2
+    },
+    {
+      "seq": 2,
+      "tick": 3,
+      "type": "buildRoad",
+      "ax": 12,
+      "ay": 44,
+      "bx": 68,
+      "by": 44,
+      "roadClass": 2
+    },
+    {
+      "seq": 3,
+      "tick": 4,
+      "type": "buildRoad",
+      "ax": 12,
+      "ay": 56,
+      "bx": 68,
+      "by": 56,
+      "roadClass": 2
+    },
+    {
+      "seq": 4,
+      "tick": 5,
+      "type": "buildRoad",
+      "ax": 12,
+      "ay": 20,
+      "bx": 12,
+      "by": 56,
+      "roadClass": 1
+    },
+    {
+      "seq": 5,
+      "tick": 6,
+      "type": "buildRoad",
+      "ax": 26,
+      "ay": 20,
+      "bx": 26,
+      "by": 56,
+      "roadClass": 1
+    },
+    {
+      "seq": 6,
+      "tick": 7,
+      "type": "buildRoad",
+      "ax": 40,
+      "ay": 20,
+      "bx": 40,
+      "by": 56,
+      "roadClass": 1
+    },
+    {
+      "seq": 7,
+      "tick": 8,
+      "type": "buildRoad",
+      "ax": 54,
+      "ay": 20,
+      "bx": 54,
+      "by": 56,
+      "roadClass": 1
+    },
+    {
+      "seq": 8,
+      "tick": 9,
+      "type": "buildRoad",
+      "ax": 68,
+      "ay": 20,
+      "bx": 68,
+      "by": 56,
+      "roadClass": 1
+    },
+    {
+      "seq": 9,
+      "tick": 10,
+      "type": "placeBuilding",
+      "x": 13,
+      "y": 21,
+      "building": 1
+    },
+    {
+      "seq": 10,
+      "tick": 11,
+      "type": "placeBuilding",
+      "x": 15,
+      "y": 21,
+      "building": 2
+    },
+    {
+      "seq": 11,
+      "tick": 12,
+      "type": "placeBuilding",
+      "x": 60,
+      "y": 45,
+      "building": 1
+    },
+    {
+      "seq": 12,
+      "tick": 13,
+      "type": "placeBuilding",
+      "x": 62,
+      "y": 45,
+      "building": 2
+    },
+    {
+      "seq": 13,
+      "tick": 14,
+      "type": "zoneRect",
+      "x0": 13,
+      "y0": 16,
+      "x1": 67,
+      "y1": 19,
+      "zone": 2
+    },
+    {
+      "seq": 14,
+      "tick": 15,
+      "type": "zoneRect",
+      "x0": 13,
+      "y0": 21,
+      "x1": 67,
+      "y1": 24,
+      "zone": 1
+    },
+    {
+      "seq": 15,
+      "tick": 16,
+      "type": "zoneRect",
+      "x0": 13,
+      "y0": 28,
+      "x1": 67,
+      "y1": 31,
+      "zone": 4
+    },
+    {
+      "seq": 16,
+      "tick": 17,
+      "type": "zoneRect",
+      "x0": 13,
+      "y0": 33,
+      "x1": 67,
+      "y1": 36,
+      "zone": 5
+    },
+    {
+      "seq": 17,
+      "tick": 18,
+      "type": "zoneRect",
+      "x0": 13,
+      "y0": 40,
+      "x1": 40,
+      "y1": 43,
+      "zone": 6
+    },
+    {
+      "seq": 18,
+      "tick": 19,
+      "type": "zoneRect",
+      "x0": 41,
+      "y0": 40,
+      "x1": 67,
+      "y1": 43,
+      "zone": 3
+    },
+    {
+      "seq": 19,
+      "tick": 20,
+      "type": "zoneRect",
+      "x0": 13,
+      "y0": 45,
+      "x1": 67,
+      "y1": 48,
+      "zone": 2
+    },
+    {
+      "seq": 20,
+      "tick": 21,
+      "type": "placeBuilding",
+      "x": 14,
+      "y": 21,
+      "building": 3
+    },
+    {
+      "seq": 21,
+      "tick": 22,
+      "type": "placeBuilding",
+      "x": 60,
+      "y": 21,
+      "building": 3
+    },
+    {
+      "seq": 22,
+      "tick": 23,
+      "type": "placeBuilding",
+      "x": 40,
+      "y": 33,
+      "building": 4
+    },
+    {
+      "seq": 23,
+      "tick": 24,
+      "type": "placeBuilding",
+      "x": 16,
+      "y": 33,
+      "building": 5
+    },
+    {
+      "seq": 24,
+      "tick": 25,
+      "type": "placeBuilding",
+      "x": 56,
+      "y": 33,
+      "building": 6
+    },
+    {
+      "seq": 25,
+      "tick": 26,
+      "type": "placeBuilding",
+      "x": 20,
+      "y": 21,
+      "building": 7
+    },
+    {
+      "seq": 26,
+      "tick": 27,
+      "type": "placeBuilding",
+      "x": 44,
+      "y": 21,
+      "building": 8
+    },
+    {
+      "seq": 27,
+      "tick": 28,
+      "type": "placeBuilding",
+      "x": 32,
+      "y": 21,
+      "building": 11
+    },
+    {
+      "seq": 28,
+      "tick": 29,
+      "type": "placeBuilding",
+      "x": 36,
+      "y": 57,
+      "building": 12
+    },
+    {
+      "seq": 29,
+      "tick": 30,
+      "type": "placeBuilding",
+      "x": 22,
+      "y": 33,
+      "building": 15
+    },
+    {
+      "seq": 30,
+      "tick": 31,
+      "type": "placeBuilding",
+      "x": 34,
+      "y": 33,
+      "building": 16
+    },
+    {
+      "seq": 31,
+      "tick": 32,
+      "type": "placeBuilding",
+      "x": 66,
+      "y": 57,
+      "building": 18
+    },
+    {
+      "seq": 32,
+      "tick": 33,
+      "type": "placeBuilding",
+      "x": 62,
+      "y": 57,
+      "building": 19
+    },
+    {
+      "seq": 33,
+      "tick": 34,
+      "type": "setServiceBudget",
+      "service": 1,
+      "permille": 500
+    },
+    {
+      "seq": 34,
+      "tick": 35,
+      "type": "setServiceBudget",
+      "service": 2,
+      "permille": 1500
+    },
+    {
+      "seq": 35,
+      "tick": 36,
+      "type": "setServiceBudget",
+      "service": 3,
+      "permille": 500
+    },
+    {
+      "seq": 36,
+      "tick": 37,
+      "type": "setServiceBudget",
+      "service": 5,
+      "permille": 1500
+    },
+    {
+      "seq": 37,
+      "tick": 38,
+      "type": "setServiceBudget",
+      "service": 8,
+      "permille": 1200
+    }
+  ]
+}
