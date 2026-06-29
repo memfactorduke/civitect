@@ -8,6 +8,7 @@ Planned residents (each arrives with the phase that needs it):
 |---|---|---|
 | `sprite-intake/` + atlas packer + palette linter | ADR-012, TDD §11 | Phase 0 (board PR 11) |
 | `asset-prompts/` (Codex prompt library) | AI-WORKFLOW §5 | Phase 0, with the style bible |
+| Achievement report | GDD §13, GDD §17 | Phase 5+ |
 | Sim inspector | TDD §13 | Phase 2+ |
 | Balance dashboard | TDD §13 | Phase 2 |
 | Map generator | TDD §13 | Phase 1 |
