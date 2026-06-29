@@ -8,6 +8,18 @@ import { type ReactNode, useState } from "react";
 import { useDispatch } from "./dispatch";
 import { t } from "./i18n";
 
+type BudgetPosture = "cutback" | "standard" | "overtime";
+
+function budgetPosture(permille: number): BudgetPosture {
+  if (permille < 1000) {
+    return "cutback";
+  }
+  if (permille > 1000) {
+    return "overtime";
+  }
+  return "standard";
+}
+
 export function BudgetPanel(): ReactNode {
   const dispatch = useDispatch();
   const [budgets, setBudgets] = useState<Record<number, number>>({});
@@ -17,6 +29,7 @@ export function BudgetPanel(): ReactNode {
       <ul>
         {SERVICE_ID_LIST.map((service) => {
           const value = budgets[service] ?? 1000;
+          const posture = budgetPosture(value);
           return (
             <li key={service}>
               <label>
@@ -39,6 +52,9 @@ export function BudgetPanel(): ReactNode {
                   }}
                 />
                 <span data-testid={`budget-value-${service}`}>{(value / 10).toFixed(0)}%</span>
+                <span data-budget-posture={posture} data-testid={`budget-posture-${service}`}>
+                  {t(`budget.posture.${posture}`)}
+                </span>
               </label>
             </li>
           );
