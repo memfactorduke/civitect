@@ -7,9 +7,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { decodeMap, encodeMap } from "@civitect/protocol";
+import { decodeMap, encodeMap, ResourceKind } from "@civitect/protocol";
 import { describe, expect, it } from "vitest";
-import { CATALOG_SEEDS, GENERATED_MAP_SIZE, generateMap, MAP_ARCHETYPES } from "./generate";
+import {
+  archetypeMapId,
+  CATALOG_SEEDS,
+  GENERATED_MAP_SIZE,
+  generateMap,
+  MAP_ARCHETYPES,
+} from "./generate";
 import { renderPreview } from "./preview";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -17,6 +23,14 @@ const mapPath = (name: string): string => join(ROOT, "maps", `${name}.civmap`);
 const previewPath = (name: string): string => join(ROOT, "previews", `${name}.png`);
 
 describe("map generator v1 (TDD §13, GDD §3)", () => {
+  it("ships a broader deterministic catalog toward the 24-map launch target", () => {
+    expect(MAP_ARCHETYPES.length).toBe(12);
+    expect(new Set(MAP_ARCHETYPES).size).toBe(MAP_ARCHETYPES.length);
+    expect(MAP_ARCHETYPES.map((archetype) => archetypeMapId(archetype))).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    ]);
+  });
+
   it("same archetype + seed generates identical maps (reproducibility)", () => {
     for (const archetype of MAP_ARCHETYPES) {
       const a = generateMap(archetype, 12345, 64);
@@ -36,6 +50,7 @@ describe("map generator v1 (TDD §13, GDD §3)", () => {
     const { water, elevation } = map.terrain.layers;
     let waterTiles = 0;
     let landTiles = 0;
+    let resourceTiles = 0;
     let maxElevation = 0;
     for (let i = 0; i < water.length; i++) {
       if ((water[i] as number) !== 0) {
@@ -43,6 +58,9 @@ describe("map generator v1 (TDD §13, GDD §3)", () => {
         expect(elevation[i]).toBe(0); // water is flat
       } else {
         landTiles++;
+        if ((map.terrain.layers.resource[i] as number) !== ResourceKind.none) {
+          resourceTiles++;
+        }
         if ((elevation[i] as number) > maxElevation) {
           maxElevation = elevation[i] as number;
         }
@@ -51,8 +69,24 @@ describe("map generator v1 (TDD §13, GDD §3)", () => {
     // Every archetype must be playable: mostly land, some water, real relief.
     expect(landTiles).toBeGreaterThan(water.length * 0.3);
     expect(waterTiles).toBeGreaterThan(0);
+    expect(resourceTiles).toBeGreaterThan(0);
     expect(maxElevation).toBeGreaterThanOrEqual(2);
     expect(maxElevation).toBeLessThanOrEqual(6);
+  });
+
+  it("covers all raw resource starts for industry-specialization playtests", () => {
+    const kinds = new Set<number>();
+    for (const archetype of MAP_ARCHETYPES) {
+      const map = generateMap(archetype, CATALOG_SEEDS[archetype], GENERATED_MAP_SIZE);
+      for (const value of map.terrain.layers.resource) {
+        if (value !== ResourceKind.none) {
+          kinds.add(value);
+        }
+      }
+    }
+    expect(kinds).toEqual(
+      new Set([ResourceKind.ore, ResourceKind.farm, ResourceKind.forest, ResourceKind.oil]),
+    );
   });
 
   if (process.env.SEED_FIXTURES === "1") {
