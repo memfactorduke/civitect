@@ -10,6 +10,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Command } from "@civitect/protocol";
 import { aggregates, createWorld, runTick } from "@civitect/sim";
 import { describe, expect, it } from "vitest";
 import { parseScenario, scenarioTerrain } from "./scenario";
@@ -38,13 +39,18 @@ describe("balance bands (ADR-013 §3)", () => {
       a.tick === b.tick ? a.seq - b.seq : a.tick - b.tick,
     );
     let cursor = 0;
+    let rejectionCount = 0;
     while (world.tick < scenario.untilTick) {
-      const batch = [];
-      while (cursor < log.length && log[cursor]!.tick === world.tick) {
-        batch.push(log[cursor]!);
+      const batch: Command[] = [];
+      while (cursor < log.length) {
+        const command = log[cursor];
+        if (command === undefined || command.tick !== world.tick) {
+          break;
+        }
+        batch.push(command);
         cursor++;
       }
-      runTick(world, batch);
+      rejectionCount += runTick(world, batch).length;
       if (world.tick % 25_000 === 0) {
         await new Promise((resolve) => setImmediate(resolve));
       }
@@ -68,6 +74,7 @@ describe("balance bands (ADR-013 §3)", () => {
         `housingCap=${agg.housingCapacity} jobs=${agg.jobsC + agg.jobsI + agg.jobsO}`,
     );
     // ── Bands [TUNE] ──────────────────────────────────────────────────────
+    expect(rejectionCount).toBe(0); // scenario commands must all be accepted
     expect(world.population).toBeGreaterThanOrEqual(5000); // exit criterion 1
     expect(world.population).toBeLessThanOrEqual(60000); // runaway guard [TUNE: re-sized when workplace leveling unfroze job capacity]
     expect(unemploymentPermille).toBeLessThanOrEqual(600); // labor market sane
