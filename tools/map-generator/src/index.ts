@@ -3,6 +3,16 @@
  * (TDD §13, GDD §3; phase-1 board task 6). Maps are reproducible artifacts:
  * same archetype + seed ⇒ byte-identical terrain on every platform.
  */
+
+export {
+  catalogSummaries,
+  type MapCatalogSummary,
+  type MapDifficulty,
+  type MapReliefProfile,
+  type MapResourceProfile,
+  type MapWaterProfile,
+  summarizeMap,
+} from "./catalog-summary";
 export {
   archetypeMapId,
   CATALOG_SEEDS,
