@@ -17,6 +17,9 @@
       "path": "packages/app"
     },
     {
+      "path": "packages/assets"
+    },
+    {
       "path": "packages/backend"
     },
     {
