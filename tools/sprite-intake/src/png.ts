@@ -121,13 +121,24 @@ export async function decodePng(bytes: Uint8Array, source: string): Promise<RawI
   let sawEnd = false;
   while (at + 8 <= bytes.length && !sawEnd) {
     const length = u32be(bytes, at);
+    const chunkEnd = at + 8 + length;
+    const crcEnd = chunkEnd + 4;
     const type = String.fromCharCode(
       bytes[at + 4] as number,
       bytes[at + 5] as number,
       bytes[at + 6] as number,
       bytes[at + 7] as number,
     );
-    const data = bytes.subarray(at + 8, at + 8 + length);
+    if (crcEnd > bytes.length) {
+      throw new Error(`${source}: truncated PNG chunk ${type}`);
+    }
+    const data = bytes.subarray(at + 8, chunkEnd);
+    const expectedCrc = u32be(bytes, chunkEnd);
+    const actualCrc = crc32(bytes.subarray(at + 4, at + 8), data);
+    if (actualCrc !== expectedCrc) {
+      throw new Error(`${source}: PNG chunk ${type} CRC mismatch`);
+    }
+
     switch (type) {
       case "IHDR": {
         width = u32be(data, 0);
@@ -153,9 +164,9 @@ export async function decodePng(bytes: Uint8Array, source: string): Promise<RawI
       default:
         break; // ancillary chunks are fine to ignore for gate purposes
     }
-    at += 8 + length + 4; // length + type + data + crc
+    at = crcEnd; // length + type + data + crc
   }
-  if (width === 0 || height === 0 || idat.length === 0) {
+  if (width === 0 || height === 0 || idat.length === 0 || !sawEnd) {
     throw new Error(`${source}: truncated or empty PNG`);
   }
 

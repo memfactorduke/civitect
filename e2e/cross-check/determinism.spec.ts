@@ -27,6 +27,12 @@ const scenarioFiles = readdirSync(GOLDENS_DIR)
   .filter((f) => f.endsWith(".json") && f !== "hashes.json")
   .sort();
 
+const KNOWN_REJECTION_COUNTS: Record<string, number> = {
+  // Existing golden contains one legacy rejected command. Keep it explicit so
+  // additional silent command drops fail this browser cross-check.
+  "bridges-city-01": 1,
+};
+
 if (scenarioFiles.length === 0) {
   throw new Error("empty golden corpus — the cross-check would vacuously pass");
 }
@@ -50,6 +56,9 @@ for (const file of scenarioFiles) {
 
     const r = result as { hash: string; hud: Expectation["hud"]; rejectionCount: number };
     console.log(`[cross-check] ${doc.name} on ${browserName}: ${r.hash}`);
+    expect(r.rejectionCount, `golden "${doc.name}" rejected commands on ${browserName}`).toBe(
+      KNOWN_REJECTION_COUNTS[doc.name] ?? 0,
+    );
     expect(r.hud).toEqual((expected as Expectation).hud);
     expect(r.hash).toBe((expected as Expectation).hash);
   });
