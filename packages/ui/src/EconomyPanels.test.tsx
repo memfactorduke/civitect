@@ -77,6 +77,30 @@ describe("ReportPanel (the report explains itself, GDD §12)", () => {
     expect(net).toBe(120_000 - 45_000 - 8_000 - 30_000);
   });
 
+  it("splits report lines into income, expenses, and net change", () => {
+    const store = createUiStore();
+    render(<ReportPanel store={store} />);
+    feed(
+      store,
+      snapshot({
+        report: {
+          month: 4,
+          lines: [
+            { kind: 1, amountCents: 250_000, deltaCents: 25_000 },
+            { kind: 10, amountCents: 40_000, deltaCents: 40_000 },
+            { kind: 5, amountCents: -72_500, deltaCents: -12_500 },
+            { kind: 13, amountCents: -180_000, deltaCents: 20_000 },
+            { kind: 7, amountCents: 0, deltaCents: -2_500 },
+          ],
+        },
+      }),
+    );
+    expect(screen.getByTestId("report-income-total").getAttribute("data-cents")).toBe("290000");
+    expect(screen.getByTestId("report-expense-total").getAttribute("data-cents")).toBe("-252500");
+    expect(screen.getByTestId("report-net").getAttribute("data-cents")).toBe("37500");
+    expect(screen.getByTestId("report-net-delta").getAttribute("data-cents")).toBe("70000");
+  });
+
   it("keeps showing the last report after the close tick passes", () => {
     const store = createUiStore();
     render(<ReportPanel store={store} />);
