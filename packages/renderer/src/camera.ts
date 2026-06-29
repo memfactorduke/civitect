@@ -126,6 +126,32 @@ export function clampToBounds(cam: CameraState, bounds: WorldBounds): void {
   cam.y = Math.min(bounds.maxY, Math.max(bounds.minY, cam.y));
 }
 
+/** Keep the full visible viewport inside the world rect whenever it can fit. */
+export function clampViewportToBounds(cam: CameraState, view: ViewSize, bounds: WorldBounds): void {
+  const halfWidth = view.width / (2 * cam.zoom);
+  const halfHeight = view.height / (2 * cam.zoom);
+
+  cam.x = clampAxis(
+    cam.x,
+    bounds.minX + halfWidth,
+    bounds.maxX - halfWidth,
+    (bounds.minX + bounds.maxX) / 2,
+  );
+  cam.y = clampAxis(
+    cam.y,
+    bounds.minY + halfHeight,
+    bounds.maxY - halfHeight,
+    (bounds.minY + bounds.maxY) / 2,
+  );
+}
+
+function clampAxis(value: number, min: number, max: number, fallback: number): number {
+  if (min > max) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, value));
+}
+
 /**
  * Frame-rate-aware blend factor (ADR-008 ProMotion contract): equal
  * convergence per WALL-CLOCK time at any refresh rate — a 120 Hz pan takes

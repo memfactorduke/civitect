@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { bless, isBlessRun, loadExpectations, loadScenarios } from "./goldens";
 import { type GoldenResult, runScenario } from "./runner";
+import { scoreSessionValue, summarizeSessionValue } from "./session-value";
 
 const scenarios = loadScenarios();
 const blessing = isBlessRun();
@@ -51,6 +52,22 @@ if (blessing) {
     it("pins observed hashes and writes the balance-diff report", () => {
       expect(results.size).toBe(scenarios.length);
       bless(results, expectations);
+    });
+  });
+} else {
+  describe("session-value corpus coverage", () => {
+    it("keeps playable growth and city-scale service scenarios in the golden gate", () => {
+      const scores = scenarios.map((scenario) => {
+        const expected = expectations?.[scenario.name];
+        if (expected === undefined) {
+          throw new Error(`golden "${scenario.name}" has no committed hash`);
+        }
+        return scoreSessionValue(scenario, expected);
+      });
+      const summary = summarizeSessionValue(scores);
+      expect(summary.playableGrowthCount).toBeGreaterThanOrEqual(2);
+      expect(summary.cityScaleCount).toBeGreaterThanOrEqual(1);
+      expect(summary.bestScore.tags).toContain("service-portfolio");
     });
   });
 }
