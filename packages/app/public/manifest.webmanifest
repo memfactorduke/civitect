@@ -1,0 +1,22 @@
+{
+  "name": "Civitect",
+  "short_name": "Civitect",
+  "description": "A deep deterministic isometric city builder for touch and desktop.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#11181a",
+  "theme_color": "#11181a",
+  "categories": ["games", "simulation"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
