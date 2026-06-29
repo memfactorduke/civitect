@@ -32,11 +32,30 @@
         width: max-content;
         max-width: 320px;
       }
+      #build-preview {
+        position: absolute;
+        left: 16px;
+        bottom: 16px;
+        z-index: 2;
+        max-width: min(360px, calc(100vw - 32px));
+        border: 1px solid rgba(232, 239, 233, 0.24);
+        border-radius: 8px;
+        background: rgba(17, 24, 26, 0.88);
+        color: #e8efe9;
+        font: 600 13px/1.35 system-ui, sans-serif;
+        padding: 8px 10px;
+        pointer-events: none;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+      #build-preview[hidden] {
+        display: none;
+      }
     </style>
   </head>
   <body>
     <div id="world"></div>
     <div id="overlay"></div>
+    <div id="build-preview" role="status" aria-live="polite" hidden></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

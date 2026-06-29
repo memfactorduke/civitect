@@ -110,3 +110,31 @@ test("drag-to-build: R mode drags a ghost and lands a rendered segment", async (
     "select",
   );
 });
+
+test("road drag shows length and estimated cost preview", async ({ page }) => {
+  await page.goto("/");
+  await expect
+    .poll(async () => page.evaluate(() => window.__civitect?.displayState().tick ?? -1), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThanOrEqual(0);
+
+  await page.keyboard.press("r");
+  const canvas = page.locator("#world canvas");
+  const box = await canvas.boundingBox();
+  if (box === null) throw new Error("no canvas box");
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const buildPreview = page.locator("#build-preview");
+
+  await expect(buildPreview).toBeHidden();
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await expect(buildPreview).toContainText("Street road - drag to choose an endpoint");
+
+  await page.mouse.move(cx + 128, cy, { steps: 4 });
+  await expect(buildPreview).toContainText(/Street road - [2-9]\d* tiles - \$[0-9,]+/);
+
+  await page.mouse.up();
+  await expect(buildPreview).toBeHidden();
+});
