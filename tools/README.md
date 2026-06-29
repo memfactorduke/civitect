@@ -12,3 +12,8 @@ Planned residents (each arrives with the phase that needs it):
 | Balance dashboard | TDD §13 | Phase 2 |
 | Map generator | TDD §13 | Phase 1 |
 | Replay theater | TDD §13 | Phase 3+ |
+
+Implemented tools:
+
+- `balance-dashboard/`: read-only JSON/CSV summaries for balance-sim metrics and
+  assertion bands.
