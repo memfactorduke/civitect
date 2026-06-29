@@ -19,11 +19,19 @@ function latticeValue(seed: number, x: number, y: number): number {
   return latticeHash(seed, x, y) & 0xff;
 }
 
+function assertPositiveInt(name: string, value: number, min = 1): void {
+  if (!Number.isInteger(value) || value < min) {
+    throw new RangeError(`${name} must be an integer >= ${min}, got ${value}`);
+  }
+}
+
 /**
  * Smooth value noise at integer tile coords for a given cell size, Q8
  * fixed-point bilinear blend. Returns [0, 255].
  */
 export function valueNoise(seed: number, x: number, y: number, cellSize: number): number {
+  assertPositiveInt("cellSize", cellSize);
+
   const cx = Math.floor(x / cellSize);
   const cy = Math.floor(y / cellSize);
   const fx = Math.floor(((x - cx * cellSize) * 256) / cellSize); // Q8
@@ -45,6 +53,9 @@ export function fractalNoise(
   baseCellSize: number,
   octaves: number,
 ): number {
+  assertPositiveInt("baseCellSize", baseCellSize, 2);
+  assertPositiveInt("octaves", octaves);
+
   let sum = 0;
   let amplitude = 256;
   let total = 0;
