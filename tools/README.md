@@ -12,4 +12,5 @@ Planned residents (each arrives with the phase that needs it):
 | Sim inspector | TDD §13 | Phase 2+ |
 | Balance dashboard | TDD §13 | Phase 2 |
 | Map generator | TDD §13 | Phase 1 |
+| Progression report | GDD §13, GDD §17 | Phase 5+ |
 | Replay theater | TDD §13 | Phase 3+ |

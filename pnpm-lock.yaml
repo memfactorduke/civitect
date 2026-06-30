@@ -182,6 +182,19 @@ importers:
         specifier: ^3.0.0
         version: 3.2.6(@types/node@22.19.21)(jsdom@29.1.1)
 
+  tools/progression-report:
+    dependencies:
+      '@civitect/sim':
+        specifier: workspace:*
+        version: link:../../packages/sim
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.21
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@22.19.21)(jsdom@29.1.1)
+
   tools/sprite-intake:
     dependencies:
       '@civitect/protocol':

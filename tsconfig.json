@@ -33,6 +33,9 @@
     },
     {
       "path": "tools/achievement-report"
+    },
+    {
+      "path": "tools/progression-report"
     }
   ]
 }
