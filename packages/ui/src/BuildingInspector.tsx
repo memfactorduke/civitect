@@ -5,17 +5,34 @@
  */
 import type { ReactNode } from "react";
 import { useStore } from "zustand";
-import { t } from "./i18n";
+import { type I18nKey, t } from "./i18n";
 import type { UiStore } from "./store";
 
-const STATUS_NAMES: Readonly<Record<number, string>> = {
-  0: "normal",
-  1: "unpowered",
-  2: "unwatered",
-  3: "abandoned",
-  4: "on fire",
-  5: "ruin",
+const STATUS_KEYS: Readonly<Record<number, I18nKey>> = {
+  0: "buildingInspector.status.normal",
+  1: "buildingInspector.status.unpowered",
+  2: "buildingInspector.status.unwatered",
+  3: "buildingInspector.status.abandoned",
+  4: "buildingInspector.status.onFire",
+  5: "buildingInspector.status.ruin",
 };
+
+type EffectivenessBand = "poor" | "partial" | "good";
+
+function statusLabel(status: number): string {
+  const key = STATUS_KEYS[status];
+  return key === undefined ? `${t("buildingInspector.status.unknown")} ${status}` : t(key);
+}
+
+function effectivenessBand(permille: number): EffectivenessBand {
+  if (permille < 600) {
+    return "poor";
+  }
+  if (permille < 900) {
+    return "partial";
+  }
+  return "good";
+}
 
 export function BuildingInspector(props: { readonly store: UiStore }): ReactNode {
   const building = useStore(props.store, (s) => s.buildingInfo);
@@ -32,14 +49,26 @@ export function BuildingInspector(props: { readonly store: UiStore }): ReactNode
           <dt>{t("buildingInspector.level")}</dt>
           <dd data-testid="building-level">{building.level}</dd>
           <dt>{t("buildingInspector.status")}</dt>
-          <dd data-testid="building-status">{STATUS_NAMES[building.status] ?? building.status}</dd>
+          <dd data-building-status={building.status} data-testid="building-status">
+            {statusLabel(building.status)}
+          </dd>
           {building.serviceId !== 0 && (
             <>
               <dt>{t("buildingInspector.capacity")}</dt>
               <dd data-testid="building-capacity">{building.capacityTotal}</dd>
               <dt>{t("buildingInspector.effectiveness")}</dt>
-              <dd data-testid="building-effectiveness">
-                {(building.effectivenessPermille / 10).toFixed(0)}%
+              <dd
+                data-effectiveness-band={effectivenessBand(building.effectivenessPermille)}
+                data-testid="building-effectiveness-readout"
+              >
+                <span data-testid="building-effectiveness">
+                  {(building.effectivenessPermille / 10).toFixed(0)}%
+                </span>{" "}
+                <span data-testid="building-effectiveness-label">
+                  {t(
+                    `buildingInspector.effectiveness.${effectivenessBand(building.effectivenessPermille)}`,
+                  )}
+                </span>
               </dd>
             </>
           )}
