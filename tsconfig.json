@@ -36,6 +36,9 @@
     },
     {
       "path": "tools/progression-report"
+    },
+    {
+      "path": "tools/playtest-report"
     }
   ]
 }
