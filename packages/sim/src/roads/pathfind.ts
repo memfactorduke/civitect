@@ -9,7 +9,7 @@
  * the priority queue and landmark selection break on node index — same
  * graph + same query ⇒ same path, bit for bit (ADR-005).
  */
-import { edgesOf, otherEnd, ROAD_CLASS_SPEC, RoadClass, type RoadGraph } from "./graph";
+import { edgesOf, isqrt, otherEnd, ROAD_CLASS_SPEC, RoadClass, type RoadGraph } from "./graph";
 
 const INF = 0xffffffff;
 
@@ -240,7 +240,11 @@ function refresh(g: RoadGraph, pf: Pathfinder): void {
 function euclidCostFloor(g: RoadGraph, from: number, to: number): number {
   const dx = (g.nodeX[from] as number) - (g.nodeX[to] as number);
   const dy = (g.nodeY[from] as number) - (g.nodeY[to] as number);
-  const milli = Math.floor(Math.sqrt(dx * dx + dy * dy) * 1000);
+  // Integer floor-sqrt (shared with graph.ts) so this A* heuristic is
+  // bit-identical across JS engines — the float Math.sqrt(N)*1000 could floor
+  // differently on JSC (WebKit/iOS) vs V8, flipping an A* tie-break and the
+  // chosen route. (Latent sibling of #208's graph.ts fix; no golden tripped it.)
+  const milli = isqrt((dx * dx + dy * dy) * 1_000_000);
   return Math.floor((milli * 1000) / MAX_SPEED);
 }
 
