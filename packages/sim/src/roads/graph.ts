@@ -213,7 +213,7 @@ export function edgeBetween(g: RoadGraph, a: number, b: number): number {
  * converges to the UNIQUE exact floor on every engine, so edge lengths are
  * bit-identical Node/Chromium/WebKit (ADR-005 cross-engine determinism).
  */
-function isqrt(n: number): number {
+export function isqrt(n: number): number {
   if (n <= 0) return 0;
   let x = Math.floor(Math.sqrt(n)); // fast seed; may be off by 1 either way
   while (x * x > n) x--;
