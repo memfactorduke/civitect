@@ -4,7 +4,7 @@
  * mask, so a city that leaves it off is byte-identical (the district hash-equal-
  * to-idle proof in districts.test covers that) — here we prove the ON direction.
  */
-import { CommandType, Policy, ZoneKind } from "@civitect/protocol";
+import { CommandType, Policy, ReportLineKind, ZoneKind } from "@civitect/protocol";
 import { beforeAll, describe, expect, it } from "vitest";
 import { computeDemand } from "../growth/demand";
 import { aggregates } from "../growth/system";
@@ -118,4 +118,28 @@ describe("policies move their modeled outcome (phase-6 task 3)", () => {
     expect(free.serviceFlows.sickened).toBeGreaterThan(0);
     expect(healthy.serviceFlows.sickened).toBeLessThan(free.serviceFlows.sickened);
   });
+});
+
+describe("policy upkeep — programs cost money (phase-6 task 3, GDD §11)", () => {
+  const SEED = 31337;
+  const MONTH_DAYS = 31; // past one monthly close (30 days), so upkeep bills
+  const su = ReportLineKind.serviceUpkeep - 1;
+
+  it("a program policy (clean-industry) bills monthly upkeep vs an identical free town", () => {
+    const free = town(SEED, MONTH_DAYS, idleTick); // district painted, no policy
+    const clean = town(SEED, MONTH_DAYS, setPolicy(Policy.cleanIndustry));
+    // Buildings already cost upkeep, so serviceUpkeep is negative for both...
+    expect(free.economy.lastMonthCents[su] as number).toBeLessThan(0);
+    // ...and the clean-industry PROGRAM makes it more negative (its pollution
+    // cut has no serviceUpkeep effect — only the upkeep does), so it is a net
+    // cost to the treasury.
+    expect(clean.economy.lastMonthCents[su] as number).toBeLessThan(
+      free.economy.lastMonthCents[su] as number,
+    );
+    expect(clean.fundsCents).toBeLessThan(free.fundsCents);
+  });
+  // Regulatory levers (bans, congestion charge) carry no upkeep by construction
+  // — they're absent from the upkeep tables. A behavioral "free" assertion would
+  // be confounded (e.g. the high-rise ban lowers funds via less TAX, not fees),
+  // so the definitional guarantee stands without a fragile test.
 });
