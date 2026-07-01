@@ -20,10 +20,15 @@ export interface DistrictState {
   rows: District[];
   /** City-wide ordinance bits (the globally-applied policy subset). */
   ordinanceMask: number;
+  /** DERIVED change-counter (never hashed/saved): bumped on any paint/policy/
+   *  ordinance edit so the traffic layer knows to reindex the congestion charge
+   *  the SAME tick the command lands (task 3 epoch fence). Only equality vs the
+   *  traffic layer's chargeEpoch matters, so it resets to 0 on load. */
+  policyEpoch: number;
 }
 
 export function createDistricts(): DistrictState {
-  return { rows: [], ordinanceMask: 0 };
+  return { rows: [], ordinanceMask: 0, policyEpoch: 0 };
 }
 
 /** Grow the rows so district `id` (1–63) exists, defaulting new ones. */

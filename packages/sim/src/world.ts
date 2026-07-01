@@ -22,6 +22,7 @@ import {
   MAX_STOPS,
   type MonthlyReport,
   POLICY_BITS,
+  Policy,
   RejectionReason,
   ReportLineKind,
   SERVICE_BUDGET_MAX_PERMILLE,
@@ -155,6 +156,7 @@ import {
 } from "./services/pollution";
 import { buildCells, CELL_TILES } from "./traffic/assignment";
 import {
+  applyCongestionCharge,
   applyFreight,
   createTraffic,
   type FreightTrip,
@@ -1214,6 +1216,8 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
           layer[y * world.mapWidth + x] = cmd.districtId;
         }
       }
+      // Repaint moves the district→tile mapping ⇒ reindex the congestion charge.
+      world.districts.policyEpoch++;
       return null;
     }
     case CommandType.nameDistrict: {
@@ -1228,10 +1232,19 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       if (cmd.districtId < 1 || cmd.districtId > MAX_DISTRICTS || cmd.policy >= POLICY_BITS) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
       }
+      // The congestion charge is a late-game lever (GDD §11) — gated on the
+      // congestion-pricing milestone, like loans (takeLoan precedent).
+      if (
+        cmd.policy === Policy.congestionCharge &&
+        !isUnlocked(world.economy, Unlock.congestionPricing)
+      ) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.notUnlocked };
+      }
       ensureDistrict(world.districts, cmd.districtId);
       const row = world.districts.rows[cmd.districtId - 1] as { policyMask: number };
       const bit = 1 << cmd.policy;
       row.policyMask = cmd.on ? row.policyMask | bit : row.policyMask & ~bit;
+      world.districts.policyEpoch++;
       return null;
     }
     case CommandType.setOrdinance: {
@@ -1242,6 +1255,7 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
       world.districts.ordinanceMask = cmd.on
         ? world.districts.ordinanceMask | bit
         : world.districts.ordinanceMask & ~bit;
+      world.districts.policyEpoch++;
       return null;
     }
     case CommandType.setDistrictTax: {
@@ -1403,6 +1417,29 @@ export function recomputeFreight(world: World): void {
   applyFreight(world.traffic, freight, world.roads, nodeForTile);
 }
 
+/** Congestion charge surcharge as a permille of an edge's free-flow cost. [TUNE] */
+const CONGESTION_CHARGE_PERMILLE = 800;
+
+/**
+ * Reindex the congestion charge (task 3) into the traffic cost field. Like
+ * recomputeFreight, the charge is DERIVED (never saved), so a loaded world must
+ * rebuild it from the SAVED district layer + policyMask BEFORE its first solve,
+ * and it is re-applied the same tick a policy/paint command lands (the epoch
+ * fence) — otherwise a mid-hour toggle would diverge on load (the 4b failure
+ * class). Inert until the congestion-pricing milestone unlocks.
+ */
+export function recomputeCongestionCharge(world: World): void {
+  const active = isUnlocked(world.economy, Unlock.congestionPricing);
+  const bit = 1 << Policy.congestionCharge;
+  applyCongestionCharge(
+    world.traffic,
+    world.roads,
+    world.mapWidth,
+    active ? (tileIdx) => (policyMaskAtTile(world, tileIdx) & bit) !== 0 : () => false,
+    active ? CONGESTION_CHARGE_PERMILLE : 0,
+  );
+}
+
 /**
  * Run one tick. `commands` must all be stamped for the current tick — the
  * caller (worker shell / replay) owns routing-by-tick; the sim owns order
@@ -1555,6 +1592,15 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // restart (it would break build∘undo ≡ identity; note in TDD §6.3).
   if (world.traffic.graphVersion !== world.roads.version) {
     refreshTrafficDerived(world.traffic, world.roads);
+    // The twin was rebuilt — reindex the congestion charge against it (task 3).
+    recomputeCongestionCharge(world);
+    world.traffic.chargeEpoch = world.districts.policyEpoch;
+  } else if (world.traffic.chargeEpoch !== world.districts.policyEpoch) {
+    // A policy/paint command landed THIS tick — re-apply the charge now (not at
+    // the next hour), matching the immediate recompute on load, so a mid-hour
+    // toggle can't diverge on load (the 4b failure class).
+    recomputeCongestionCharge(world);
+    world.traffic.chargeEpoch = world.districts.policyEpoch;
   }
   // goods chain (GDD §8, board task 3) — runs on the hour, on the canonical
   // TWIN so its money/arrival decisions reproduce after load. Daily
