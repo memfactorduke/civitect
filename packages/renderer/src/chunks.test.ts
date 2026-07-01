@@ -7,6 +7,7 @@ import {
   chunkTiles,
   dirtyChunks,
   terrainTint,
+  visibleChunks,
 } from "./chunks";
 
 describe("chunk math (TDD §8: 32×32-tile chunks)", () => {
@@ -53,6 +54,25 @@ describe("chunk math (TDD §8: 32×32-tile chunks)", () => {
         { x: CHUNK_TILES, y: 0 }, // chunk 1
       ]),
     ).toEqual([0, 1, 3]);
+  });
+
+  it("culls visible chunks from exact and fractional tile viewports", () => {
+    const layout = chunkLayout(96, 96);
+    expect(visibleChunks(layout, 96, 96, { x0: 0, y0: 0, x1: 32, y1: 32 })).toEqual([0]);
+    expect(visibleChunks(layout, 96, 96, { x0: 31.25, y0: 31.5, x1: 32.1, y1: 32.25 })).toEqual([
+      0, 1, 3, 4,
+    ]);
+    expect(visibleChunks(layout, 96, 96, { x0: 10, y0: 40, x1: 80, y1: 70 })).toEqual([
+      3, 4, 5, 6, 7, 8,
+    ]);
+  });
+
+  it("clips visible chunk culling to the real map bounds", () => {
+    const layout = chunkLayout(40, 40);
+    expect(visibleChunks(layout, 40, 40, { x0: -100, y0: -100, x1: 1, y1: 1 })).toEqual([0]);
+    expect(visibleChunks(layout, 40, 40, { x0: 39, y0: 39, x1: 80, y1: 80 })).toEqual([3]);
+    expect(visibleChunks(layout, 40, 40, { x0: 40, y0: 0, x1: 80, y1: 32 })).toEqual([]);
+    expect(visibleChunks(layout, 40, 40, { x0: 0, y0: 40, x1: 32, y1: 80 })).toEqual([]);
   });
 
   it("tints water over resources over elevation, clamping the ramp", () => {

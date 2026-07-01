@@ -65,6 +65,38 @@ export function dirtyChunks(
   return [...ids].sort((a, b) => a - b);
 }
 
+/**
+ * Distinct chunk ids overlapping a visible tile rect. The rect may be
+ * fractional or spill outside the map; culling clips it before addressing
+ * chunks so off-map camera space never schedules chunk work.
+ */
+export function visibleChunks(
+  layout: ChunkLayout,
+  mapWidth: number,
+  mapHeight: number,
+  rect: TileRect,
+): number[] {
+  const x0 = Math.max(0, Math.floor(rect.x0));
+  const y0 = Math.max(0, Math.floor(rect.y0));
+  const x1 = Math.min(mapWidth, Math.ceil(rect.x1));
+  const y1 = Math.min(mapHeight, Math.ceil(rect.y1));
+  if (x1 <= x0 || y1 <= y0 || layout.count === 0) {
+    return [];
+  }
+
+  const minChunkX = Math.floor(x0 / CHUNK_TILES);
+  const minChunkY = Math.floor(y0 / CHUNK_TILES);
+  const maxChunkX = Math.floor((x1 - 1) / CHUNK_TILES);
+  const maxChunkY = Math.floor((y1 - 1) / CHUNK_TILES);
+  const ids: number[] = [];
+  for (let cy = minChunkY; cy <= maxChunkY; cy++) {
+    for (let cx = minChunkX; cx <= maxChunkX; cx++) {
+      ids.push(cy * layout.chunksX + cx);
+    }
+  }
+  return ids;
+}
+
 /** Elevation ramp, low→high [TUNE placeholder until terrain art]. */
 const ELEVATION_RAMP = [0x2e4639, 0x3a5743, 0x49684c, 0x5b7a55, 0x70885c, 0x869a66, 0x9cab72];
 const WATER = 0x2b4a66;
