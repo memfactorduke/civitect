@@ -48,6 +48,9 @@ export const CommandType = {
   addStop: 23,
   removeStop: 24,
   setLineVehicles: 25,
+  /** Phase 6 districts task 2 (GDD §11): per-district per-zone tax override,
+   *  0 = clear/inherit the city rate. The first real district policy hook. */
+  setDistrictTax: 26,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -311,6 +314,15 @@ export interface SetOrdinanceCommand extends CommandBase {
   readonly on: number;
 }
 
+export interface SetDistrictTaxCommand extends CommandBase {
+  readonly type: typeof CommandType.setDistrictTax;
+  readonly districtId: number;
+  /** Zone 1–6 (ZoneKind). */
+  readonly zone: number;
+  /** Override rate permille (TAX_MIN..TAX_MAX), or 0 to inherit the city rate. */
+  readonly permille: number;
+}
+
 /** Transit modes (GDD §9 full set). Append-only. */
 export const TransitMode = {
   bus: 1,
@@ -387,7 +399,8 @@ export type Command =
   | DeleteLineCommand
   | AddStopCommand
   | RemoveStopCommand
-  | SetLineVehiclesCommand;
+  | SetLineVehiclesCommand
+  | SetDistrictTaxCommand;
 
 export const RejectionReason = {
   outOfBounds: 1,
@@ -486,6 +499,9 @@ export function encodeCommandBody(w: ByteWriter, cmd: Command): void {
       break;
     case CommandType.setLineVehicles:
       w.u16(cmd.lineId).u16(cmd.vehicles).u16(cmd.headwayTicks);
+      break;
+    case CommandType.setDistrictTax:
+      w.u8(cmd.districtId).u8(cmd.zone).u16(cmd.permille);
       break;
   }
 }
@@ -688,6 +704,23 @@ export function decodeCommandBody(r: ByteReader): Command {
         vehicles: r.u16(),
         headwayTicks: r.u16(),
       };
+    case CommandType.setDistrictTax: {
+      const districtId = r.u8();
+      const zone = r.u8();
+      const permille = r.u16();
+      if (districtId < 1 || districtId > MAX_DISTRICTS) {
+        throw new DecodeError(`districtId ${districtId} exceeds ${MAX_DISTRICTS}`);
+      }
+      if (zone < 1 || zone > 6) {
+        throw new DecodeError(`tax zone ${zone} out of range`);
+      }
+      if (permille !== 0 && (permille < TAX_MIN_PERMILLE || permille > TAX_MAX_PERMILLE)) {
+        throw new DecodeError(
+          `tax override ${permille} out of [${TAX_MIN_PERMILLE},${TAX_MAX_PERMILLE}]`,
+        );
+      }
+      return { seq, tick, type: CommandType.setDistrictTax, districtId, zone, permille };
+    }
     default:
       throw new DecodeError(`unknown CommandType ${type}`);
   }

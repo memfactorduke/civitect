@@ -184,6 +184,9 @@ export interface CloseInputs {
   readonly roads: RoadGraph;
   readonly serviceBudgetsPermille: Uint16Array;
   readonly landValueAt: (tileIdx: number) => number;
+  /** Effective tax rate for a tile+zone: a district override supersedes the
+   *  passed city rate (GDD §11, task 2). Identity ⇒ city rate everywhere. */
+  readonly taxRateAt: (tileIdx: number, zoneIdx: number, cityRate: number) => number;
 }
 
 export interface CloseResult {
@@ -230,7 +233,9 @@ export function accumulateClose(economy: EconomyState, inputs: CloseInputs): num
     if (occupants === 0) {
       continue;
     }
-    const rate = economy.taxRatesPermille[zoneIndex(kind)] as number;
+    const zi = zoneIndex(kind);
+    const cityRate = economy.taxRatesPermille[zi] as number;
+    const rate = inputs.taxRateAt(b.tileIdx[i] as number, zi, cityRate);
     const lv = inputs.landValueAt(b.tileIdx[i] as number);
     // tax = base × occupants × level ×(rate/90)×(lv/100), floored stepwise.
     let tax = base * occupants * level;

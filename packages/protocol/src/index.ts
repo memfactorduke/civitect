@@ -69,6 +69,7 @@ export {
   SERVICE_ID_LIST,
   type SelectTileCommand,
   ServiceId,
+  type SetDistrictTaxCommand,
   type SetLineVehiclesCommand,
   type SetOrdinanceCommand,
   type SetPolicyCommand,

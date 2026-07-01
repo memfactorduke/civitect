@@ -19,4 +19,7 @@
 // v12: Phase 5 economy interface — overlay ids 10–14 (land value +
 // pollutions), tax/loan commands, snapshot monthly-report + milestone
 // blocks, tile landValue (GDD §6/§8/§13).
-export const PROTOCOL_VERSION = 14;
+// v14: Phase 6 transit interface — createLine/…/setLineVehicles, TransitMode.
+// v15: Phase 6 districts task 2 — setDistrictTax (per-district per-zone tax
+// override, GDD §11 first policy hook).
+export const PROTOCOL_VERSION = 15;
