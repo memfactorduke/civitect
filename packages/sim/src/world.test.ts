@@ -157,20 +157,21 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   // district block + ordinance mask (P6 task 1 — empty worlds append a zeroed
   // districts block, again no behavior change), the transit block (P6 task 1b —
   // empty worlds append nextLineId=1 + zero lines, again no behavior change:
-  // transit is dormant without any line).
+  // transit is dormant without any line), and the economy report arrays grew
+  // 13→14 (P6 task 4c transitFare — a zeroed 14th accumulator, no behavior).
 
   it("fresh world, seed 1234", () => {
-    expect(stateHash(createWorld(1234))).toBe("90d15819a7f4e308");
+    expect(stateHash(createWorld(1234))).toBe("b7a162b15f485488");
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("72e3ad00caa7a40d");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("61b0aa0a0ad8efcd");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("d152ca295d6beb97");
+    expect(stateHash(world)).toBe("f7fdb052d1b609d7");
   });
 });
 

@@ -216,6 +216,9 @@ export const ReportLineKind = {
   tourism: 11,
   bailout: 12,
   construction: 13,
+  /** Transit fare income (Phase 6 task 4c, GDD §9). Upkeep folds into
+   *  serviceUpkeep; this is the rider-fare income line. Append-only. */
+  transitFare: 14,
 } as const;
 export type ReportLineKind = (typeof ReportLineKind)[keyof typeof ReportLineKind];
 

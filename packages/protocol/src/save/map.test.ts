@@ -156,8 +156,8 @@ describe("map files (.civmap)", () => {
       economy: {
         taxRatesPermille: new Uint16Array(6).fill(90),
         loans: [],
-        monthAccumCents: new Array(13).fill(0),
-        lastMonthCents: new Array(13).fill(0),
+        monthAccumCents: new Array(14).fill(0),
+        lastMonthCents: new Array(14).fill(0),
         milestoneIndex: 0,
         achievements: new Uint8Array(8),
         uniquesMask: 0,

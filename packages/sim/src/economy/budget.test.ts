@@ -291,3 +291,37 @@ describe("district tax override (phase-6 task 2, GDD §11)", () => {
     expect(world.districts.rows[0]?.taxOverridePermille[0]).toBe(0);
   });
 });
+
+describe("transit economics (phase-6 task 4c, GDD §9)", () => {
+  it("fares book to the monthly report and conserve (funds delta ≡ Σ lines)", () => {
+    const world = createWorld(31337);
+    world.fundsCents += 100_000_000_00; // ample — keep the close bailout-free
+    const cmd = cmdRunner(world);
+    cmd({ type: CommandType.buildRoad, ax: 4, ay: 20, bx: 50, by: 20, roadClass: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 5, y: 21, building: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 6, y: 21, building: 2 });
+    cmd({ type: CommandType.zoneRect, x0: 8, y0: 18, x1: 24, y1: 19, zone: 1 }); // R
+    cmd({ type: CommandType.zoneRect, x0: 34, y0: 21, x1: 48, y1: 22, zone: 5 }); // I
+    cmd({ type: CommandType.createLine, lineId: 1, mode: 1, color: 0, name: "Bus" });
+    cmd({ type: CommandType.addStop, lineId: 1, tileIdx: 20 * 64 + 12 }); // by R
+    cmd({ type: CommandType.addStop, lineId: 1, tileIdx: 20 * 64 + 44 }); // by I
+    cmd({ type: CommandType.setLineVehicles, lineId: 1, vehicles: 4, headwayTicks: 30 });
+    // Grow to the first close, then measure the SECOND month.
+    while (world.tick < TICKS_PER_MONTH) runTick(world, []);
+    runTick(world, []); // close 1
+    const fundsAfterClose1 = world.fundsCents;
+    while (world.tick < 2 * TICKS_PER_MONTH) runTick(world, []);
+    runTick(world, []); // close 2
+    const lines = world.economy.lastMonthCents;
+    expect(lines[ReportLineKind.transitFare - 1] as number).toBeGreaterThan(0); // riders paid
+    expect(world.transit.lines[0]?.costCents).toBeGreaterThan(0); // vehicle upkeep booked
+    expect(world.transit.lines[0]?.riders).toBe(0); // reset after the close
+    // Conservation: month-2 funds delta ≡ Σ its report lines (no mid-month
+    // construction, so the close's lines are the whole delta).
+    let net = 0;
+    for (const c of lines) {
+      net += c as number;
+    }
+    expect(world.fundsCents - fundsAfterClose1).toBe(net);
+  });
+});

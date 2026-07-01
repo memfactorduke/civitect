@@ -141,3 +141,74 @@ export function transitSplit(trips: number, cCar: number, cTransit: number): num
   const ratio = cCar === 0 ? 4000 : Math.floor((cTransit * 1000) / cCar);
   return Math.floor((trips * transitShareFromRatio(ratio)) / 1000);
 }
+
+// ── economics (task 4c) ──────────────────────────────────────────────────────
+/** Fare per boarding, cents, by TransitMode (1..7; [0] unused). [TUNE] */
+const FARE_CENTS: readonly number[] = [0, 1_50, 1_75, 2_50, 3_00, 4_00, 3_50, 15_00];
+/** Monthly upkeep per vehicle, cents, by TransitMode. [TUNE] */
+const UPKEEP_CENTS_PER_VEHICLE: readonly number[] = [
+  0, 800_00, 1_500_00, 4_000_00, 5_000_00, 3_000_00, 2_500_00, 20_000_00,
+];
+
+export function fareCentsFor(mode: number): number {
+  return FARE_CENTS[mode] ?? FARE_CENTS[1] ?? 1_50;
+}
+export function upkeepCentsFor(mode: number): number {
+  return UPKEEP_CENTS_PER_VEHICLE[mode] ?? UPKEEP_CENTS_PER_VEHICLE[1] ?? 800_00;
+}
+
+/** Cell fields the attribution needs (a subset of the traffic Cell). */
+interface DemandCell {
+  readonly cx: number;
+  readonly cy: number;
+  readonly workers: number;
+  readonly jobs: number;
+}
+
+/**
+ * Attribute a solve's total transit ridership to lines by SERVED-DEMAND WEIGHT
+ * (each line's covered worker+job mass) — cheap (no routing) and deterministic,
+ * split by largest-remainder so Σ = totalRidden exactly. Returns per-lineIndex
+ * rider counts. Coarser than a per-OD split, but the right fidelity for fares.
+ */
+export function attributeRidership(
+  service: TransitService,
+  cells: readonly DemandCell[],
+  totalRidden: number,
+): Map<number, number> {
+  const out = new Map<number, number>();
+  if (totalRidden <= 0 || service.routes.length === 0) {
+    return out;
+  }
+  let totalWeight = 0;
+  const weights = service.routes.map((route) => {
+    let weight = 0;
+    for (const cell of cells) {
+      if (nearestStopWalk(route, cell.cx, cell.cy) !== -1) {
+        weight += cell.workers + cell.jobs;
+      }
+    }
+    totalWeight += weight;
+    return { lineIndex: route.lineIndex, weight };
+  });
+  if (totalWeight === 0) {
+    return out;
+  }
+  let allocated = 0;
+  const shares = weights.map((w) => {
+    const exact = totalRidden * w.weight;
+    const base = Math.floor(exact / totalWeight);
+    allocated += base;
+    return { lineIndex: w.lineIndex, base, rem: exact % totalWeight };
+  });
+  shares.sort((a, b) => b.rem - a.rem || a.lineIndex - b.lineIndex);
+  for (let k = 0; k < totalRidden - allocated && k < shares.length; k++) {
+    (shares[k] as { base: number }).base++;
+  }
+  for (const s of shares) {
+    if (s.base > 0) {
+      out.set(s.lineIndex, s.base);
+    }
+  }
+  return out;
+}

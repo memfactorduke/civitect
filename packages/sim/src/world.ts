@@ -153,6 +153,7 @@ import {
   sewageBalance,
   waterFor,
 } from "./services/pollution";
+import { buildCells, CELL_TILES } from "./traffic/assignment";
 import {
   applyFreight,
   createTraffic,
@@ -165,6 +166,12 @@ import {
   type TrafficCore,
   trafficToSave,
 } from "./traffic/solver";
+import {
+  attributeRidership,
+  buildTransitService,
+  fareCentsFor,
+  upkeepCentsFor,
+} from "./transit/modechoice";
 import { createTransit, lineById, type TransitState } from "./transit/transit";
 
 /** GDD §13: pause / 1× / 3× / 9× [TUNE]. The value IS the multiplier, not an index. */
@@ -1478,7 +1485,22 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
         return override !== 0 ? override : cityRate;
       },
     });
-    world.fundsCents += net;
+    // Transit economics (task 4c, GDD §9): fares (riders × per-mode fare) book
+    // to transitFare, vehicle upkeep folds into serviceUpkeep. Both join `net`
+    // so money conservation (funds delta ≡ Σ report lines) holds; riders reset
+    // for the next month. fareCents/costCents keep the last month's figures.
+    let transitNet = 0;
+    for (const line of world.transit.lines) {
+      const fare = line.riders * fareCentsFor(line.mode);
+      const upkeep = line.vehicles * upkeepCentsFor(line.mode);
+      accumulate(world.economy, ReportLineKind.transitFare, fare);
+      accumulate(world.economy, ReportLineKind.serviceUpkeep, -upkeep);
+      line.fareCents = fare;
+      line.costCents = upkeep;
+      line.riders = 0;
+      transitNet += fare - upkeep;
+    }
+    world.fundsCents += net + transitNet;
     // Failure pressure (GDD §2): one bailout per city, then receivership.
     // The check runs BEFORE the report freezes, so a granted bailout shows
     // up in the month that needed it (pillar 2: the report explains).
@@ -1574,6 +1596,23 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
       world.transit,
     )
   ) {
+    // Attribute this solve's transit ridership to lines (task 4c): line.riders
+    // accumulates the month's boardings, booked to fares at the monthly close.
+    if (world.transit.lines.length > 0 && world.traffic.ridden > 0) {
+      const cells = buildCells(
+        world.buildings,
+        world.traffic.twin,
+        world.mapWidth,
+        world.mapHeight,
+      );
+      const service = buildTransitService(world.transit, world.mapWidth, CELL_TILES);
+      for (const [lineIndex, riders] of attributeRidership(service, cells, world.traffic.ridden)) {
+        const line = world.transit.lines[lineIndex];
+        if (line !== undefined) {
+          line.riders += riders;
+        }
+      }
+    }
     // Congestion consequences are never just red lines (GDD §9 [LOCKED]):
     // the worst saturated edge gets a diagnosable advisor whose cause
     // chain names the EDGE and its midpoint TILE [TUNE threshold 150%].
