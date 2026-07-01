@@ -22,4 +22,6 @@
 // v14: Phase 6 transit interface — createLine/…/setLineVehicles, TransitMode.
 // v15: Phase 6 districts task 2 — setDistrictTax (per-district per-zone tax
 // override, GDD §11 first policy hook).
-export const PROTOCOL_VERSION = 15;
+// v16: Phase 6 transit task 4c — transitFare ReportLineKind (per-line fare
+// income books to the monthly report, GDD §9).
+export const PROTOCOL_VERSION = 16;

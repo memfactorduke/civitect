@@ -34,6 +34,7 @@ import { migrateSectionsV7toV8 } from "./migrations/v7_v8";
 import { migrateSectionsV8toV9 } from "./migrations/v8_v9";
 import { migrateSectionsV9toV10 } from "./migrations/v9_v10";
 import { migrateSectionsV10toV11 } from "./migrations/v10_v11";
+import { migrateSectionsV11toV12 } from "./migrations/v11_v12";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -332,7 +333,7 @@ function decodeBuildings(bytes: Uint8Array): BuildingRow[] {
 
 const SERVICE_COUNT = 9;
 const ZONE_COUNT = 6;
-const REPORT_KINDS = 13;
+const REPORT_KINDS = 14;
 const MAX_LOANS = 3;
 const COMMODITY_KINDS = 6;
 
@@ -905,6 +906,9 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   }
   if (header.formatVersion <= 10) {
     sections = migrateSectionsV10toV11(sections, { transit: SectionId.networks });
+  }
+  if (header.formatVersion <= 11) {
+    sections = migrateSectionsV11toV12(sections, { economy: SectionId.economy });
   }
 
   const terrainRaw = sections.get(SectionId.terrain);

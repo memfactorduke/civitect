@@ -28,6 +28,7 @@ const V8_PATH = join(FIXTURES_DIR, "v8", "empty-world-y1.civ");
 const V9_PATH = join(FIXTURES_DIR, "v9", "empty-world-y1.civ");
 const V10_PATH = join(FIXTURES_DIR, "v10", "empty-world-y1.civ");
 const V11_PATH = join(FIXTURES_DIR, "v11", "empty-world-y1.civ");
+const V12_PATH = join(FIXTURES_DIR, "v12", "empty-world-y1.civ");
 
 /** What every pre-v9 save migrates to: no roles, empty shelves, no freight. */
 function defaultChain(): CivSave["chain"] {
@@ -56,8 +57,8 @@ function defaultEconomy(): CivSave["economy"] {
   return {
     taxRatesPermille: new Uint16Array(6).fill(90),
     loans: [],
-    monthAccumCents: new Array(13).fill(0),
-    lastMonthCents: new Array(13).fill(0),
+    monthAccumCents: new Array(14).fill(0),
+    lastMonthCents: new Array(14).fill(0),
     milestoneIndex: 0,
     achievements: new Uint8Array(8),
     uniquesMask: 0,
@@ -387,8 +388,8 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
     economy: {
       taxRatesPermille: Uint16Array.from([90, 110, 120, 95, 140, 80]),
       loans: [{ principalCents: 50_000_00, monthlyPaymentCents: 1_250_00, monthsLeft: 44 }],
-      monthAccumCents: [100, -200, 300, 0, -50, 0, 0, 0, 0, 0, 0, 0, 0],
-      lastMonthCents: [90, -180, 250, 0, -40, 0, 0, 0, 0, 0, 0, 0, 0],
+      monthAccumCents: [100, -200, 300, 0, -50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      lastMonthCents: [90, -180, 250, 0, -40, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       milestoneIndex: 3,
       achievements: Uint8Array.from([0b101, 0, 0, 0, 0, 0, 0, 0b1000_0000]),
       uniquesMask: 0b1010,
@@ -567,22 +568,45 @@ describe("fixture-save archive (ADR-010: old saves load forever)", () => {
     },
   };
 
-  if (process.env.SEED_FIXTURES === "1" && !existsSync(V11_PATH)) {
-    it("seeds the v11 fixture (first time only)", async () => {
-      mkdirSync(dirname(V11_PATH), { recursive: true });
-      writeFileSync(V11_PATH, await encodeCiv(V11_SAVE));
-      expect(existsSync(V11_PATH)).toBe(true);
+  it("v11 fixture loads forever — economy grows to 14 report kinds (transitFare), provenance preserved", async () => {
+    if (!existsSync(V11_PATH)) {
+      throw new Error(`fixture missing: ${V11_PATH}`);
+    }
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V11_PATH)));
+    // The v11 economy carried 13 report arrays; v12 injects a trailing 0
+    // (transitFare), which V11_SAVE's economy now also shows.
+    expect(decoded).toEqual(V11_SAVE);
+    expect(decoded.header.formatVersion).toBe(11);
+  });
+
+  // The v12 fixture carries a NON-DEFAULT economy with a nonzero transitFare
+  // (report kind 14) — so the codec's new report slot is the archived contract.
+  const V12_SAVE: CivSave = {
+    ...V11_SAVE,
+    header: { ...V11_SAVE.header, formatVersion: 12 },
+    economy: {
+      ...V11_SAVE.economy,
+      monthAccumCents: [100, -200, 300, 0, -50, 0, 0, 0, 0, 0, 0, 0, 0, 4_200],
+      lastMonthCents: [90, -180, 250, 0, -40, 0, 0, 0, 0, 0, 0, 0, 0, 3_900],
+    },
+  };
+
+  if (process.env.SEED_FIXTURES === "1" && !existsSync(V12_PATH)) {
+    it("seeds the v12 fixture (first time only)", async () => {
+      mkdirSync(dirname(V12_PATH), { recursive: true });
+      writeFileSync(V12_PATH, await encodeCiv(V12_SAVE));
+      expect(existsSync(V12_PATH)).toBe(true);
     });
   }
 
   it(`v${SAVE_FORMAT_VERSION} fixture decodes to its archived world, bit-faithfully`, async () => {
-    if (!existsSync(V11_PATH)) {
+    if (!existsSync(V12_PATH)) {
       throw new Error(
-        `fixture missing: ${V11_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
+        `fixture missing: ${V12_PATH} — run SEED_FIXTURES=1 pnpm test and commit the file`,
       );
     }
-    const decoded = await decodeCiv(new Uint8Array(readFileSync(V11_PATH)));
-    expect(decoded).toEqual(V11_SAVE);
+    const decoded = await decodeCiv(new Uint8Array(readFileSync(V12_PATH)));
+    expect(decoded).toEqual(V12_SAVE);
   });
 });
 

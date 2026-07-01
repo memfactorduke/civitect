@@ -157,7 +157,7 @@ export interface EconomyState {
   bailoutUsed: number;
 }
 
-export const REPORT_KINDS = 13;
+export const REPORT_KINDS = 14;
 
 export function createEconomy(difficulty = 1): EconomyState {
   return {
