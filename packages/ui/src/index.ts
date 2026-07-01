@@ -17,6 +17,7 @@ export { formatCount, formatFundsCents, formatSignedCents } from "./format";
 export { Hud } from "./Hud";
 export { type I18nKey, t } from "./i18n";
 export { MilestoneToast } from "./MilestoneToast";
+export { OrdinancePanel } from "./OrdinancePanel";
 export { Overlay } from "./Overlay";
 export { OverlayPicker } from "./OverlayPicker";
 export { ReportPanel } from "./ReportPanel";

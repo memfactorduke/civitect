@@ -12,6 +12,7 @@ import { DemandPanel } from "./DemandPanel";
 import { type DispatchFn, DispatchProvider } from "./dispatch";
 import { Hud } from "./Hud";
 import { MilestoneToast } from "./MilestoneToast";
+import { OrdinancePanel } from "./OrdinancePanel";
 import { OverlayPicker } from "./OverlayPicker";
 import { ReportPanel } from "./ReportPanel";
 import { RoadInspector } from "./RoadInspector";
@@ -32,6 +33,7 @@ export function Overlay(props: {
       <MilestoneToast store={props.store} />
       <DemandPanel store={props.store} />
       <BudgetPanel />
+      <OrdinancePanel />
       <TaxLoanPanel store={props.store} />
       <ReportPanel store={props.store} />
       {props.onSelectOverlay !== undefined && <OverlayPicker onSelect={props.onSelectOverlay} />}
