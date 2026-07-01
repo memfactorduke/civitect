@@ -4,7 +4,7 @@
  * loans, exactly, month after month (ADR-005 §2: integer cents, ADR-013
  * §2: money conservation).
  */
-import { BuildingKind, CommandType, ReportLineKind } from "@civitect/protocol";
+import { BuildingKind, CommandType, RejectionReason, ReportLineKind } from "@civitect/protocol";
 import { describe, expect, it } from "vitest";
 import { createWorld, runTick, stateHash, type World } from "../world";
 import {
@@ -222,5 +222,72 @@ describe("tax pressure reaches demand (GDD §8: >12% suppresses)", () => {
     const sum = (d: typeof base.lastDemand) =>
       (d.factors[0] as number) + (d.factors[1] as number) + (d.factors[2] as number);
     expect(sum(soaked.lastDemand)).toBe(soaked.lastDemand.r);
+  });
+});
+
+describe("district tax override (phase-6 task 2, GDD §11)", () => {
+  const RES_LINE = ReportLineKind.taxResidential - 1;
+  // The residential block taxTown() zones: y 10..12, x 8..40.
+  const paintRes = (world: World) =>
+    cmdRunner(world)({
+      type: CommandType.paintDistrict,
+      x0: 8,
+      y0: 10,
+      x1: 40,
+      y1: 12,
+      districtId: 1,
+    });
+
+  it("a district override supersedes the city rate inside it (revenue, not demand)", () => {
+    // Two identical towns; the override changes only the tax CLOSE (demand reads
+    // the city rate), so growth stays identical and revenue isolates the override.
+    const base = taxTown();
+    const overridden = taxTown();
+    paintRes(overridden);
+    cmdRunner(overridden)({
+      type: CommandType.setDistrictTax,
+      districtId: 1,
+      zone: 1,
+      permille: 180,
+    });
+    for (let t = 0; t < TICKS_PER_MONTH + 10; t++) {
+      runTick(base, []);
+      runTick(overridden, []);
+    }
+    const baseR = base.economy.lastMonthCents[RES_LINE] as number;
+    const overR = overridden.economy.lastMonthCents[RES_LINE] as number;
+    expect(baseR).toBeGreaterThan(0); // the town actually taxes R (not vacuous)
+    expect(overR).toBeGreaterThan(baseR); // the override lifted R revenue
+    expect(overridden.population).toBe(base.population); // growth untouched
+  });
+
+  it("a painted district with no override (0) taxes exactly like no district", () => {
+    const base = taxTown();
+    const painted = taxTown();
+    paintRes(painted); // override stays 0 = inherit the city rate
+    for (let t = 0; t < TICKS_PER_MONTH + 10; t++) {
+      runTick(base, []);
+      runTick(painted, []);
+    }
+    expect(painted.economy.lastMonthCents[RES_LINE]).toBe(base.economy.lastMonthCents[RES_LINE]);
+  });
+
+  it("rejects out-of-range district tax commands without writing an override", () => {
+    const world = taxTown();
+    const cmd = cmdRunner(world);
+    paintRes(world);
+    for (const bad of [
+      { districtId: 0, zone: 1, permille: 100 }, // id < 1
+      { districtId: 64, zone: 1, permille: 100 }, // id > MAX_DISTRICTS
+      { districtId: 1, zone: 0, permille: 100 }, // zone < 1
+      { districtId: 1, zone: 7, permille: 100 }, // zone > 6
+      { districtId: 1, zone: 1, permille: 5 }, // below TAX_MIN and != 0
+      { districtId: 1, zone: 1, permille: 999 }, // above TAX_MAX
+    ]) {
+      const rej = cmd({ type: CommandType.setDistrictTax, ...bad });
+      expect(rej).toHaveLength(1);
+      expect(rej[0]?.reason).toBe(RejectionReason.invalidTarget);
+    }
+    expect(world.districts.rows[0]?.taxOverridePermille[0]).toBe(0);
   });
 });

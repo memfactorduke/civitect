@@ -205,6 +205,16 @@ export const loanCommandArb: fc.Arbitrary<Command> = fc.record({
   tier: fc.integer({ min: 1, max: 3 }),
 }) as fc.Arbitrary<Command>;
 
+export const setDistrictTaxCommandArb: fc.Arbitrary<Command> = fc.record({
+  seq: u32Arb,
+  tick: tickArb,
+  type: fc.constant(CommandType.setDistrictTax),
+  districtId: fc.integer({ min: 1, max: 63 }),
+  zone: fc.constantFrom(1, 2, 3, 4, 5, 6),
+  // 0 = clear/inherit; else a valid override rate.
+  permille: fc.oneof(fc.constant(0), fc.integer({ min: 10, max: 290 })),
+}) as fc.Arbitrary<Command>;
+
 export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   selectTileCommandArb,
   setSpeedCommandArb,
@@ -220,6 +230,7 @@ export const commandArb: fc.Arbitrary<Command> = fc.oneof(
   setServiceBudgetCommandArb,
   setTaxRateCommandArb,
   loanCommandArb,
+  setDistrictTaxCommandArb,
 );
 
 export const rejectionArb: fc.Arbitrary<CommandRejection> = fc.record({

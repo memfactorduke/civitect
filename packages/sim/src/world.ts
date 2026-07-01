@@ -29,6 +29,8 @@ import {
   SERVICE_COUNT,
   SERVICE_ID_LIST,
   type ServiceId,
+  TAX_MAX_PERMILLE,
+  TAX_MIN_PERMILLE,
   TERRAIN_LAYER_NAMES,
   type TerrainGrid,
   TransitMode,
@@ -1228,6 +1230,22 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
         : world.districts.ordinanceMask & ~bit;
       return null;
     }
+    case CommandType.setDistrictTax: {
+      // Per-district per-zone tax override (GDD §11, task 2). 0 clears/inherits.
+      if (
+        cmd.districtId < 1 ||
+        cmd.districtId > MAX_DISTRICTS ||
+        cmd.zone < 1 ||
+        cmd.zone > 6 ||
+        (cmd.permille !== 0 && (cmd.permille < TAX_MIN_PERMILLE || cmd.permille > TAX_MAX_PERMILLE))
+      ) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      ensureDistrict(world.districts, cmd.districtId);
+      const row = world.districts.rows[cmd.districtId - 1] as { taxOverridePermille: Uint16Array };
+      row.taxOverridePermille[cmd.zone - 1] = cmd.permille;
+      return null;
+    }
     case CommandType.createLine: {
       // Line config is canonical (GDD §9); vehicles/mode-choice are task 4.
       if (
@@ -1448,6 +1466,17 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
       roads: world.roads,
       serviceBudgetsPermille: world.services.budgetsPermille,
       landValueAt: (tileIdx) => landValueAtTile(world, tileIdx),
+      // District tax override (GDD §11, task 2): a nonzero per-zone override on
+      // the tile's district supersedes the city rate; 0 or no district inherits.
+      taxRateAt: (tileIdx, zoneIdx, cityRate) => {
+        const did = world.terrain.layers.district[tileIdx] ?? 0;
+        if (did === 0) {
+          return cityRate;
+        }
+        const row = world.districts.rows[did - 1];
+        const override = row === undefined ? 0 : (row.taxOverridePermille[zoneIdx] ?? 0);
+        return override !== 0 ? override : cityRate;
+      },
     });
     world.fundsCents += net;
     // Failure pressure (GDD §2): one bailout per city, then receivership.
