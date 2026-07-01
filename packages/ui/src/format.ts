@@ -12,7 +12,7 @@ const usd = new Intl.NumberFormat("en-US", {
 
 const count = new Intl.NumberFormat("en-US");
 
-/** Integer cents → whole-currency display ("$1,235" from 123456). */
+/** Integer cents → whole-currency display ("$1,234" from 123456). */
 export function formatFundsCents(fundsCents: number): string {
   return usd.format(Math.trunc(fundsCents / 100));
 }
