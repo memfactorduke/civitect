@@ -4,7 +4,7 @@
  * decodeCiv → civToWorld). The Playwright spec covers the same loop through
  * the real worker boundary observably; this test proves bit-equality.
  */
-import { CommandType, decodeCiv, encodeCiv, flatTerrain } from "@civitect/protocol";
+import { CommandType, decodeCiv, encodeCiv, flatTerrain, Policy } from "@civitect/protocol";
 import { replay, runTick, stateHash } from "@civitect/sim";
 import { describe, expect, it } from "vitest";
 import { BOOT } from "./boot-config";
@@ -77,6 +77,64 @@ describe("save → load → state-hash-equal (TDD §10)", () => {
     // Continue both across several hour boundaries (where freight prices new
     // shipments): they must stay bit-identical.
     for (let i = 0; i < 200; i++) {
+      runTick(world, []);
+      runTick(restored, []);
+    }
+    expect(stateHash(restored)).toBe(stateHash(world));
+  });
+
+  it("a MID-HOUR congestion-charge toggle resumes identically WITH ACTIVE FREIGHT (task 3, 4b-class guard)", async () => {
+    // chargeByKey is DERIVED (not saved) and folds into the same hashed cost
+    // field freight routes on. A setPolicy landing mid-hour must not let a
+    // loaded world reroute freight differently than a never-stopped one — the
+    // adversarial-review blocker. MUST use an ACTIVE goods chain (border roads +
+    // R/I/C): a dormant chain hides the bug (the empty-freight corpus trap).
+    let seq = 0;
+    const cmd = (tick: number, c: object) => ({ seq: seq++, tick, ...c }) as unknown;
+    const log = [
+      cmd(0, { type: CommandType.buildRoad, ax: 0, ay: 8, bx: 63, by: 8, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 0, ay: 32, bx: 63, by: 32, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 8, ay: 0, bx: 8, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 32, ay: 0, bx: 32, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 56, ay: 0, bx: 56, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.placeBuilding, x: 33, y: 9, building: 1 }), // power
+      cmd(0, { type: CommandType.placeBuilding, x: 35, y: 9, building: 2 }), // water
+      cmd(0, { type: CommandType.zoneRect, x0: 10, y0: 10, x1: 30, y1: 30, zone: 1 }), // R
+      cmd(0, { type: CommandType.zoneRect, x0: 34, y0: 10, x1: 54, y1: 30, zone: 5 }), // I
+      cmd(0, { type: CommandType.zoneRect, x0: 10, y0: 34, x1: 30, y1: 54, zone: 3 }), // C
+      // A cordon over the industrial quarter that freight routes cross.
+      cmd(0, { type: CommandType.paintDistrict, x0: 33, y0: 9, x1: 56, y1: 33, districtId: 1 }),
+    ] as Parameters<typeof replay>[1];
+    const { world } = replay(BOOT.seed, log, 7200, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+      startingFundsCents: 100_000_000_00,
+    });
+    expect(world.chain.shipments.length).toBeGreaterThan(0); // freight is LIVE
+    world.economy.milestoneIndex = 8; // unlock congestion pricing
+    while (world.traffic.job === null) {
+      runTick(world, []); // advance until a solve job is in flight
+    }
+    runTick(world, []); // one more slice — firmly mid-solve, mid-hour
+    expect(world.traffic.job).not.toBeNull();
+    // Toggle the charge ON mid-hour, mid-solve, with trucks en route.
+    runTick(world, [
+      {
+        seq: seq++,
+        tick: world.tick,
+        type: CommandType.setPolicy,
+        districtId: 1,
+        policy: Policy.congestionCharge,
+        on: 1,
+      } as never,
+    ]);
+    expect(world.districts.rows[0]?.policyMask).toBe(1 << Policy.congestionCharge);
+    // Save/load at the mid-solve tick: bit-equal immediately...
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(stateHash(world));
+    // ...and identical across this solve, several hour boundaries (freight +
+    // chain re-price) and two full days.
+    for (let i = 0; i < 1440 * 2; i++) {
       runTick(world, []);
       runTick(restored, []);
     }

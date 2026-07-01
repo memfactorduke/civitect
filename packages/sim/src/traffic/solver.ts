@@ -136,6 +136,15 @@ export interface TrafficCore {
   freightGenerated: number;
   freightAssigned: number;
   freightUnroutable: number;
+  /** Congestion charge (Phase 6 task 3): per canonical edge, a precomputed
+   *  integer surcharge folded into twinCosts so driving through a charged
+   *  district costs more (shifts commuters to transit). DERIVED — never hashed
+   *  or saved (like freightVolumes); recomputed from the SAVED district layer +
+   *  policyMask on load + on any policy/paint edit (the epoch fence below). */
+  chargeByKey: Map<string, number>;
+  /** districts.policyEpoch the charge was last reindexed against — the fence
+   *  that re-applies the charge the SAME tick a policy/paint command lands. */
+  chargeEpoch: number;
 }
 
 /** One freight movement to route on the network (trucks = OD volume unit). */
@@ -175,7 +184,12 @@ function retimeTraffic(core: TrafficCore, g: RoadGraph): void {
       continue;
     }
     const load = (core.canonVolumes.get(key) ?? 0) + (core.freightVolumes.get(key) ?? 0);
-    core.twinCosts[e] = bprCost(edgeCost(twin, e), load, twin.edgeCapacity_[e] as number);
+    const base = bprCost(edgeCost(twin, e), load, twin.edgeCapacity_[e] as number);
+    // Congestion charge (task 3): a precomputed surcharge on charged-district
+    // edges. size===0 (no charge active) ⇒ base exactly — byte-identical, so
+    // every charge-free city (all goldens) is unaffected.
+    core.twinCosts[e] =
+      core.chargeByKey.size === 0 ? base : base + (core.chargeByKey.get(key) ?? 0);
   }
   core.costHash = costFieldHash(twin, core.twinCosts);
   core.volumes = new Uint32Array(g.edgeCount);
@@ -231,7 +245,18 @@ export function applyFreight(
   let assigned = 0;
   for (const from of [...byOrigin.keys()].sort((a, b) => a - b)) {
     const dests = byOrigin.get(from) as { to: number; trucks: number }[];
-    const tree = dijkstraTree(twin, from, (e) => core.twinCosts[e] as number);
+    // Freight routes on the BASE congestion, subtracting the passenger
+    // congestion charge (task 3) — so freight routing is charge-INDEPENDENT and
+    // therefore load-invariant: a mid-hour charge toggle (applied to twinCosts
+    // by the epoch fence, but recomputed only on the hour + on load for freight)
+    // cannot reroute trucks differently on a never-stopped vs a loaded world.
+    // [TODO: charge-aware freight would fold the charge back in AND have the
+    // fence recompute freight the same tick the charge lands.]
+    const tree = dijkstraTree(twin, from, (e) => {
+      const key = core.twinSlotKeys[e] ?? null;
+      const charge = key === null ? 0 : (core.chargeByKey.get(key) ?? 0);
+      return (core.twinCosts[e] as number) - charge;
+    });
     for (const { to, trucks } of dests) {
       if ((tree.dist[to] as number) === 0xffffffff) {
         unroutable += trucks;
@@ -253,6 +278,48 @@ export function applyFreight(
   core.freightGenerated = generated;
   core.freightAssigned = assigned;
   core.freightUnroutable = unroutable;
+  retimeTraffic(core, g);
+}
+
+/**
+ * Reindex the congestion charge (Phase 6 task 3) and fold it into the cost
+ * field. `chargedAt(tileIdx)` — supplied by the sim — is true for a tile inside
+ * a charged district; the surcharge is free-flow-proportional (load-independent,
+ * so it precomputes to a constant per edge and never double-counts the BPR
+ * congestion term). Keyed by canonical edge id (survives the twin rebuild) and
+ * DERIVED, so it is recomputed on load, exactly like freight. An edge is charged
+ * by its MIDPOINT tile's district. chargePermille 0 (or no charged tile) leaves
+ * an empty map ⇒ retime yields base costs, byte-identical to no charge.
+ */
+export function applyCongestionCharge(
+  core: TrafficCore,
+  g: RoadGraph,
+  mapWidth: number,
+  chargedAt: (tileIdx: number) => boolean,
+  chargePermille: number,
+): void {
+  const twin = core.twin;
+  const charge = new Map<string, number>();
+  if (chargePermille > 0) {
+    for (let e = 0; e < twin.edgeCount; e++) {
+      const key = core.twinSlotKeys[e] ?? null;
+      if (key === null) {
+        continue;
+      }
+      const midX =
+        ((twin.nodeX[twin.edgeA[e] as number] as number) +
+          (twin.nodeX[twin.edgeB[e] as number] as number)) >>
+        1;
+      const midY =
+        ((twin.nodeY[twin.edgeA[e] as number] as number) +
+          (twin.nodeY[twin.edgeB[e] as number] as number)) >>
+        1;
+      if (chargedAt(midY * mapWidth + midX)) {
+        charge.set(key, Math.floor((edgeCost(twin, e) * chargePermille) / 1000));
+      }
+    }
+  }
+  core.chargeByKey = charge;
   retimeTraffic(core, g);
 }
 
@@ -313,6 +380,8 @@ export function createTraffic(g: RoadGraph): TrafficCore {
     volumes: new Uint32Array(0),
     congestedCost: new Uint32Array(0),
     freightVolumes: new Map(),
+    chargeByKey: new Map(),
+    chargeEpoch: 0,
     freightGenerated: 0,
     freightAssigned: 0,
     freightUnroutable: 0,
@@ -496,6 +565,8 @@ export function trafficFromSave(saved: TrafficSave, g: RoadGraph): TrafficCore {
     congestedCost: new Uint32Array(0),
     // Freight is derived — recomputed at the first hourly solve after load.
     freightVolumes: new Map(),
+    chargeByKey: new Map(),
+    chargeEpoch: 0,
     freightGenerated: 0,
     freightAssigned: 0,
     freightUnroutable: 0,

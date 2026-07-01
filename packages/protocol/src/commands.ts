@@ -302,6 +302,9 @@ export const Policy = {
   industrySubsidy: 3,
   /** ordinance: public health / parks — lowers the base urban sickness rate. */
   publicHealth: 4,
+  /** perDistrict: congestion charge — tolls driving through the district
+   *  (raises car cost ⇒ shifts commuters to transit). Milestone-gated. */
+  congestionCharge: 5,
 } as const;
 export type Policy = (typeof Policy)[keyof typeof Policy];
 
