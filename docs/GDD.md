@@ -154,6 +154,8 @@ Travel times feed back into: job matching radius (§8), service effectiveness (�
 - Line editor: tap-sequence stops, color/name lines, per-line vehicle count allocation, headway and load stats, profitability per line. Transit vehicles are live agents with capacity; overcrowding shows as full vehicles skipping stops (visible problem → buy more vehicles or rethink line).
 - Walkability interacts: stop catchment via path network distance.
 
+**As-built (Phase 6, 2026-07):** the transit CORE shipped — lines (ordered stops, mode/color/name/vehicles/headway), stop-cell catchment, mode choice (transit competes with the car; a good line pulls commuters off congested roads), and per-line economics (fares in, per-mode vehicle upkeep out, at the monthly budget close). The congestion charge (GDD §11) makes transit more attractive by pricing car trips through a district. STILL TO COME: vehicle CAPACITY / overcrowding (deferred — the "buy more vehicles" loop above), the six MODES' distinct siting + costs (currently mode is a label; bus-like behaviour for all), the RENDERER transit layer (lines/vehicles/stops drawn) and the line-editor UI. So transit is fully SIMULATED and balance-testable, but not yet visible or buildable in-game — that's the playability gap (rendering = task 5, UI = task 6).
+
 ---
 
 ## 10. Pollution, health & environment
@@ -171,6 +173,8 @@ Travel times feed back into: job matching radius (§8), service effectiveness (�
 - Free-draw district painting tool; districts get names (auto-generated, renamable), stats panels, and identity.
 - **Per-district policies** (each with upkeep or tradeoff; ~22 at launch [TUNE]): education boost, free transit, smoke detectors, recycling, water restrictions, power conservation, high-rise ban, heavy-traffic ban, old-town (no trucks), parks maintenance+, small-business subsidy, industry subsidy, office incentives, tourism promotion, noise ordinance, neon ban, pet policy (flavor), school busing, bike lanes mandate, congestion charge (downtown pricing — strong lever, late unlock), tax overrides per zone, specialized-industry designation (per resource).
 - **City-wide ordinances:** a subset apply globally. Policies are the "express intent without micromanagement" layer — mid-game depth driver and the main lever differentiating districts.
+
+**As-built (Phase 6, 2026-07 — first policy slices; the ~22 list above is the 1.0 aspiration):** the painting tool, names, per-district `policyMask` + city `ordinanceMask` (both hashed+saved), and per-zone tax overrides shipped. Seven levers now move a MODELED outcome (not flavour), each a gated integer mask read that leaves a policy-free city byte-identical: **high-rise ban** (per-district, caps building level ≤3), **recycling** (ordinance, less garbage), **clean industry** (per-district, less industrial ground pollution), **industry subsidy** (ordinance, lifts I demand), **public health/parks** (ordinance, lower base sickness), **congestion charge** (per-district, tolls driving through → shifts commuters to transit; milestone-gated at 30k), **heavy-traffic/truck ban** (per-district, freight detours around it). The four "program" levers (recycling, industry subsidy, public health, clean industry) bill a **monthly upkeep** to the budget — the cost-vs-benefit tradeoff; regulatory levers (bans, charge) are free by construction. Deferred: education boost, free transit, bike lanes, tourism promotion, noise/neon/pet flavour, specialized-industry designation, and the rest.
 
 ---
 
