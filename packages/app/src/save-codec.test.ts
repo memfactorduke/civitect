@@ -345,3 +345,39 @@ describe("transit through the save pipeline (save format v11, phase-6 task 1b)",
     expect(restored.transit.nextLineId).toBe(3);
   });
 });
+
+describe("an ACTIVE transit line through the save pipeline (task 4a mode choice)", () => {
+  it("a city with riders round-trips bit-exactly and keeps splitting identically", async () => {
+    const { world } = replay(BOOT.seed, [], 1, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+    });
+    let seq = 0;
+    const cmd = (c: object) => runTick(world, [{ ...c, seq: seq++, tick: world.tick } as never]);
+    cmd({ type: CommandType.buildRoad, ax: 8, ay: 20, bx: 56, by: 20, roadClass: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 10, y: 21, building: 1 });
+    cmd({ type: CommandType.placeBuilding, x: 12, y: 21, building: 2 });
+    cmd({ type: CommandType.zoneRect, x0: 13, y0: 18, x1: 40, y1: 19, zone: 1 });
+    cmd({ type: CommandType.zoneRect, x0: 41, y0: 21, x1: 55, y1: 22, zone: 5 });
+    cmd({ type: CommandType.createLine, lineId: 1, mode: 1, color: 0, name: "L" });
+    cmd({ type: CommandType.addStop, lineId: 1, tileIdx: 20 * BOOT.mapWidth + 20 });
+    cmd({ type: CommandType.addStop, lineId: 1, tileIdx: 20 * BOOT.mapWidth + 50 });
+    cmd({ type: CommandType.setLineVehicles, lineId: 1, vehicles: 4, headwayTicks: 30 });
+    // Grow, then stop just after a completed 08:00 peak solve (riders on the line).
+    for (let t = 0; t < 1440 * 8; t++) runTick(world, []);
+    while (world.tick % 1440 !== 8 * 60) runTick(world, []);
+    while (world.traffic.job !== null) runTick(world, []);
+    expect(world.traffic.ridden).toBeGreaterThan(0); // the run is transit-active
+
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(stateHash(world)); // ridden derives back identically
+
+    // Both keep re-splitting identically across the next day's solves — the
+    // post-load mode choice is a pure function of restored state (no drift).
+    for (let i = 0; i < 1440; i++) {
+      runTick(world, []);
+      runTick(restored, []);
+    }
+    expect(stateHash(restored)).toBe(stateHash(world));
+  });
+});

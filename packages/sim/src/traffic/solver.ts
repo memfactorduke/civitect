@@ -41,10 +41,13 @@ import {
   type RoadGraph,
 } from "../roads/graph";
 import { dijkstraTree, edgeCost } from "../roads/pathfind";
+import { buildTransitService } from "../transit/modechoice";
+import type { TransitState } from "../transit/transit";
 import {
   assignOriginCell,
   bprCost,
   buildCells,
+  CELL_TILES,
   type Cell,
   type ConservationLedger,
   costFieldHash,
@@ -92,10 +95,12 @@ export interface TrafficCore {
   canonVolumes: Map<string, number>;
   /** MSA steps since the last full solve, capped at MSA_K_CAP. Canonical. */
   msaK: number;
-  /** Last completed pass's conservation ledger. Canonical. */
+  /** Last completed pass's conservation ledger. Canonical (generated/assigned/
+   *  walked/unroutable hashed+saved; `ridden` is derived from them, task 4). */
   generated: number;
   assigned: number;
   walked: number;
+  ridden: number;
   unroutable: number;
   job: SolveJob | null;
   // ── derived (rebuilt on edit/finalize/load — never hashed or saved) ──
@@ -297,6 +302,7 @@ export function createTraffic(g: RoadGraph): TrafficCore {
     generated: 0,
     assigned: 0,
     walked: 0,
+    ridden: 0,
     unroutable: 0,
     job: null,
     graphVersion: g.version,
@@ -321,7 +327,7 @@ export function startSolveJob(core: TrafficCore, kind: SolveKind): void {
     passIndex: 0,
     cursor: 0,
     aon: new Map(),
-    ledger: { generated: 0, assigned: 0, walked: 0, unroutable: 0 },
+    ledger: { generated: 0, assigned: 0, walked: 0, ridden: 0, unroutable: 0 },
   };
 }
 
@@ -337,6 +343,7 @@ export function stepSolveJob(
   mapWidth: number,
   mapHeight: number,
   hourOfDay = 8, // peak default keeps direct-driven tests meaningful
+  transit: TransitState | null = null,
 ): boolean {
   const job = core.job;
   if (job === null) {
@@ -347,6 +354,8 @@ export function stepSolveJob(
   // each origin is processed once per pass).
   const twin = core.twin;
   const cells = buildCells(buildings, twin, mapWidth, mapHeight);
+  // Transit reduced to cell-space once per slice (cheap: lines × stops).
+  const service = transit === null ? null : buildTransitService(transit, mapWidth, CELL_TILES);
   let totalJobs = 0;
   for (const cell of cells) {
     totalJobs += cell.jobs;
@@ -371,6 +380,7 @@ export function stepSolveJob(
       addVolume,
       job.ledger,
       demandPermille,
+      service,
     );
   }
   if (job.cursor < cells.length) {
@@ -394,13 +404,14 @@ export function stepSolveJob(
   core.generated = job.ledger.generated;
   core.assigned = job.ledger.assigned;
   core.walked = job.ledger.walked;
+  core.ridden = job.ledger.ridden;
   core.unroutable = job.ledger.unroutable;
 
   if (job.passIndex + 1 < passes) {
     job.passIndex++;
     job.cursor = 0;
     job.aon = new Map();
-    job.ledger = { generated: 0, assigned: 0, walked: 0, unroutable: 0 };
+    job.ledger = { generated: 0, assigned: 0, walked: 0, ridden: 0, unroutable: 0 };
     return false;
   }
   core.msaK = job.kind === SolveKind.full ? 1 : k;
@@ -472,6 +483,8 @@ export function trafficFromSave(saved: TrafficSave, g: RoadGraph): TrafficCore {
     generated: saved.generated,
     assigned: saved.assigned,
     walked: saved.walked,
+    // Derived from the saved four (task 4) — never persisted separately.
+    ridden: saved.generated - saved.assigned - saved.walked - saved.unroutable,
     unroutable: saved.unroutable,
     job: null,
     graphVersion: g.version,
@@ -499,6 +512,7 @@ export function trafficFromSave(saved: TrafficSave, g: RoadGraph): TrafficCore {
         generated: j.generated,
         assigned: j.assigned,
         walked: j.walked,
+        ridden: j.generated - j.assigned - j.walked - j.unroutable,
         unroutable: j.unroutable,
       },
     };

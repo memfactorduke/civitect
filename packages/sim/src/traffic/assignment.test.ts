@@ -52,6 +52,32 @@ function grownWorld(seed: number, days: number): World {
   return world;
 }
 
+/**
+ * A grown R→I commute town, optionally with a bus down the corridor, advanced
+ * to a COMPLETED 08:00 peak solve — the traffic ledger reflects one hour, so
+ * mode-share must be read at the peak, not at whatever hour growth ended on.
+ */
+function peakCommuteCity(withLine: boolean, days = 8): World {
+  const world = createWorld(7);
+  let seq = 0;
+  const cmd = (c: object) => runTick(world, [{ ...c, seq: seq++, tick: world.tick } as never]);
+  cmd({ type: CommandType.buildRoad, ax: 8, ay: 20, bx: 56, by: 20, roadClass: 1 });
+  cmd({ type: CommandType.placeBuilding, x: 10, y: 21, building: 1 }); // power
+  cmd({ type: CommandType.placeBuilding, x: 12, y: 21, building: 2 }); // water
+  cmd({ type: CommandType.zoneRect, x0: 13, y0: 18, x1: 40, y1: 19, zone: 1 }); // R (west)
+  cmd({ type: CommandType.zoneRect, x0: 41, y0: 21, x1: 55, y1: 22, zone: 5 }); // I (east)
+  if (withLine) {
+    cmd({ type: CommandType.createLine, lineId: 1, mode: 1, color: 0, name: "L" });
+    cmd({ type: CommandType.addStop, lineId: 1, tileIdx: 20 * 64 + 20 }); // by R
+    cmd({ type: CommandType.addStop, lineId: 1, tileIdx: 20 * 64 + 50 }); // by I
+    cmd({ type: CommandType.setLineVehicles, lineId: 1, vehicles: 4, headwayTicks: 30 });
+  }
+  for (let t = 0; t < 1440 * days; t++) runTick(world, []);
+  while (world.tick % 1440 !== 8 * 60) runTick(world, []); // to 08:00
+  while (world.traffic.job !== null) runTick(world, []); // finish the peak solve
+  return world;
+}
+
 describe("traffic assignment (GDD §9, Phase 3 tranche 1)", () => {
   it("CONSERVATION: generated ≡ assigned + walked + unroutable (property — exit criterion)", () => {
     fc.assert(
@@ -65,11 +91,39 @@ describe("traffic assignment (GDD §9, Phase 3 tranche 1)", () => {
           // growth-luck-dependent at 3 days (CI counterexample: seed 2, days 3
           // grew a city with zero employed commuters at the final hourly
           // solve) — and is pinned deterministically in the seed-7 test below.
-          expect(t.generated).toBe(t.assigned + t.walked + t.unroutable);
+          expect(t.generated).toBe(t.assigned + t.walked + t.ridden + t.unroutable);
         },
       ),
       { numRuns: 8 }, // each run simulates days of city time
     );
+  });
+
+  it("MODE CHOICE (task 4a): a competitive line pulls commuters off the road", () => {
+    // Same seed + city; the only difference is a bus down the commute corridor.
+    const noLine = peakCommuteCity(false).traffic;
+    const withLine = peakCommuteCity(true).traffic;
+    // Conservation still exact, now including the transit bucket.
+    expect(withLine.generated).toBe(
+      withLine.assigned + withLine.walked + withLine.ridden + withLine.unroutable,
+    );
+    // The line carried real riders...
+    expect(withLine.ridden).toBeGreaterThan(0);
+    // ...and every one came OFF the car assignment: walk/unroutable/generated
+    // are demand-side and IDENTICAL — the line only competes with the car.
+    expect(withLine.generated).toBe(noLine.generated);
+    expect(withLine.walked).toBe(noLine.walked);
+    expect(withLine.unroutable).toBe(noLine.unroutable);
+    expect(withLine.assigned).toBe(noLine.assigned - withLine.ridden);
+    expect(noLine.ridden).toBe(0); // no line ⇒ nobody rides (transit-free = as before)
+  });
+
+  it("MODE CHOICE is deterministic: same city + line ⇒ identical ledger", () => {
+    const a = peakCommuteCity(true, 6).traffic;
+    const b = peakCommuteCity(true, 6).traffic;
+    expect(b.ridden).toBe(a.ridden);
+    expect(b.assigned).toBe(a.assigned);
+    expect(b.generated).toBe(a.generated);
+    expect(a.ridden).toBeGreaterThan(0); // the run was transit-active, not vacuous
   });
 
   it("assigned trips put volume on edges; congestion raises travel times", () => {
