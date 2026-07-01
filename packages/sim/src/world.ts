@@ -1444,6 +1444,7 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     flows: world.flows,
     taxRatesPermille: world.economy.taxRatesPermille,
     policyMaskAt: (tileIdx: number) => policyMaskAtTile(world, tileIdx),
+    ordinanceMask: world.districts.ordinanceMask,
     resourceAt: (tileIdx: number) => world.terrain.layers.resource[tileIdx] as number,
     chain: world.chain,
   };
@@ -1793,7 +1794,11 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // pollution/landValue(dirty regions)— land value v1 derives on demand
   // HUD/demand reuse the same scan (one tick of staleness on spawn counts
   // is deterministic and invisible at city scale).
-  world.lastDemand = computeDemand(agg, world.economy.taxRatesPermille);
+  world.lastDemand = computeDemand(
+    agg,
+    world.economy.taxRatesPermille,
+    world.districts.ordinanceMask,
+  );
   // Population must be EXACT (the conservation exit criterion holds at
   // every tick): the aggregate scan ran before growth, so add this tick's
   // flow deltas — flows are the only paths residents enter or leave by.
