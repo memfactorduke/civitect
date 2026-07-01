@@ -14,6 +14,7 @@
     "wall": "depcruise packages e2e tools --config .dependency-cruiser.cjs",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "demo": "vitest run --reporter=basic packages/sim/src/citydemo.test.ts",
     "gate:golden": "pnpm --filter @civitect/e2e golden",
     "gate:balance": "pnpm --filter @civitect/e2e balance",
     "gate:perf": "pnpm --filter @civitect/e2e perf",
