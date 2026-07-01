@@ -40,6 +40,14 @@ export const CommandType = {
   nameDistrict: 18,
   setPolicy: 19,
   setOrdinance: 20,
+  /** Phase 6 transit (GDD §9): create/delete a line, add/remove a stop, set
+   *  the per-line vehicle count + headway. The line id is UI-chosen (like a
+   *  district id) and the sim validates it. */
+  createLine: 21,
+  deleteLine: 22,
+  addStop: 23,
+  removeStop: 24,
+  setLineVehicles: 25,
 } as const;
 export type CommandType = (typeof CommandType)[keyof typeof CommandType];
 
@@ -303,6 +311,57 @@ export interface SetOrdinanceCommand extends CommandBase {
   readonly on: number;
 }
 
+/** Transit modes (GDD §9 full set). Append-only. */
+export const TransitMode = {
+  bus: 1,
+  tram: 2,
+  metro: 3,
+  rail: 4,
+  freightRail: 5,
+  ferry: 6,
+  airport: 7,
+} as const;
+export type TransitMode = (typeof TransitMode)[keyof typeof TransitMode];
+export const MAX_LINES = 1024;
+/** Per-line stop cap. `stops.length` is a u16 on both the hash and save wire
+ *  (stateHash + encodeTransit); this keeps an accepted addStop stream from ever
+ *  driving a line un-hashable/un-saveable. Generous vs any real transit line. */
+export const MAX_STOPS = 1024;
+
+export interface CreateLineCommand extends CommandBase {
+  readonly type: typeof CommandType.createLine;
+  readonly lineId: number;
+  readonly mode: number;
+  /** 0xRRGGBB line colour. */
+  readonly color: number;
+  readonly name: string;
+}
+
+export interface DeleteLineCommand extends CommandBase {
+  readonly type: typeof CommandType.deleteLine;
+  readonly lineId: number;
+}
+
+export interface AddStopCommand extends CommandBase {
+  readonly type: typeof CommandType.addStop;
+  readonly lineId: number;
+  readonly tileIdx: number;
+}
+
+export interface RemoveStopCommand extends CommandBase {
+  readonly type: typeof CommandType.removeStop;
+  readonly lineId: number;
+  /** Index into the line's stop list. */
+  readonly stopIndex: number;
+}
+
+export interface SetLineVehiclesCommand extends CommandBase {
+  readonly type: typeof CommandType.setLineVehicles;
+  readonly lineId: number;
+  readonly vehicles: number;
+  readonly headwayTicks: number;
+}
+
 export type Command =
   | SelectTileCommand
   | SetSpeedCommand
@@ -323,7 +382,12 @@ export type Command =
   | PaintDistrictCommand
   | NameDistrictCommand
   | SetPolicyCommand
-  | SetOrdinanceCommand;
+  | SetOrdinanceCommand
+  | CreateLineCommand
+  | DeleteLineCommand
+  | AddStopCommand
+  | RemoveStopCommand
+  | SetLineVehiclesCommand;
 
 export const RejectionReason = {
   outOfBounds: 1,
@@ -407,6 +471,21 @@ export function encodeCommandBody(w: ByteWriter, cmd: Command): void {
       break;
     case CommandType.setOrdinance:
       w.u8(cmd.ordinance).u8(cmd.on);
+      break;
+    case CommandType.createLine:
+      w.u16(cmd.lineId).u8(cmd.mode).u32(cmd.color).str(cmd.name);
+      break;
+    case CommandType.deleteLine:
+      w.u16(cmd.lineId);
+      break;
+    case CommandType.addStop:
+      w.u16(cmd.lineId).u32(cmd.tileIdx);
+      break;
+    case CommandType.removeStop:
+      w.u16(cmd.lineId).u16(cmd.stopIndex);
+      break;
+    case CommandType.setLineVehicles:
+      w.u16(cmd.lineId).u16(cmd.vehicles).u16(cmd.headwayTicks);
       break;
   }
 }
@@ -584,6 +663,31 @@ export function decodeCommandBody(r: ByteReader): Command {
       }
       return { seq, tick, type: CommandType.setOrdinance, ordinance, on };
     }
+    case CommandType.createLine: {
+      const lineId = r.u16();
+      const mode = r.u8();
+      const color = r.u32();
+      const name = r.str();
+      if (mode < TransitMode.bus || mode > TransitMode.airport) {
+        throw new DecodeError(`unknown TransitMode ${mode}`);
+      }
+      return { seq, tick, type: CommandType.createLine, lineId, mode, color, name };
+    }
+    case CommandType.deleteLine:
+      return { seq, tick, type: CommandType.deleteLine, lineId: r.u16() };
+    case CommandType.addStop:
+      return { seq, tick, type: CommandType.addStop, lineId: r.u16(), tileIdx: r.u32() };
+    case CommandType.removeStop:
+      return { seq, tick, type: CommandType.removeStop, lineId: r.u16(), stopIndex: r.u16() };
+    case CommandType.setLineVehicles:
+      return {
+        seq,
+        tick,
+        type: CommandType.setLineVehicles,
+        lineId: r.u16(),
+        vehicles: r.u16(),
+        headwayTicks: r.u16(),
+      };
     default:
       throw new DecodeError(`unknown CommandType ${type}`);
   }

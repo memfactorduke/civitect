@@ -18,6 +18,8 @@ import {
   EntityKind,
   flatTerrain,
   MAX_DISTRICTS,
+  MAX_LINES,
+  MAX_STOPS,
   type MonthlyReport,
   POLICY_BITS,
   RejectionReason,
@@ -29,6 +31,7 @@ import {
   type ServiceId,
   TERRAIN_LAYER_NAMES,
   type TerrainGrid,
+  TransitMode,
   ZoneKind,
 } from "@civitect/protocol";
 import {
@@ -160,6 +163,7 @@ import {
   type TrafficCore,
   trafficToSave,
 } from "./traffic/solver";
+import { createTransit, lineById, type TransitState } from "./transit/transit";
 
 /** GDD §13: pause / 1× / 3× / 9× [TUNE]. The value IS the multiplier, not an index. */
 export const SIM_SPEEDS: readonly number[] = [0, 1, 3, 9];
@@ -240,6 +244,9 @@ export interface World {
   /** Districts (GDD §11) — per-district metadata, CANONICAL (v10 DISTRICTS);
    *  the per-tile paint rides the terrain district layer. */
   districts: DistrictState;
+  /** Transit network (GDD §9) — lines + per-line ledgers, CANONICAL (v11
+   *  TRANSIT); vehicles + mode choice are a derived projection (task 4). */
+  transit: TransitState;
   /** Last close's report, drained by toSnapshot (transient, like advisors). */
   pendingReport: MonthlyReport | null;
   /** Live-agent projection (ADR-002) — derived, never hashed or saved. */
@@ -375,6 +382,7 @@ export function createWorld(
     economy: createEconomy(),
     chain: createChain(),
     districts: createDistricts(),
+    transit: createTransit(),
     pendingReport: null,
     agents: createAgentPool(seed),
     viewport: null,
@@ -1220,6 +1228,71 @@ function applyCommand(world: World, cmd: Command): CommandRejection | null {
         : world.districts.ordinanceMask & ~bit;
       return null;
     }
+    case CommandType.createLine: {
+      // Line config is canonical (GDD §9); vehicles/mode-choice are task 4.
+      if (
+        cmd.lineId < 1 ||
+        cmd.lineId >= MAX_LINES ||
+        cmd.mode < TransitMode.bus ||
+        cmd.mode > TransitMode.airport ||
+        lineById(world.transit, cmd.lineId) !== undefined
+      ) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      world.transit.lines.push({
+        id: cmd.lineId,
+        mode: cmd.mode,
+        color: cmd.color,
+        name: cmd.name,
+        stops: [],
+        vehicles: 0,
+        headwayTicks: 0,
+        riders: 0,
+        costCents: 0,
+        fareCents: 0,
+      });
+      world.transit.nextLineId = Math.max(world.transit.nextLineId, cmd.lineId + 1);
+      return null;
+    }
+    case CommandType.deleteLine: {
+      const idx = world.transit.lines.findIndex((l) => l.id === cmd.lineId);
+      if (idx === -1) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      world.transit.lines.splice(idx, 1);
+      return null;
+    }
+    case CommandType.addStop: {
+      const line = lineById(world.transit, cmd.lineId);
+      // Cap the stop list: stops.length is a u16 on the hash + save wire, so an
+      // uncapped accepted addStop stream could drive a line un-hashable (adversarial-review fix).
+      if (
+        line === undefined ||
+        cmd.tileIdx >= world.mapWidth * world.mapHeight ||
+        line.stops.length >= MAX_STOPS
+      ) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      line.stops.push(cmd.tileIdx);
+      return null;
+    }
+    case CommandType.removeStop: {
+      const line = lineById(world.transit, cmd.lineId);
+      if (line === undefined || cmd.stopIndex >= line.stops.length) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      line.stops.splice(cmd.stopIndex, 1);
+      return null;
+    }
+    case CommandType.setLineVehicles: {
+      const line = lineById(world.transit, cmd.lineId);
+      if (line === undefined) {
+        return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.invalidTarget };
+      }
+      line.vehicles = cmd.vehicles;
+      line.headwayTicks = cmd.headwayTicks;
+      return null;
+    }
     case CommandType.placeBuilding: {
       if (!inBounds(world, cmd.x, cmd.y)) {
         return { seq: cmd.seq, tick: world.tick, reason: RejectionReason.outOfBounds };
@@ -1952,6 +2025,22 @@ export function stateHash(world: World): string {
     for (let z = 0; z < 6; z++) {
       w.u16(row.taxOverridePermille[z] as number);
     }
+  }
+  // Transit joined with Phase 6 task 1b (GDD §9). Canonical line config +
+  // per-line ledger accumulators; vehicles/mode-choice are a derived projection
+  // (task 4) and are NOT hashed. Layout mirrors encodeTransit (save/civ.ts) so
+  // the hash and the wire agree. nextLineId is canonical (persisted, kept
+  // monotone across load) so it folds too — a create-then-delete leaves it
+  // bumped, a genuinely distinct state.
+  w.u16(world.transit.nextLineId).u16(world.transit.lines.length);
+  for (const line of world.transit.lines) {
+    w.u16(line.id).u8(line.mode).u32(line.color).str(line.name);
+    w.u16(line.stops.length);
+    for (const stop of line.stops) {
+      w.u32(stop);
+    }
+    w.u16(line.vehicles).u16(line.headwayTicks);
+    w.u32(line.riders).i64(line.costCents).i64(line.fareCents);
   }
   return fnv1a64(w.finish());
 }
