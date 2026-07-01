@@ -298,8 +298,10 @@ export const Policy = {
   recycling: 1,
   /** perDistrict: scrubbers/clean-tech — less industrial ground pollution. */
   cleanIndustry: 2,
-  /** ordinance: industry subsidy — lifts industrial demand (reserved, slice 2). */
+  /** ordinance: industry subsidy — lifts industrial demand. */
   industrySubsidy: 3,
+  /** ordinance: public health / parks — lowers the base urban sickness rate. */
+  publicHealth: 4,
 } as const;
 export type Policy = (typeof Policy)[keyof typeof Policy];
 

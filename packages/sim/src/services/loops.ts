@@ -64,6 +64,8 @@ export const TRUCK_CLEAR_PER_DAY = 600;
 export const GARBAGE_TOLERANCE = 200;
 /** New sickness per day, permille of residents (pollution multiplies, task 4). */
 export const BASE_SICK_PERMILLE = 2;
+/** Base urban sickness rate under a public-health/parks ordinance (task 3). [TUNE] */
+const PUBLIC_HEALTH_SICK_PERMILLE = 1;
 /**
  * Untreated sick who shake it off per day, permille of the sick. Without
  * recovery the sick pool only grows and an unserviced town HALVES in a
@@ -403,7 +405,14 @@ export function servicesSlice(ctx: ServicesContext, tick: number): void {
       const residents = residentsOf(b, i);
       if (residents > 0) {
         // ── sickness: base urban rate + pollution pressure (GDD §10) ──
-        const rate = BASE_SICK_PERMILLE + ctx.extraSickPermille(tile);
+        // A public-health ordinance (task 3) lowers the BASE rate only — the
+        // rng draw below is unconditional, so the draw COUNT is unchanged
+        // (ADR-005 stream discipline); only the threshold moves.
+        const baseSick =
+          ctx.ordinanceMask !== undefined && (ctx.ordinanceMask & (1 << Policy.publicHealth)) !== 0
+            ? PUBLIC_HEALTH_SICK_PERMILLE
+            : BASE_SICK_PERMILLE;
+        const rate = baseSick + ctx.extraSickPermille(tile);
         const expected = residents * rate;
         let sickInc = Math.floor(expected / 1000);
         if (ctx.rng.nextBounded(1000) < expected % 1000) {

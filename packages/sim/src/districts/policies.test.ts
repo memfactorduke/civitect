@@ -112,4 +112,10 @@ describe("policies move their modeled outcome (phase-6 task 3)", () => {
     const factorSum = subsidized.factors.reduce((s, f) => s + f, 0);
     expect(factorSum).toBe(subsidized.r + subsidized.c + subsidized.i + subsidized.o);
   });
+
+  it("public-health ordinance lowers the sickness rate", () => {
+    const healthy = town(SEED, DAYS, setOrdinance(Policy.publicHealth));
+    expect(free.serviceFlows.sickened).toBeGreaterThan(0);
+    expect(healthy.serviceFlows.sickened).toBeLessThan(free.serviceFlows.sickened);
+  });
 });
