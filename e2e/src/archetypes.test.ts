@@ -59,11 +59,19 @@ describe(`archetype balance bands — ${GAME_YEARS} game-year(s) (ADR-013 §3)`,
     it(
       `${arch.name} holds its bands`,
       async () => {
+        // traffic.ridden reflects one hour's solve, so track the PEAK across
+        // the run (the end tick lands at a low-demand hour).
+        let maxRidden = 0;
         const world = await run(
           arch.seed,
           arch.commands,
           GAME_YEARS * TICKS_PER_GAME_YEAR,
           arch.startingFundsCents,
+          (w) => {
+            if (w.traffic.ridden > maxRidden) {
+              maxRidden = w.traffic.ridden;
+            }
+          },
         );
         const b = arch.bands;
         expect(world.population).toBeGreaterThanOrEqual(b.minPopulation);
@@ -73,6 +81,9 @@ describe(`archetype balance bands — ${GAME_YEARS} game-year(s) (ADR-013 §3)`,
           expect(countZone(world, b.minDominantKind.zone)).toBeGreaterThanOrEqual(
             b.minDominantKind.count,
           );
+        }
+        if (b.minRidden !== undefined) {
+          expect(maxRidden).toBeGreaterThanOrEqual(b.minRidden);
         }
       },
       GAME_YEARS * 200_000,

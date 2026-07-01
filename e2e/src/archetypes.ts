@@ -15,8 +15,9 @@ import { CommandType } from "@civitect/protocol";
 export const MAP = 64;
 export const TICKS_PER_GAME_YEAR = 525_600;
 
-/** A command minus seq/tick — the builder stamps both in declaration order. */
-type Cmd = Record<string, number>;
+/** A command minus seq/tick — the builder stamps both in declaration order.
+ *  (string values allow transit line names alongside the numeric fields.) */
+type Cmd = Record<string, number | string>;
 
 export interface Archetype {
   readonly name: string;
@@ -35,6 +36,9 @@ export interface ArchetypeBands {
   readonly minFundsCents: number;
   /** At least this many of the dominant building kind (0 = unchecked). */
   readonly minDominantKind?: { readonly zone: number; readonly count: number };
+  /** Peak transit ridership (max traffic.ridden over the run) the line must
+   *  sustain — the mode-choice tripwire (task 4a). Omitted = no assertion. [TUNE] */
+  readonly minRidden?: number;
 }
 
 function log(cmds: Cmd[]): { seq: number; tick: number }[] {
@@ -177,10 +181,44 @@ function leanBudget(): Archetype {
   };
 }
 
+/** 6 TRANSIT-FIRST CITY: housing on the west, jobs on the east, a crosstown bus
+ *  down the corridor — the signature mode-choice tripwire (task 4a). The line
+ *  must carry riders across the game-years, not just at one peak snapshot. */
+function transitFirst(): Archetype {
+  const cmds: Cmd[] = [
+    ...gridRoads(1),
+    ...power(2, 1),
+    zone(2, 2, 20, 14, 1), // R (west)
+    zone(2, 18, 20, 30, 1), // more R (west)
+    zone(44, 2, 62, 14, 5), // industrial jobs (east)
+    zone(44, 18, 62, 30, 3), // commercial jobs (east)
+    // A crosstown bus: a stop by the west housing and one by the east jobs.
+    { type: CommandType.createLine, lineId: 1, mode: 1, color: 0x2e86de, name: "Crosstown" },
+    { type: CommandType.addStop, lineId: 1, tileIdx: 16 * MAP + 8 },
+    { type: CommandType.addStop, lineId: 1, tileIdx: 16 * MAP + 56 },
+    { type: CommandType.setLineVehicles, lineId: 1, vehicles: 8, headwayTicks: 20 },
+  ];
+  return {
+    name: "transit-first-city",
+    seed: 4242,
+    startingFundsCents: 2_000_000_00,
+    commands: log(cmds),
+    bands: {
+      minPopulation: 400,
+      maxPopulation: 120_000,
+      minFundsCents: -20_000_000_00,
+      // Peak was ~1410 at 2 game-years; a loose floor that catches transit
+      // collapsing (not a fragile snapshot). [TUNE]
+      minRidden: 500,
+    },
+  };
+}
+
 export const ARCHETYPES: readonly Archetype[] = [
   rSprawl(),
   industryFreight(),
   officeEducation(),
   tourismParks(),
   leanBudget(),
+  transitFirst(),
 ];
