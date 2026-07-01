@@ -507,6 +507,13 @@ function tileIsLand(world: World, tileIdx: number): boolean {
   return (world.terrain.layers.water[tileIdx] as number) === 0;
 }
 
+/** Policy mask governing a tile (task 3): its district's policyMask, or 0 if
+ *  the tile is in no district. Pure integer read — the policy-lever primitive. */
+function policyMaskAtTile(world: World, tileIdx: number): number {
+  const did = world.terrain.layers.district[tileIdx] ?? 0;
+  return did === 0 ? 0 : (world.districts.rows[did - 1]?.policyMask ?? 0);
+}
+
 /** Within zoning depth of any road tile (the component map IS the road set). */
 function tileNearRoad(world: World, tileIdx: number): boolean {
   if (world.utilities.componentOf.length === 0) {
@@ -1436,6 +1443,7 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
     rng: world.rng.growth,
     flows: world.flows,
     taxRatesPermille: world.economy.taxRatesPermille,
+    policyMaskAt: (tileIdx: number) => policyMaskAtTile(world, tileIdx),
     resourceAt: (tileIdx: number) => world.terrain.layers.resource[tileIdx] as number,
     chain: world.chain,
   };
@@ -1678,6 +1686,8 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
           Math.floor(((world.groundPollution[tileIdx] as number) * SICK_PER_64_GROUND) / 64) +
           (crisis !== null ? SICK_WATER_CRISIS : 0),
         groundPollution: world.groundPollution,
+        ordinanceMask: world.districts.ordinanceMask,
+        policyMaskAt: (tileIdx: number) => policyMaskAtTile(world, tileIdx),
         rng: world.rng.services,
         flows: world.serviceFlows,
         emit: (messageKey, summaryKey, subjectTile, weightPermille) =>

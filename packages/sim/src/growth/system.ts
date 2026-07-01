@@ -5,7 +5,7 @@
  * lifecycle processes 1/24 of buildings each game-hour. rng.growth is the
  * only randomness (ADR-005 stream discipline).
  */
-import { ZoneKind } from "@civitect/protocol";
+import { Policy, ZoneKind } from "@civitect/protocol";
 import { type ChainState, chainRoleForSpawn } from "../economy/chain";
 import type { Pcg32 } from "../rng";
 import type { Buildings } from "./buildings";
@@ -32,6 +32,8 @@ const LIFECYCLE_SLICES = 24;
 const ABANDON_AFTER_DAYS = 2; // GDD §6 [LOCKED-ish: "2+ days"]
 const DEMOLISH_AFTER_DAYS = 30; // [TUNE]
 const LEVEL_AFTER_DAYS = 5; // sustained desirability [TUNE]
+/** Max building level in a high-rise-ban district (task 3) [TUNE]. */
+const HIGH_RISE_BAN_LEVEL_CAP = 3;
 
 export interface GrowthFlows {
   births: number;
@@ -110,6 +112,9 @@ export interface GrowthContext {
   readonly flows: GrowthFlows;
   /** Tax rates (GDD §8 demand pressure); omitted = pre-economy default. */
   readonly taxRatesPermille?: Uint16Array;
+  /** Policy/ordinance mask covering a tile (task 3); omitted = pre-districts (0,
+   *  no policy). Bit reads gate levers — absent ⇒ vanilla behavior. */
+  readonly policyMaskAt?: (tileIdx: number) => number;
   /** Terrain resource at a tile (ResourceKind); omitted = pre-chain (no resources). */
   readonly resourceAt?: (tileIdx: number) => number;
   /** Chain balance state; omitted = pre-chain. A spawned I building takes a
@@ -337,7 +342,12 @@ export function lifecycleSlice(
         : Math.floor((cap * jobFillPermille) / 1000);
     if (cap > 0 && used * 5 >= cap * 4) {
       b.thriveDays[i] = Math.min(255, (b.thriveDays[i] as number) + 1);
-      if ((b.thriveDays[i] as number) >= LEVEL_AFTER_DAYS && (b.level[i] as number) < 5) {
+      // High-rise ban (task 3): a district with the ban caps building level low.
+      const banned =
+        ctx.policyMaskAt !== undefined &&
+        (ctx.policyMaskAt(b.tileIdx[i] as number) & (1 << Policy.highRiseBan)) !== 0;
+      const levelCap = banned ? HIGH_RISE_BAN_LEVEL_CAP : 5;
+      if ((b.thriveDays[i] as number) >= LEVEL_AFTER_DAYS && (b.level[i] as number) < levelCap) {
         b.level[i] = (b.level[i] as number) + 1;
         b.thriveDays[i] = 0;
         b.version++;

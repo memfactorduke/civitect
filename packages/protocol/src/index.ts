@@ -58,6 +58,7 @@ export {
   type PinCimCommand,
   type PlaceBuildingCommand,
   POLICY_BITS,
+  Policy,
   type RedoCommand,
   RejectionReason,
   type RemoveStopCommand,

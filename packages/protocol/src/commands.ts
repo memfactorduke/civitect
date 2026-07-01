@@ -283,6 +283,26 @@ export const MAX_DISTRICTS = 63;
 /** Policy bits per district + ordinance bits city-wide (GDD §11, ~22 levers). */
 export const POLICY_BITS = 32;
 
+/**
+ * Which policy bit is which lever (GDD §11, task 3). APPEND-ONLY — the bit
+ * index is the save/wire contract (setPolicy/setOrdinance carry it, the mask is
+ * hashed+saved). A bit read is a pure integer test, so a city that never sets
+ * one is byte-identical to before the lever existed (keeps goldens un-blessed).
+ * `perDistrict` bits read a district's policyMask; `ordinance` bits read the
+ * city-wide ordinanceMask. Bits 4–31 reserved for the remaining levers.
+ */
+export const Policy = {
+  /** perDistrict: caps building level inside the district (low-rise character). */
+  highRiseBan: 0,
+  /** ordinance: recycling program — less garbage generated city-wide. */
+  recycling: 1,
+  /** perDistrict: scrubbers/clean-tech — less industrial ground pollution. */
+  cleanIndustry: 2,
+  /** ordinance: industry subsidy — lifts industrial demand (reserved, slice 2). */
+  industrySubsidy: 3,
+} as const;
+export type Policy = (typeof Policy)[keyof typeof Policy];
+
 export interface PaintDistrictCommand extends CommandBase {
   readonly type: typeof CommandType.paintDistrict;
   readonly x0: number;
