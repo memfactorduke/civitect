@@ -115,6 +115,8 @@ export interface GrowthContext {
   /** Policy/ordinance mask covering a tile (task 3); omitted = pre-districts (0,
    *  no policy). Bit reads gate levers — absent ⇒ vanilla behavior. */
   readonly policyMaskAt?: (tileIdx: number) => number;
+  /** City-wide ordinance bitmask (task 3); omitted = pre-districts (0). */
+  readonly ordinanceMask?: number;
   /** Terrain resource at a tile (ResourceKind); omitted = pre-chain (no resources). */
   readonly resourceAt?: (tileIdx: number) => number;
   /** Chain balance state; omitted = pre-chain. A spawned I building takes a
@@ -129,7 +131,7 @@ export function growthSlice(
   agg = aggregates(ctx.buildings),
 ): void {
   const b = ctx.buildings;
-  const demand = computeDemand(agg, ctx.taxRatesPermille);
+  const demand = computeDemand(agg, ctx.taxRatesPermille, ctx.ordinanceMask);
   const slice = tick % GROWTH_SLICES;
 
   // 1. Spawn pass over this tick's share of tiles.

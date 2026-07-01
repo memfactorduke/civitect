@@ -8,7 +8,7 @@
  * Factor magnitudes are [TUNE]; goods-supply (C) and export (I) terms are
  * honest zeros until the Phase 5 goods chain.
  */
-import type { DemandBlock } from "@civitect/protocol";
+import { type DemandBlock, Policy } from "@civitect/protocol";
 
 export interface CityAggregates {
   readonly housingCapacity: number;
@@ -52,15 +52,25 @@ function taxPressure(ratePermille: number): number {
   return 0;
 }
 
+/** Industrial demand added by the industry-subsidy ordinance (task 3). [TUNE] */
+const INDUSTRY_SUBSIDY_BOOST = 200;
+
 export function computeDemand(
   a: CityAggregates,
   /** Tax rates permille per ZoneKind 1–6; omitted = pre-economy default. */
   taxRatesPermille?: Uint16Array,
+  /** City ordinance bitmask (task 3); omitted = pre-districts (no ordinance). */
+  ordinanceMask = 0,
 ): DemandBlock {
   const taxR = taxPressure(taxRatesPermille?.[0] ?? 90) + taxPressure(taxRatesPermille?.[1] ?? 90);
   const taxC = taxPressure(taxRatesPermille?.[2] ?? 90) + taxPressure(taxRatesPermille?.[3] ?? 90);
   const taxI = taxPressure(taxRatesPermille?.[4] ?? 90);
   const taxO = taxPressure(taxRatesPermille?.[5] ?? 90);
+  // Industry subsidy (task 3): an ordinance that lifts industrial orders,
+  // folded into iOrders like taxI so the factors-sum property holds. 0 when
+  // off ⇒ demand is byte-identical for a city with no ordinance. [TUNE]
+  const subsidyI =
+    (ordinanceMask & (1 << Policy.industrySubsidy)) !== 0 ? INDUSTRY_SUBSIDY_BOOST : 0;
   const openJobs = Math.max(0, a.jobsC + a.jobsI + a.jobsO - a.employed);
   const unemployedAdults = Math.max(0, a.adults - a.employed);
 
@@ -78,7 +88,7 @@ export function computeDemand(
   const cSupply = 0; // goods chain lands in Phase 5 — honest zero
   const cVacancy = vacancy(a.jobsC, Math.min(a.jobsC, a.employed));
 
-  const iOrders = Math.min(400, a.countC * 30) + taxI;
+  const iOrders = Math.min(400, a.countC * 30) + taxI + subsidyI;
   const iWorkforce = Math.min(300, unemployedAdults);
   const iVacancy = vacancy(a.jobsI, Math.min(a.jobsI, a.employed));
 

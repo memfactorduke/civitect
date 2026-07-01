@@ -6,6 +6,8 @@
  */
 import { CommandType, Policy, ZoneKind } from "@civitect/protocol";
 import { beforeAll, describe, expect, it } from "vitest";
+import { computeDemand } from "../growth/demand";
+import { aggregates } from "../growth/system";
 import { createWorld, runTick, type World } from "../world";
 
 type Cmd = Parameters<typeof runTick>[1][number];
@@ -97,5 +99,17 @@ describe("policies move their modeled outcome (phase-6 task 3)", () => {
     const clean = town(SEED, DAYS, setPolicy(Policy.cleanIndustry));
     expect(groundPollutionSum(free)).toBeGreaterThan(0);
     expect(groundPollutionSum(clean)).toBeLessThan(groundPollutionSum(free));
+  });
+
+  it("industry-subsidy ordinance lifts industrial demand by the boost", () => {
+    // Direct fold test — no growth feedback, so the effect is exact.
+    const agg = aggregates(createWorld(SEED).buildings);
+    const base = computeDemand(agg, undefined, 0);
+    const subsidized = computeDemand(agg, undefined, 1 << Policy.industrySubsidy);
+    expect(subsidized.i).toBe(base.i + 200);
+    // The panel's factors-sum property must survive the fold (it lands in a
+    // factor, not a new term): Σ factors ≡ the four block totals.
+    const factorSum = subsidized.factors.reduce((s, f) => s + f, 0);
+    expect(factorSum).toBe(subsidized.r + subsidized.c + subsidized.i + subsidized.o);
   });
 });
