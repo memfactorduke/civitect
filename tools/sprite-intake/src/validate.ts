@@ -88,10 +88,9 @@ export async function validateSprite(
   sidecarPath: string,
   palette: readonly Rgb[],
 ): Promise<SpriteReport> {
-  const issues: SpriteIssue[] = [];
-  let sidecar: SpriteSidecar;
   try {
-    sidecar = parseSpriteSidecar(JSON.parse(readFileSync(sidecarPath, "utf8")), sidecarPath);
+    const sidecar = parseSpriteSidecar(JSON.parse(readFileSync(sidecarPath, "utf8")), sidecarPath);
+    return validateParsedSprite(sidecar, dirname(sidecarPath), palette);
   } catch (error) {
     return {
       id: sidecarPath,
@@ -100,6 +99,19 @@ export async function validateSprite(
       ],
     };
   }
+}
+
+/**
+ * Validate an already-parsed sidecar against PNG siblings rooted at `baseDir`.
+ * Used by the report tool to check read-only exploration sidecars after
+ * applying purely mechanical category/state-name normalization in memory.
+ */
+export async function validateParsedSprite(
+  sidecar: SpriteSidecar,
+  baseDir: string,
+  palette: readonly Rgb[],
+): Promise<SpriteReport> {
+  const issues: SpriteIssue[] = [];
 
   if (BUILDING_CATEGORIES.has(sidecar.category)) {
     for (const state of REQUIRED_BUILDING_STATES) {
@@ -112,7 +124,6 @@ export async function validateSprite(
     }
   }
 
-  const dir = dirname(sidecarPath);
   const images = new Map<string, RawImage>();
   for (const [state, file] of Object.entries(sidecar.states)) {
     if (!isSiblingPngFilename(file)) {
@@ -124,7 +135,7 @@ export async function validateSprite(
     }
 
     try {
-      const image = await decodePng(new Uint8Array(readFileSync(join(dir, file))), file);
+      const image = await decodePng(new Uint8Array(readFileSync(join(baseDir, file))), file);
       images.set(state, image);
     } catch (error) {
       issues.push({
