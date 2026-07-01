@@ -305,6 +305,9 @@ export const Policy = {
   /** perDistrict: congestion charge — tolls driving through the district
    *  (raises car cost ⇒ shifts commuters to transit). Milestone-gated. */
   congestionCharge: 5,
+  /** perDistrict: heavy-traffic / truck ban — freight routes around the
+   *  district (a freight-only surcharge; passenger cars are unaffected). */
+  truckBan: 6,
 } as const;
 export type Policy = (typeof Policy)[keyof typeof Policy];
 

@@ -7,6 +7,7 @@
  */
 import { CommandType, Policy, RejectionReason } from "@civitect/protocol";
 import { describe, expect, it } from "vitest";
+import { replay } from "../replay";
 import { createWorld, runTick, type World } from "../world";
 
 type Mode = "plain" | "paintOnly" | "charged";
@@ -128,5 +129,69 @@ describe("congestion charge (phase-6 task 3, GDD §9/§11)", () => {
     const b = commuteCity("charged", 6).traffic;
     expect(b.ridden).toBe(a.ridden);
     expect(b.assigned).toBe(a.assigned);
+  });
+});
+
+/** An active-freight city (border grid + R/I/C); optionally cordon the central
+ *  x=32 connector and ban trucks from it. All setup lands at tick 0, so growth
+ *  (and freight generation) is identical — only truck ROUTING differs. */
+function freightWorld(mode: "paintOnly" | "banned"): World {
+  let seq = 0;
+  const c = (o: object) => ({ seq: seq++, tick: 0, ...o }) as never;
+  const log = [
+    c({ type: CommandType.buildRoad, ax: 0, ay: 8, bx: 63, by: 8, roadClass: 2 }),
+    c({ type: CommandType.buildRoad, ax: 0, ay: 32, bx: 63, by: 32, roadClass: 2 }),
+    c({ type: CommandType.buildRoad, ax: 8, ay: 0, bx: 8, by: 63, roadClass: 2 }),
+    c({ type: CommandType.buildRoad, ax: 32, ay: 0, bx: 32, by: 63, roadClass: 2 }),
+    c({ type: CommandType.buildRoad, ax: 56, ay: 0, bx: 56, by: 63, roadClass: 2 }),
+    c({ type: CommandType.placeBuilding, x: 33, y: 9, building: 1 }), // power
+    c({ type: CommandType.placeBuilding, x: 35, y: 9, building: 2 }), // water
+    c({ type: CommandType.zoneRect, x0: 10, y0: 10, x1: 30, y1: 30, zone: 1 }), // R
+    c({ type: CommandType.zoneRect, x0: 34, y0: 10, x1: 54, y1: 30, zone: 5 }), // I
+    c({ type: CommandType.zoneRect, x0: 10, y0: 34, x1: 30, y1: 54, zone: 3 }), // C
+    // Cordon the EAST border road (x=56), an industry export route (freight
+    // flows there); the north border (y=8) is the bypass.
+    c({ type: CommandType.paintDistrict, x0: 55, y0: 0, x1: 57, y1: 63, districtId: 1 }),
+  ];
+  if (mode === "banned") {
+    log.push(c({ type: CommandType.setPolicy, districtId: 1, policy: Policy.truckBan, on: 1 }));
+  }
+  const { world } = replay(7, log as never, 14400, {
+    mapWidth: 64,
+    mapHeight: 64,
+    startingFundsCents: 100_000_000_00,
+  });
+  return world;
+}
+
+/** Freight volume on edges whose midpoint tile lies in district `id`. */
+function freightInDistrict(w: World, id: number): number {
+  let sum = 0;
+  for (const [key, vol] of w.traffic.freightVolumes) {
+    const p = key.split(",");
+    const midX = ((Number(p[0]) + Number(p[2])) >> 1) as number;
+    const midY = ((Number(p[1]) + Number(p[3])) >> 1) as number;
+    if (w.terrain.layers.district[midY * w.mapWidth + midX] === id) {
+      sum += vol;
+    }
+  }
+  return sum;
+}
+
+describe("truck ban (phase-6 task 3, GDD §11)", () => {
+  it("routes freight around the banned district", () => {
+    const painted = freightWorld("paintOnly");
+    const banned = freightWorld("banned");
+    expect(painted.chain.shipments.length).toBeGreaterThan(0); // freight is live
+    // Without the ban, trucks cross the central cordon; with it, they detour.
+    expect(freightInDistrict(painted, 1)).toBeGreaterThan(0);
+    expect(freightInDistrict(banned, 1)).toBeLessThan(freightInDistrict(painted, 1));
+  });
+
+  it("is deterministic: same banned city ⇒ identical freight", () => {
+    const a = freightWorld("banned");
+    const b = freightWorld("banned");
+    expect(freightInDistrict(b, 1)).toBe(freightInDistrict(a, 1));
+    expect(a.traffic.freightAssigned).toBe(b.traffic.freightAssigned);
   });
 });

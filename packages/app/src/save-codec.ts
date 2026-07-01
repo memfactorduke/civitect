@@ -27,7 +27,7 @@ import {
   type Pcg32State,
   RNG_STREAM_NAMES,
   type RoadClass,
-  recomputeCongestionCharge,
+  recomputeDistrictTraffic,
   recomputeFreight,
   spawnBuilding,
   trafficFromSave,
@@ -309,7 +309,7 @@ export function civToWorld(save: CivSave): World {
         taxOverridePermille: Uint16Array.from(r.taxOverridePermille),
       })),
       ordinanceMask: save.districts.ordinanceMask,
-      // Derived change-counter — never saved; recomputeCongestionCharge below
+      // Derived change-counter — never saved; recomputeDistrictTraffic below
       // rebuilds the charge from the loaded policyMask regardless of its value.
       policyEpoch: 0,
     },
@@ -336,7 +336,7 @@ export function civToWorld(save: CivSave): World {
   // The congestion charge is DERIVED (never saved) and folds into the same cost
   // field — re-derive it from the loaded district layer + policyMask BEFORE
   // freight, so a mid-hour policy toggle can't diverge on load (task 3).
-  recomputeCongestionCharge(world);
+  recomputeDistrictTraffic(world);
   // Freight volume is DERIVED (never saved) and feeds the cost field the next
   // hourly chain pass prices shipments on — re-derive it from the loaded
   // in-flight shipments now, so a loaded world matches a never-stopped one

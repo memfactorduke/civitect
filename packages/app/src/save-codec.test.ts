@@ -141,6 +141,120 @@ describe("save → load → state-hash-equal (TDD §10)", () => {
     expect(stateHash(restored)).toBe(stateHash(world));
   });
 
+  it("a MID-HOUR truck-ban toggle resumes identically WITH ACTIVE FREIGHT (task 3)", async () => {
+    // The truck ban REROUTES freight (unlike the charge, which freight ignores),
+    // so the epoch fence must recompute freight the tick the ban lands, matching
+    // civToWorld's recompute on load — else the loaded world's trucks take a
+    // different route than the never-stopped one and canonVolumes diverge.
+    let seq = 0;
+    const cmd = (tick: number, c: object) => ({ seq: seq++, tick, ...c }) as unknown;
+    const log = [
+      cmd(0, { type: CommandType.buildRoad, ax: 0, ay: 8, bx: 63, by: 8, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 0, ay: 32, bx: 63, by: 32, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 8, ay: 0, bx: 8, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 32, ay: 0, bx: 32, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 56, ay: 0, bx: 56, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.placeBuilding, x: 33, y: 9, building: 1 }),
+      cmd(0, { type: CommandType.placeBuilding, x: 35, y: 9, building: 2 }),
+      cmd(0, { type: CommandType.zoneRect, x0: 10, y0: 10, x1: 30, y1: 30, zone: 1 }),
+      cmd(0, { type: CommandType.zoneRect, x0: 34, y0: 10, x1: 54, y1: 30, zone: 5 }),
+      cmd(0, { type: CommandType.zoneRect, x0: 10, y0: 34, x1: 30, y1: 54, zone: 3 }),
+      cmd(0, { type: CommandType.paintDistrict, x0: 55, y0: 0, x1: 57, y1: 63, districtId: 1 }),
+    ] as Parameters<typeof replay>[1];
+    const { world } = replay(BOOT.seed, log, 7200, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+      startingFundsCents: 100_000_000_00,
+    });
+    expect(world.chain.shipments.length).toBeGreaterThan(0); // freight is LIVE
+    while (world.traffic.job === null) {
+      runTick(world, []);
+    }
+    runTick(world, []); // firmly mid-solve, mid-hour
+    expect(world.traffic.job).not.toBeNull();
+    runTick(world, [
+      {
+        seq: seq++,
+        tick: world.tick,
+        type: CommandType.setPolicy,
+        districtId: 1,
+        policy: Policy.truckBan,
+        on: 1,
+      } as never,
+    ]);
+    expect(world.districts.rows[0]?.policyMask).toBe(1 << Policy.truckBan);
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(stateHash(world));
+    for (let i = 0; i < 1440 * 2; i++) {
+      runTick(world, []);
+      runTick(restored, []);
+    }
+    expect(stateHash(restored)).toBe(stateHash(world));
+  });
+
+  it("removing a truck ban the SAME tick a road is built resumes identically (graph-branch guard)", async () => {
+    // The graph-rebuild fence branch takes priority over the policy-toggle
+    // branch. If a ban is removed the same tick a road is built, the graph
+    // branch must STILL reroute freight (back to the unbanned route) — else the
+    // never-stopped world keeps the defunct banned route while a load reroutes.
+    let seq = 0;
+    const cmd = (tick: number, c: object) => ({ seq: seq++, tick, ...c }) as unknown;
+    const log = [
+      cmd(0, { type: CommandType.buildRoad, ax: 0, ay: 8, bx: 63, by: 8, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 0, ay: 32, bx: 63, by: 32, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 8, ay: 0, bx: 8, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 32, ay: 0, bx: 32, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.buildRoad, ax: 56, ay: 0, bx: 56, by: 63, roadClass: 2 }),
+      cmd(0, { type: CommandType.placeBuilding, x: 33, y: 9, building: 1 }),
+      cmd(0, { type: CommandType.placeBuilding, x: 35, y: 9, building: 2 }),
+      cmd(0, { type: CommandType.zoneRect, x0: 10, y0: 10, x1: 30, y1: 30, zone: 1 }),
+      cmd(0, { type: CommandType.zoneRect, x0: 34, y0: 10, x1: 54, y1: 30, zone: 5 }),
+      cmd(0, { type: CommandType.zoneRect, x0: 10, y0: 34, x1: 30, y1: 54, zone: 3 }),
+      cmd(0, { type: CommandType.paintDistrict, x0: 55, y0: 0, x1: 57, y1: 63, districtId: 1 }),
+      cmd(0, { type: CommandType.setPolicy, districtId: 1, policy: Policy.truckBan, on: 1 }),
+    ] as Parameters<typeof replay>[1];
+    const { world } = replay(BOOT.seed, log, 7200, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+      startingFundsCents: 100_000_000_00,
+    });
+    expect(world.chain.shipments.length).toBeGreaterThan(0);
+    expect(world.districts.rows[0]?.policyMask).toBe(1 << Policy.truckBan);
+    while (world.traffic.job === null) {
+      runTick(world, []);
+    }
+    runTick(world, []); // mid-solve, mid-hour
+    // ONE tick: remove the ban AND build a road (graph branch takes priority).
+    runTick(world, [
+      {
+        seq: seq++,
+        tick: world.tick,
+        type: CommandType.setPolicy,
+        districtId: 1,
+        policy: Policy.truckBan,
+        on: 0,
+      } as never,
+      {
+        seq: seq++,
+        tick: world.tick,
+        type: CommandType.buildRoad,
+        ax: 20,
+        ay: 40,
+        bx: 28,
+        by: 40,
+        roadClass: 1,
+      } as never,
+    ]);
+    expect(world.districts.rows[0]?.policyMask).toBe(0); // ban removed
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(stateHash(world));
+    for (let i = 0; i < 1440; i++) {
+      runTick(world, []);
+      runTick(restored, []);
+    }
+    expect(stateHash(restored)).toBe(stateHash(world));
+  });
+
   it("preserves the command tail through the container", async () => {
     const { world } = replay(BOOT.seed, [], 10, {
       mapWidth: BOOT.mapWidth,

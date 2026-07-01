@@ -255,7 +255,7 @@ export {
   pollutionAt,
   pollutionField,
   type RoadOp,
-  recomputeCongestionCharge,
+  recomputeDistrictTraffic,
   recomputeFreight,
   runTick,
   type SegRecord,
