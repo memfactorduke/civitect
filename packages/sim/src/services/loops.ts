@@ -21,7 +21,7 @@
  * building with residents) — never unconditionally — so worlds with no
  * eligible entities consume nothing and replay/undo identities hold.
  */
-import { BuildingKind, ServiceId, ZoneKind } from "@civitect/protocol";
+import { BuildingKind, Policy, ServiceId, ZoneKind } from "@civitect/protocol";
 import {
   aliveByTile,
   type Buildings,
@@ -37,6 +37,10 @@ import { scaledCapacity, specForTableKind } from "./registry";
 export const SERVICE_SLICES = 24; // one visit per building per game-day
 
 // ── rates, all [TUNE] ───────────────────────────────────────────────────────
+/** Garbage kept (permille) under a recycling ordinance — 600 = a 40% cut. [TUNE] */
+const RECYCLING_PERMILLE = 600;
+/** Industrial ground stain kept (permille) under clean-industry — 400 = a 60% cut. [TUNE] */
+const CLEAN_INDUSTRY_PERMILLE = 400;
 /** Garbage units generated per building per day, by zone kind × level. */
 export function garbagePerDay(kind: number, level: number): number {
   if (kind === ZoneKind.residentialLow || kind === ZoneKind.residentialHigh) {
@@ -133,6 +137,11 @@ export interface ServicesContext {
   readonly extraSickPermille: (tileIdx: number) => number;
   /** CANONICAL ground-pollution field — industry/landfill accrual target. */
   readonly groundPollution: Uint8Array;
+  /** City ordinance bitmask (task 3); omitted = pre-districts (no ordinance). */
+  readonly ordinanceMask?: number;
+  /** Policy mask covering a tile (task 3); omitted = pre-districts. Bit reads
+   *  gate levers — absent ⇒ vanilla behavior, so goldens stay byte-identical. */
+  readonly policyMaskAt?: (tileIdx: number) => number;
   readonly rng: Pcg32;
   readonly flows: ServiceFlows;
   /** Advisor sink — at most a handful per slice, each with a cause chain. */
@@ -332,16 +341,24 @@ export function servicesSlice(ctx: ServicesContext, tick: number): void {
       continue; // service/utility buildings neither rot nor sicken (v1)
     }
     const tile = b.tileIdx[i] as number;
-    // Industry stains its ground daily — the persistent legacy field.
+    // Industry stains its ground daily — the persistent legacy field. A
+    // clean-industry district (task 3) cuts the daily stain with scrubbers.
     if (kind === ZoneKind.industrial) {
-      ctx.groundPollution[tile] = Math.min(
-        255,
-        (ctx.groundPollution[tile] as number) + GROUND_PER_INDUSTRY_DAY,
-      );
+      const cleanIndustry =
+        ctx.policyMaskAt !== undefined &&
+        (ctx.policyMaskAt(tile) & (1 << Policy.cleanIndustry)) !== 0;
+      const perDay = cleanIndustry
+        ? Math.floor((GROUND_PER_INDUSTRY_DAY * CLEAN_INDUSTRY_PERMILLE) / 1000)
+        : GROUND_PER_INDUSTRY_DAY;
+      ctx.groundPollution[tile] = Math.min(255, (ctx.groundPollution[tile] as number) + perDay);
     }
 
     // ── garbage: daily accrual, then collection from the slice budget ──
-    const gen = garbagePerDay(kind, b.level[i] as number);
+    // A recycling ordinance (task 3) cuts what's generated city-wide.
+    let gen = garbagePerDay(kind, b.level[i] as number);
+    if (ctx.ordinanceMask !== undefined && (ctx.ordinanceMask & (1 << Policy.recycling)) !== 0) {
+      gen = Math.floor((gen * RECYCLING_PERMILLE) / 1000);
+    }
     if (gen > 0) {
       b.stock[i] = (b.stock[i] as number) + gen;
       ctx.flows.garbageGenerated += gen;
