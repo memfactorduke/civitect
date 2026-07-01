@@ -15,7 +15,10 @@ export {
   PALETTE_OFFENDER_RATIO_MAX,
   PALETTE_PIXEL_DISTANCE_MAX,
   type PaletteCheckResult,
+  type PaletteSnapOptions,
+  type PaletteSnapResult,
   type Rgb,
+  snapPalette,
 } from "./palette";
 export { decodePng, encodePng, type RawImage } from "./png";
 export {
