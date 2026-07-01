@@ -1571,6 +1571,7 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
       world.mapWidth,
       world.mapHeight,
       Math.floor(world.tick / TICKS_PER_HOUR) % 24,
+      world.transit,
     )
   ) {
     // Congestion consequences are never just red lines (GDD §9 [LOCKED]):

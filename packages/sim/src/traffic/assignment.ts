@@ -31,6 +31,7 @@ import {
   findPath,
   type Pathfinder,
 } from "../roads/pathfind";
+import { type TransitService, transitCostFor, transitSplit } from "../transit/modechoice";
 
 export const CELL_TILES = 8;
 
@@ -156,6 +157,10 @@ export interface ConservationLedger {
   generated: number;
   assigned: number;
   walked: number;
+  /** Trips that chose transit (GDD §9, task 4). Booked by the mode-choice
+   *  logit; = generated − assigned − walked − unroutable by construction, so
+   *  it is DERIVED (not hashed/saved) — the other four already pin the state. */
+  ridden: number;
   unroutable: number;
 }
 
@@ -174,6 +179,7 @@ export function assignOriginCell(
   addVolume: (edgeSlot: number, trips: number) => void,
   ledger: ConservationLedger,
   demandPermille = 1000,
+  service: TransitService | null = null,
 ): void {
   // Rush-hour departure curve (GDD §9.5): this hour's share of the cell's
   // commuters. Conservation stays exact — the ledger counts what was
@@ -228,15 +234,32 @@ export function assignOriginCell(
     if (tree === null) {
       tree = dijkstraTree(g, origin.anchor, (e) => costs[e] as number);
     }
-    if ((tree.dist[dest.anchor] as number) === 0xffffffff) {
+    const cCar = tree.dist[dest.anchor] as number;
+    if (cCar === 0xffffffff) {
       ledger.unroutable += share.trips;
       continue;
     }
-    ledger.assigned += share.trips;
+    // Mode choice (GDD §9, task 4a): transit competes with the car. A share
+    // rides when a line serves the OD competitively; the rest drives.
+    let carTrips = share.trips;
+    if (service !== null) {
+      const t = transitCostFor(service, origin.cx, origin.cy, dest.cx, dest.cy, cCar);
+      if (t !== null) {
+        const ride = transitSplit(share.trips, cCar, t.cost);
+        if (ride > 0) {
+          ledger.ridden += ride;
+          carTrips -= ride;
+        }
+      }
+    }
+    if (carTrips === 0) {
+      continue; // everyone rode — no car volume to lay down
+    }
+    ledger.assigned += carTrips;
     let node = dest.anchor;
     while (node !== origin.anchor) {
       const e = tree.cameFromEdge[node] as number;
-      addVolume(e, share.trips);
+      addVolume(e, carTrips);
       node = otherEnd(g, e, node);
     }
   }
