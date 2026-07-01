@@ -142,8 +142,14 @@ export interface TrafficCore {
    *  or saved (like freightVolumes); recomputed from the SAVED district layer +
    *  policyMask on load + on any policy/paint edit (the epoch fence below). */
   chargeByKey: Map<string, number>;
-  /** districts.policyEpoch the charge was last reindexed against — the fence
-   *  that re-applies the charge the SAME tick a policy/paint command lands. */
+  /** Truck ban (Phase 6 task 3): per canonical edge, a FREIGHT-only surcharge —
+   *  applyFreight adds it so trucks route around a banned district; NOT in the
+   *  commute cost field. DERIVED (recomputed on load + on the epoch fence).
+   *  Because it moves freightVolumes (hashed via twinCosts), the fence must
+   *  recompute FREIGHT the tick a ban toggles (see world.ts). */
+  banByKey: Map<string, number>;
+  /** districts.policyEpoch the charge/ban were last reindexed against — the
+   *  fence that re-applies them the SAME tick a policy/paint command lands. */
   chargeEpoch: number;
 }
 
@@ -245,17 +251,17 @@ export function applyFreight(
   let assigned = 0;
   for (const from of [...byOrigin.keys()].sort((a, b) => a - b)) {
     const dests = byOrigin.get(from) as { to: number; trucks: number }[];
-    // Freight routes on the BASE congestion, subtracting the passenger
-    // congestion charge (task 3) — so freight routing is charge-INDEPENDENT and
-    // therefore load-invariant: a mid-hour charge toggle (applied to twinCosts
-    // by the epoch fence, but recomputed only on the hour + on load for freight)
-    // cannot reroute trucks differently on a never-stopped vs a loaded world.
-    // [TODO: charge-aware freight would fold the charge back in AND have the
-    // fence recompute freight the same tick the charge lands.]
+    // Freight routes on the BASE congestion (subtract the passenger charge, so
+    // freight is charge-INDEPENDENT ⇒ load-invariant) PLUS the truck-ban
+    // surcharge (task 3), so trucks route around a banned district. The ban DOES
+    // move freightVolumes and thus the hashed cost field, so the epoch fence
+    // recomputes freight the tick a ban toggles — matching the load recompute —
+    // to stay load-invariant (world.ts).
     const tree = dijkstraTree(twin, from, (e) => {
       const key = core.twinSlotKeys[e] ?? null;
       const charge = key === null ? 0 : (core.chargeByKey.get(key) ?? 0);
-      return (core.twinCosts[e] as number) - charge;
+      const ban = key === null ? 0 : (core.banByKey.get(key) ?? 0);
+      return (core.twinCosts[e] as number) - charge + ban;
     });
     for (const { to, trucks } of dests) {
       if ((tree.dist[to] as number) === 0xffffffff) {
@@ -282,25 +288,34 @@ export function applyFreight(
 }
 
 /**
- * Reindex the congestion charge (Phase 6 task 3) and fold it into the cost
- * field. `chargedAt(tileIdx)` — supplied by the sim — is true for a tile inside
- * a charged district; the surcharge is free-flow-proportional (load-independent,
- * so it precomputes to a constant per edge and never double-counts the BPR
- * congestion term). Keyed by canonical edge id (survives the twin rebuild) and
- * DERIVED, so it is recomputed on load, exactly like freight. An edge is charged
- * by its MIDPOINT tile's district. chargePermille 0 (or no charged tile) leaves
- * an empty map ⇒ retime yields base costs, byte-identical to no charge.
+ * Reindex the two DISTRICT-AWARE traffic policies (Phase 6 task 3) and fold the
+ * charge into the cost field. Both are free-flow-proportional per-edge addends
+ * (load-independent ⇒ precompute to a constant per edge, never double-count the
+ * BPR term), keyed by canonical edge id (survives the twin rebuild), DERIVED
+ * (recomputed on load, like freight). An edge belongs to its MIDPOINT tile's
+ * district.
+ *   - CONGESTION CHARGE (chargedAt): folded into twinCosts ⇒ raises the CAR/
+ *     commute cost (freight ignores it — see applyFreight). Passenger lever.
+ *   - TRUCK BAN (bannedAt): a FREIGHT-only surcharge (applyFreight adds it, the
+ *     commute cost field does NOT) ⇒ trucks route around the district.
+ * chargePermille/banPermille 0 (or no tagged tile) leaves an empty map ⇒ retime
+ * yields base costs, byte-identical to no policy.
  */
-export function applyCongestionCharge(
+export function applyDistrictTrafficPolicies(
   core: TrafficCore,
   g: RoadGraph,
   mapWidth: number,
   chargedAt: (tileIdx: number) => boolean,
   chargePermille: number,
+  bannedAt: (tileIdx: number) => boolean,
+  banPermille: number,
 ): void {
   const twin = core.twin;
   const charge = new Map<string, number>();
-  if (chargePermille > 0) {
+  const ban = new Map<string, number>();
+  const anyCharge = chargePermille > 0;
+  const anyBan = banPermille > 0;
+  if (anyCharge || anyBan) {
     for (let e = 0; e < twin.edgeCount; e++) {
       const key = core.twinSlotKeys[e] ?? null;
       if (key === null) {
@@ -314,12 +329,17 @@ export function applyCongestionCharge(
         ((twin.nodeY[twin.edgeA[e] as number] as number) +
           (twin.nodeY[twin.edgeB[e] as number] as number)) >>
         1;
-      if (chargedAt(midY * mapWidth + midX)) {
+      const tile = midY * mapWidth + midX;
+      if (anyCharge && chargedAt(tile)) {
         charge.set(key, Math.floor((edgeCost(twin, e) * chargePermille) / 1000));
+      }
+      if (anyBan && bannedAt(tile)) {
+        ban.set(key, Math.floor((edgeCost(twin, e) * banPermille) / 1000));
       }
     }
   }
   core.chargeByKey = charge;
+  core.banByKey = ban;
   retimeTraffic(core, g);
 }
 
@@ -381,6 +401,7 @@ export function createTraffic(g: RoadGraph): TrafficCore {
     congestedCost: new Uint32Array(0),
     freightVolumes: new Map(),
     chargeByKey: new Map(),
+    banByKey: new Map(),
     chargeEpoch: 0,
     freightGenerated: 0,
     freightAssigned: 0,
@@ -566,6 +587,7 @@ export function trafficFromSave(saved: TrafficSave, g: RoadGraph): TrafficCore {
     // Freight is derived — recomputed at the first hourly solve after load.
     freightVolumes: new Map(),
     chargeByKey: new Map(),
+    banByKey: new Map(),
     chargeEpoch: 0,
     freightGenerated: 0,
     freightAssigned: 0,

@@ -156,7 +156,7 @@ import {
 } from "./services/pollution";
 import { buildCells, CELL_TILES } from "./traffic/assignment";
 import {
-  applyCongestionCharge,
+  applyDistrictTrafficPolicies,
   applyFreight,
   createTraffic,
   type FreightTrip,
@@ -1419,24 +1419,32 @@ export function recomputeFreight(world: World): void {
 
 /** Congestion charge surcharge as a permille of an edge's free-flow cost. [TUNE] */
 const CONGESTION_CHARGE_PERMILLE = 800;
+/** Truck-ban freight surcharge as a permille of an edge's free-flow cost — big
+ *  enough that trucks take any reasonable detour, finite so a trapped shipment
+ *  still routes (no unroutable explosion). [TUNE] */
+const TRUCK_BAN_PERMILLE = 6000;
 
 /**
- * Reindex the congestion charge (task 3) into the traffic cost field. Like
- * recomputeFreight, the charge is DERIVED (never saved), so a loaded world must
- * rebuild it from the SAVED district layer + policyMask BEFORE its first solve,
- * and it is re-applied the same tick a policy/paint command lands (the epoch
- * fence) — otherwise a mid-hour toggle would diverge on load (the 4b failure
- * class). Inert until the congestion-pricing milestone unlocks.
+ * Reindex the district-aware traffic policies (task 3) into the cost fields.
+ * Like recomputeFreight, chargeByKey/banByKey are DERIVED (never saved), so a
+ * loaded world rebuilds them from the SAVED district layer + policyMask BEFORE
+ * its first solve, and they are re-applied the same tick a policy/paint command
+ * lands (the epoch fence) — otherwise a mid-hour toggle diverges on load (the 4b
+ * failure class). The congestion charge is inert until its milestone unlocks;
+ * the truck ban needs no milestone.
  */
-export function recomputeCongestionCharge(world: World): void {
-  const active = isUnlocked(world.economy, Unlock.congestionPricing);
-  const bit = 1 << Policy.congestionCharge;
-  applyCongestionCharge(
+export function recomputeDistrictTraffic(world: World): void {
+  const charging = isUnlocked(world.economy, Unlock.congestionPricing);
+  const chargeBit = 1 << Policy.congestionCharge;
+  const banBit = 1 << Policy.truckBan;
+  applyDistrictTrafficPolicies(
     world.traffic,
     world.roads,
     world.mapWidth,
-    active ? (tileIdx) => (policyMaskAtTile(world, tileIdx) & bit) !== 0 : () => false,
-    active ? CONGESTION_CHARGE_PERMILLE : 0,
+    charging ? (tileIdx) => (policyMaskAtTile(world, tileIdx) & chargeBit) !== 0 : () => false,
+    charging ? CONGESTION_CHARGE_PERMILLE : 0,
+    (tileIdx) => (policyMaskAtTile(world, tileIdx) & banBit) !== 0,
+    TRUCK_BAN_PERMILLE,
   );
 }
 
@@ -1592,14 +1600,25 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
   // restart (it would break build∘undo ≡ identity; note in TDD §6.3).
   if (world.traffic.graphVersion !== world.roads.version) {
     refreshTrafficDerived(world.traffic, world.roads);
-    // The twin was rebuilt — reindex the congestion charge against it (task 3).
-    recomputeCongestionCharge(world);
+    // The twin was rebuilt — reindex charge + ban against it (task 3). Reroute
+    // freight on the new twin NOW (matching the load recompute) when a ban is
+    // active OR a policy/paint command also landed this tick (which may have
+    // just ADDED or REMOVED a ban — this branch takes priority over the else-if
+    // below, so it must cover that case too). A ban-free city with no policy
+    // edit (every golden) skips it and stays byte-identical.
+    const policyChanged = world.traffic.chargeEpoch !== world.districts.policyEpoch;
+    recomputeDistrictTraffic(world);
+    if (world.traffic.banByKey.size > 0 || policyChanged) {
+      recomputeFreight(world);
+    }
     world.traffic.chargeEpoch = world.districts.policyEpoch;
   } else if (world.traffic.chargeEpoch !== world.districts.policyEpoch) {
-    // A policy/paint command landed THIS tick — re-apply the charge now (not at
-    // the next hour), matching the immediate recompute on load, so a mid-hour
-    // toggle can't diverge on load (the 4b failure class).
-    recomputeCongestionCharge(world);
+    // A policy/paint command landed THIS tick — re-apply charge + ban now (not
+    // at the next hour), matching the immediate recompute on load, so a mid-hour
+    // toggle can't diverge (the 4b failure class). A truck ban reroutes freight,
+    // so recompute it too; goldens never reach here (they set no policy/paint).
+    recomputeDistrictTraffic(world);
+    recomputeFreight(world);
     world.traffic.chargeEpoch = world.districts.policyEpoch;
   }
   // goods chain (GDD §8, board task 3) — runs on the hour, on the canonical
