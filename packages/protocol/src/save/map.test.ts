@@ -174,6 +174,7 @@ describe("map files (.civmap)", () => {
         lost: new Uint32Array(6),
       },
       districts: { districts: [], ordinanceMask: 0 },
+      transit: { lines: [], nextLineId: 1 },
       pins: [],
       worldCore: {
         speed: 1,

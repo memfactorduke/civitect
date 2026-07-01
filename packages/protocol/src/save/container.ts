@@ -22,7 +22,8 @@ export const SAVE_MAGIC = "CIVT";
 // chainRole/stockIn/stockOut (zero-fill — Phase 5 goods chain).
 // v10: DISTRICTS (empty-list / zero-ordinance injection — Phase 6 districts;
 // the per-tile district paint already rides TERRAIN layer 4).
-export const SAVE_FORMAT_VERSION = 10;
+// v11: TRANSIT (empty-network injection — Phase 6 transit lines).
+export const SAVE_FORMAT_VERSION = 11;
 
 export interface ContainerHeader {
   readonly formatVersion: number;

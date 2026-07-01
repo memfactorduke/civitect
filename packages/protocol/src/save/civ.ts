@@ -33,6 +33,7 @@ import { migrateSectionsV6toV7 } from "./migrations/v6_v7";
 import { migrateSectionsV7toV8 } from "./migrations/v7_v8";
 import { migrateSectionsV8toV9 } from "./migrations/v8_v9";
 import { migrateSectionsV9toV10 } from "./migrations/v9_v10";
+import { migrateSectionsV10toV11 } from "./migrations/v10_v11";
 import { decodeTerrainSection, encodeTerrainSection, type TerrainGrid } from "./terrain";
 
 export { SAVE_FORMAT_VERSION, SAVE_MAGIC };
@@ -215,6 +216,8 @@ export interface CivSave {
   readonly chain: ChainSave;
   /** Per-district metadata + city ordinances (v10, GDD §11). */
   readonly districts: DistrictsSave;
+  /** Transit lines + per-line ledgers (v11, GDD §9). */
+  readonly transit: TransitSave;
   /** Pinned cims (GDD §17.5), sorted by (tileIdx, slot). */
   readonly pins: readonly CimPinSave[];
   /** Commands since the snapshot, in applied (tick, seq) order. */
@@ -384,6 +387,28 @@ export interface DistrictsSave {
   readonly ordinanceMask: number;
 }
 
+/** One transit line (v11). Config is canonical; the rider/cost/fare ledger
+ *  accumulators are canonical too (task 4's economics fills them). */
+export interface TransitLineRow {
+  readonly id: number;
+  readonly mode: number;
+  readonly color: number;
+  readonly name: string;
+  /** Stop tiles in order. */
+  readonly stops: Uint32Array;
+  readonly vehicles: number;
+  readonly headwayTicks: number;
+  readonly riders: number;
+  readonly costCents: number;
+  readonly fareCents: number;
+}
+
+export interface TransitSave {
+  readonly lines: readonly TransitLineRow[];
+  /** Next line id to hand out (canonical — keeps ids monotone across save/load). */
+  readonly nextLineId: number;
+}
+
 /** Layout shared with migrateSectionsV7toV8's injected section — keep in sync. */
 function encodeEconomy(economy: EconomySave): Uint8Array {
   const w = new ByteWriter();
@@ -546,6 +571,60 @@ function decodeDistricts(bytes: Uint8Array): DistrictsSave {
   }
   r.expectEnd();
   return { districts, ordinanceMask };
+}
+
+/** Layout shared with migrateSectionsV10toV11's injected section — keep in sync. */
+function encodeTransit(t: TransitSave): Uint8Array {
+  const w = new ByteWriter();
+  w.u16(t.nextLineId);
+  w.u16(t.lines.length);
+  for (const line of t.lines) {
+    w.u16(line.id).u8(line.mode).u32(line.color).str(line.name);
+    w.u16(line.stops.length);
+    for (const stop of line.stops) {
+      w.u32(stop);
+    }
+    w.u16(line.vehicles).u16(line.headwayTicks);
+    w.u32(line.riders).i64(line.costCents).i64(line.fareCents);
+  }
+  return w.finish();
+}
+
+function decodeTransit(bytes: Uint8Array): TransitSave {
+  const r = new ByteReader(bytes);
+  const nextLineId = r.u16();
+  const count = r.u16();
+  const lines: TransitLineRow[] = [];
+  for (let i = 0; i < count; i++) {
+    const id = r.u16();
+    const mode = r.u8();
+    const color = r.u32();
+    const name = r.str();
+    const stopCount = r.u16();
+    const stops = new Uint32Array(stopCount);
+    for (let s = 0; s < stopCount; s++) {
+      stops[s] = r.u32();
+    }
+    const vehicles = r.u16();
+    const headwayTicks = r.u16();
+    const riders = r.u32();
+    const costCents = r.i64();
+    const fareCents = r.i64();
+    lines.push({
+      id,
+      mode,
+      color,
+      name,
+      stops,
+      vehicles,
+      headwayTicks,
+      riders,
+      costCents,
+      fareCents,
+    });
+  }
+  r.expectEnd();
+  return { lines, nextLineId };
 }
 
 /** Layout shared with migrateSectionsV6toV7's injected section — keep in sync. */
@@ -771,6 +850,7 @@ export async function encodeCiv(save: CivSave): Promise<Uint8Array> {
     { id: SectionId.economy, raw: encodeEconomy(save.economy) },
     { id: SectionId.shipments, raw: encodeChain(save.chain) },
     { id: SectionId.policies, raw: encodeDistricts(save.districts) },
+    { id: SectionId.networks, raw: encodeTransit(save.transit) },
     { id: SectionId.agentPins, raw: encodePins(save.pins) },
     { id: SectionId.commandTail, raw: encodeCommandTail(save.commandTail) },
   ]);
@@ -823,6 +903,9 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   if (header.formatVersion <= 9) {
     sections = migrateSectionsV9toV10(sections, { districts: SectionId.policies });
   }
+  if (header.formatVersion <= 10) {
+    sections = migrateSectionsV10toV11(sections, { transit: SectionId.networks });
+  }
 
   const terrainRaw = sections.get(SectionId.terrain);
   const roadsRaw = sections.get(SectionId.roads);
@@ -834,6 +917,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
   const economyRaw = sections.get(SectionId.economy);
   const chainRaw = sections.get(SectionId.shipments);
   const districtsRaw = sections.get(SectionId.policies);
+  const transitRaw = sections.get(SectionId.networks);
   const pinsRaw = sections.get(SectionId.agentPins);
   const commandTailRaw = sections.get(SectionId.commandTail);
   if (
@@ -847,11 +931,12 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     economyRaw === undefined ||
     chainRaw === undefined ||
     districtsRaw === undefined ||
+    transitRaw === undefined ||
     pinsRaw === undefined ||
     commandTailRaw === undefined
   ) {
     throw new DecodeError(
-      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, ECONOMY, SHIPMENTS, DISTRICTS, AGENTPINS, COMMANDTAIL",
+      "save must carry TERRAIN, ROADS, BUILDINGS, COHORTS, WORLDCORE, TRAFFIC, SERVICES, ECONOMY, SHIPMENTS, DISTRICTS, TRANSIT, AGENTPINS, COMMANDTAIL",
     );
   }
   const buildings = decodeBuildings(buildingsRaw);
@@ -895,6 +980,7 @@ export async function decodeCiv(bytes: Uint8Array): Promise<CivSave> {
     economy: decodeEconomy(economyRaw),
     chain: decodeChain(chainRaw),
     districts: decodeDistricts(districtsRaw),
+    transit: decodeTransit(transitRaw),
     pins: decodePins(pinsRaw),
     commandTail: decodeCommandTail(commandTailRaw),
   };

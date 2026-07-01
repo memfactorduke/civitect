@@ -319,3 +319,29 @@ describe("services through the save pipeline (save format v7, phase-4 task 3)", 
     expect(world.serviceFlows.garbageGenerated).toBeGreaterThan(0);
   });
 });
+
+describe("transit through the save pipeline (save format v11, phase-6 task 1b)", () => {
+  it("a world with transit lines round-trips to an identical hash and content", async () => {
+    const { world } = replay(BOOT.seed, [], 1, {
+      mapWidth: BOOT.mapWidth,
+      mapHeight: BOOT.mapHeight,
+    });
+    let seq = 0;
+    const cmd = (c: object) => runTick(world, [{ ...c, seq: seq++, tick: world.tick } as never]);
+    cmd({ type: CommandType.createLine, lineId: 1, mode: 3, color: 0x2e86de, name: "Blue Line" });
+    cmd({ type: CommandType.addStop, lineId: 1, tileIdx: 100 });
+    cmd({ type: CommandType.addStop, lineId: 1, tileIdx: 612 });
+    cmd({ type: CommandType.setLineVehicles, lineId: 1, vehicles: 4, headwayTicks: 90 });
+    cmd({ type: CommandType.createLine, lineId: 2, mode: 1, color: 0xe5533a, name: "Crosstown" });
+    cmd({ type: CommandType.addStop, lineId: 2, tileIdx: 200 });
+    expect(world.transit.lines).toHaveLength(2);
+    const before = stateHash(world);
+
+    const restored = civToWorld(await decodeCiv(await encodeCiv(worldToCiv(world, []))));
+    expect(stateHash(restored)).toBe(before);
+    // Content survived, not just the hash.
+    expect(restored.transit.lines.map((l) => l.name)).toEqual(["Blue Line", "Crosstown"]);
+    expect(restored.transit.lines[0]?.stops).toEqual([100, 612]);
+    expect(restored.transit.nextLineId).toBe(3);
+  });
+});

@@ -1,4 +1,10 @@
-import { type Command, CommandType, flatTerrain, RejectionReason } from "@civitect/protocol";
+import {
+  type Command,
+  CommandType,
+  flatTerrain,
+  MAX_STOPS,
+  RejectionReason,
+} from "@civitect/protocol";
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { computeDemand } from "./growth/demand";
@@ -149,20 +155,157 @@ describe("pinned hashes (engine-stability tripwires)", () => {
   // empty worlds append zeroed chain state, so these move with no behavior
   // change — freight/de-level are dormant without industry or anchors), the
   // district block + ordinance mask (P6 task 1 — empty worlds append a zeroed
-  // districts block, again no behavior change).
+  // districts block, again no behavior change), the transit block (P6 task 1b —
+  // empty worlds append nextLineId=1 + zero lines, again no behavior change:
+  // transit is dormant without any line).
 
   it("fresh world, seed 1234", () => {
-    expect(stateHash(createWorld(1234))).toBe("2049565035105689");
+    expect(stateHash(createWorld(1234))).toBe("90d15819a7f4e308");
   });
 
   it("empty city after 1000 ticks, seed 1234", () => {
-    expect(stateHash(replay(1234, [], 1000).world)).toBe("1ca07338702f1dbc");
+    expect(stateHash(replay(1234, [], 1000).world)).toBe("72e3ad00caa7a40d");
   });
 
   it("empty city after one game-year, seed 1234 (the proto-golden, ROADMAP Phase 0 exit)", () => {
     const { world } = replay(1234, [], TICKS_PER_GAME_YEAR);
     expect(world.tick).toBe(525_600);
-    expect(stateHash(world)).toBe("dd0e2cd2ba97d9a6");
+    expect(stateHash(world)).toBe("d152ca295d6beb97");
+  });
+});
+
+describe("transit interface commands (phase-6 task 1b, GDD §9)", () => {
+  const create = (lineId: number, seq = 0, mode = 1, tick = 0): Command => ({
+    seq,
+    tick,
+    type: CommandType.createLine,
+    lineId,
+    mode,
+    color: 0x123456,
+    name: "Line",
+  });
+
+  it("createLine + addStop + setLineVehicles build a canonical line", () => {
+    const world = createWorld(1234);
+    const rejects = runTick(world, [
+      {
+        seq: 0,
+        tick: 0,
+        type: CommandType.createLine,
+        lineId: 1,
+        mode: 3,
+        color: 0xe5533a,
+        name: "Blue",
+      },
+      { seq: 1, tick: 0, type: CommandType.addStop, lineId: 1, tileIdx: 100 },
+      { seq: 2, tick: 0, type: CommandType.addStop, lineId: 1, tileIdx: 228 },
+      {
+        seq: 3,
+        tick: 0,
+        type: CommandType.setLineVehicles,
+        lineId: 1,
+        vehicles: 4,
+        headwayTicks: 60,
+      },
+    ]);
+    expect(rejects).toHaveLength(0);
+    expect(world.transit.lines).toHaveLength(1);
+    expect(world.transit.lines[0]).toMatchObject({
+      id: 1,
+      mode: 3,
+      color: 0xe5533a,
+      name: "Blue",
+      vehicles: 4,
+      headwayTicks: 60,
+    });
+    expect(world.transit.lines[0]?.stops).toEqual([100, 228]);
+    expect(world.transit.nextLineId).toBe(2);
+  });
+
+  it("removeStop and deleteLine mutate the network as expected", () => {
+    const world = createWorld(1234);
+    runTick(world, [
+      create(2),
+      { seq: 1, tick: 0, type: CommandType.addStop, lineId: 2, tileIdx: 10 },
+      { seq: 2, tick: 0, type: CommandType.addStop, lineId: 2, tileIdx: 20 },
+      { seq: 3, tick: 0, type: CommandType.addStop, lineId: 2, tileIdx: 30 },
+    ]);
+    runTick(world, [{ seq: 4, tick: 1, type: CommandType.removeStop, lineId: 2, stopIndex: 1 }]);
+    expect(world.transit.lines[0]?.stops).toEqual([10, 30]);
+    runTick(world, [{ seq: 5, tick: 2, type: CommandType.deleteLine, lineId: 2 }]);
+    expect(world.transit.lines).toHaveLength(0);
+  });
+
+  it("rejects malformed transit commands without mutating state", () => {
+    const world = createWorld(1234);
+    runTick(world, [create(1)]);
+    const rejects = runTick(world, [
+      create(1, 0, 1, 1), // duplicate id
+      create(0, 1, 1, 1), // id below range
+      create(9999, 2, 1, 1), // id above MAX_LINES (1024)
+      { seq: 3, tick: 1, type: CommandType.createLine, lineId: 5, mode: 99, color: 0, name: "bad" },
+      { seq: 4, tick: 1, type: CommandType.addStop, lineId: 42, tileIdx: 0 }, // unknown line
+      { seq: 5, tick: 1, type: CommandType.addStop, lineId: 1, tileIdx: MAP * MAP }, // out of bounds
+      { seq: 6, tick: 1, type: CommandType.removeStop, lineId: 1, stopIndex: 0 }, // no stops yet
+      { seq: 7, tick: 1, type: CommandType.deleteLine, lineId: 42 }, // unknown line
+      {
+        seq: 8,
+        tick: 1,
+        type: CommandType.setLineVehicles,
+        lineId: 42,
+        vehicles: 1,
+        headwayTicks: 1,
+      },
+    ]);
+    expect(rejects).toHaveLength(9);
+    for (const r of rejects) {
+      expect(r.reason).toBe(RejectionReason.invalidTarget);
+    }
+    expect(world.transit.lines).toHaveLength(1);
+    expect(world.transit.lines[0]?.stops).toHaveLength(0);
+  });
+
+  it("a line changes the hash (isolated from tick evolution) and replays deterministically", () => {
+    // Same seed + tick count; only difference is the line ⇒ isolates the fold.
+    const noLine = createWorld(1234);
+    runTick(noLine, []);
+    const withLine = createWorld(1234);
+    runTick(withLine, [create(1)]);
+    expect(stateHash(withLine)).not.toBe(stateHash(noLine));
+    // Determinism: identical (seed, commands) ⇒ identical hash.
+    const again = createWorld(1234);
+    runTick(again, [create(1)]);
+    expect(stateHash(again)).toBe(stateHash(withLine));
+  });
+
+  it("create-then-delete bumps nextLineId — a genuinely distinct canonical state", () => {
+    const bumped = createWorld(1234);
+    runTick(bumped, [create(1)]);
+    runTick(bumped, [{ seq: 1, tick: 1, type: CommandType.deleteLine, lineId: 1 }]);
+    const clean = createWorld(1234);
+    runTick(clean, []);
+    runTick(clean, []);
+    expect(bumped.transit.lines).toHaveLength(0);
+    expect(bumped.transit.nextLineId).toBe(2);
+    // nextLineId is folded ⇒ the network differs from a never-touched one.
+    expect(stateHash(bumped)).not.toBe(stateHash(clean));
+  });
+
+  it("caps stops per line so an accepted addStop stream can't make a line un-hashable", () => {
+    const world = createWorld(1234);
+    runTick(world, [create(1)]); // tick 0 → 1
+    const fill: Command[] = [];
+    for (let i = 0; i < MAX_STOPS; i++) {
+      fill.push({ seq: i, tick: 1, type: CommandType.addStop, lineId: 1, tileIdx: 0 });
+    }
+    expect(runTick(world, fill)).toHaveLength(0); // fills exactly to the cap; tick 1 → 2
+    expect(world.transit.lines[0]?.stops).toHaveLength(MAX_STOPS);
+    // The stop past the cap is rejected — not silently dropped, not accepted.
+    expect(
+      runTick(world, [{ seq: 0, tick: 2, type: CommandType.addStop, lineId: 1, tileIdx: 0 }]),
+    ).toEqual([{ seq: 0, tick: 2, reason: RejectionReason.invalidTarget }]);
+    // The whole point: a maxed line still hashes (u16 stop count never overflows).
+    expect(() => stateHash(world)).not.toThrow();
   });
 });
 
