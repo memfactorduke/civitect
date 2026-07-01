@@ -29,6 +29,20 @@ const FACTOR_LABELS: readonly I18nKey[] = [
   "demand.factor.vacancy",
 ];
 
+function clampDemand(value: number): number {
+  return Math.max(-1000, Math.min(1000, value));
+}
+
+function demandSign(value: number): "negative" | "neutral" | "positive" {
+  if (value < 0) {
+    return "negative";
+  }
+  if (value > 0) {
+    return "positive";
+  }
+  return "neutral";
+}
+
 export function DemandPanel(props: { readonly store: UiStore }): ReactNode {
   const demand = useUiStore(props.store, (s) => s.demand);
   return (
@@ -40,6 +54,18 @@ export function DemandPanel(props: { readonly store: UiStore }): ReactNode {
             {t(sector.label)}:{" "}
             <output data-testid={`demand-${sector.key}`}>{demand[sector.key]}</output>
           </strong>
+          <meter
+            min={-1000}
+            max={1000}
+            low={-250}
+            high={250}
+            optimum={1000}
+            value={clampDemand(demand[sector.key])}
+            aria-label={`${t(sector.label)} ${t("demand.title")}`}
+            data-testid={`demand-${sector.key}-meter`}
+            data-demand-sign={demandSign(demand[sector.key])}
+            data-raw-value={demand[sector.key]}
+          />
           <ul>
             {[0, 1, 2].map((offset) => (
               <li key={offset}>
