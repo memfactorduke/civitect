@@ -1424,6 +1424,21 @@ const CONGESTION_CHARGE_PERMILLE = 800;
  *  still routes (no unroutable explosion). [TUNE] */
 const TRUCK_BAN_PERMILLE = 6000;
 
+// Policy upkeep (task 3, GDD §11): the beneficial "program" levers cost money
+// every month — the tradeoff that turns a policy into a decision. Regulatory
+// levers (bans, the congestion charge) carry no upkeep. Booked into
+// serviceUpkeep at the monthly close (no new report line), so a policy-free
+// city is unaffected. `[bit, cents]` pairs — iterated as arrays (fixed order,
+// ADR-005-safe), the sum is order-independent anyway. [TUNE]
+const ORDINANCE_UPKEEP_CENTS: readonly (readonly [number, number])[] = [
+  [Policy.recycling, 2_000_00],
+  [Policy.industrySubsidy, 5_000_00],
+  [Policy.publicHealth, 3_000_00],
+];
+const DISTRICT_POLICY_UPKEEP_CENTS: readonly (readonly [number, number])[] = [
+  [Policy.cleanIndustry, 1_500_00],
+];
+
 /**
  * Reindex the district-aware traffic policies (task 3) into the cost fields.
  * Like recomputeFreight, chargeByKey/banByKey are DERIVED (never saved), so a
@@ -1554,7 +1569,27 @@ export function runTick(world: World, commands: readonly Command[]): CommandReje
       line.riders = 0;
       transitNet += fare - upkeep;
     }
-    world.fundsCents += net + transitNet;
+    // Policy upkeep (task 3): active "program" policies bill monthly — city
+    // ordinances once, per-district policies per district that sets them —
+    // folded into serviceUpkeep (no new report line). Regulatory levers (bans,
+    // congestion charge) aren't in the tables ⇒ free.
+    let policyUpkeep = 0;
+    for (const [bit, cents] of ORDINANCE_UPKEEP_CENTS) {
+      if ((world.districts.ordinanceMask & (1 << bit)) !== 0) {
+        policyUpkeep += cents;
+      }
+    }
+    for (const row of world.districts.rows) {
+      for (const [bit, cents] of DISTRICT_POLICY_UPKEEP_CENTS) {
+        if ((row.policyMask & (1 << bit)) !== 0) {
+          policyUpkeep += cents;
+        }
+      }
+    }
+    if (policyUpkeep > 0) {
+      accumulate(world.economy, ReportLineKind.serviceUpkeep, -policyUpkeep);
+    }
+    world.fundsCents += net + transitNet - policyUpkeep;
     // Failure pressure (GDD §2): one bailout per city, then receivership.
     // The check runs BEFORE the report freezes, so a granted bailout shows
     // up in the month that needed it (pillar 2: the report explains).
